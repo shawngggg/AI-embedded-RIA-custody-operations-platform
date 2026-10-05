@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="tp_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="tp_collab">
+<bpmn:participant id="tp_main" name="Custody operations platform (synthetic reference implementation)" processRef="tp_process" />
+<bpmn:participant id="tp_adv" name="RIA advisor, or the client on self-directed and dual accounts" />
+<bpmn:participant id="tp_mkt" name="Executing brokers and market infrastructure: NSCC/DTC, OCC, Fund/SERV, Fedwire Securities, CLS, fund administrators" />
+<bpmn:messageFlow id="tp_msg0" name="Block order or trade-away notice" sourceRef="tp_adv" targetRef="tp_s" />
+<bpmn:messageFlow id="tp_msg1" name="Rejection" sourceRef="tp_rej" targetRef="tp_adv" />
+<bpmn:messageFlow id="tp_msg2" name="Trade confirmation" sourceRef="tp_e" targetRef="tp_adv" />
+<bpmn:messageFlow id="tp_msg3" name="DVP instruction" sourceRef="tp_b1" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg4" name="OCC clearing" sourceRef="tp_b2" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg5" name="Settlement instruction" sourceRef="tp_b3" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg6" name="Fund/SERV order" sourceRef="tp_b4" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg7" name="FX settlement" sourceRef="tp_b5" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg8" name="Subscription and wire" sourceRef="tp_b6" targetRef="tp_mkt" />
+<bpmn:messageFlow id="tp_msg9" name="Confirmation" sourceRef="tp_mkt" targetRef="tp_c1" />
+<bpmn:messageFlow id="tp_msg10" name="Fail notice" sourceRef="tp_mkt" targetRef="tp_c2" />
+<bpmn:textAnnotation id="tp_ann0"><bpmn:text>Buying power uses settled cash, so cash accounts avoid good-faith violations.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="tp_ann1"><bpmn:text>Block trades are allocated at one average price so every account gets the same execution.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="tp_ann2"><bpmn:text>Cash legs hand off to the daily cash settlement cycle; positions feed reconciliation.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="tp_process" name="Trade processing (all asset classes)" isExecutable="false">
+<bpmn:laneSet id="tp_laneset">
+<bpmn:lane id="tp_lane_ops" name="Operations analyst">
+<bpmn:flowNodeRef>tp_s</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_gr</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_rej</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t9</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="tp_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>tp_t1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t8</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="tp_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>tp_t2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_g2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_g3</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="tp_lane_ledger" name="Ledger and settlement engine">
+<bpmn:flowNodeRef>tp_b1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_b2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_b3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_b4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_b5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_b6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_gm</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_eg</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_c1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_c2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_t7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>tp_e</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="tp_s" name="Order or trade instruction received">
+<bpmn:outgoing>tp_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="tp_s_def" />
+</bpmn:startEvent>
+<bpmn:serviceTask id="tp_t1" name="Parse instructions; flag anomalies: size, concentration, price, duplicates (AI)">
+<bpmn:incoming>tp_flow0</bpmn:incoming>
+<bpmn:outgoing>tp_flow1</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="tp_t2" name="Pre-trade checks: order source allowed for management type, restrictions, buying power, approvals">
+<bpmn:incoming>tp_flow1</bpmn:incoming>
+<bpmn:incoming>tp_flow5</bpmn:incoming>
+<bpmn:outgoing>tp_flow2</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="tp_g1" name="Checks pass?">
+<bpmn:incoming>tp_flow2</bpmn:incoming>
+<bpmn:outgoing>tp_flow3</bpmn:outgoing>
+<bpmn:outgoing>tp_flow7</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="tp_t3" name="Resolve with advisor: amend or cancel">
+<bpmn:incoming>tp_flow3</bpmn:incoming>
+<bpmn:outgoing>tp_flow4</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="tp_gr" name="Amended?">
+<bpmn:incoming>tp_flow4</bpmn:incoming>
+<bpmn:outgoing>tp_flow5</bpmn:outgoing>
+<bpmn:outgoing>tp_flow6</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:endEvent id="tp_rej" name="Order rejected">
+<bpmn:incoming>tp_flow6</bpmn:incoming>
+<bpmn:messageEventDefinition id="tp_rej_def" />
+</bpmn:endEvent>
+<bpmn:exclusiveGateway id="tp_g2" name="Asset class?">
+<bpmn:incoming>tp_flow7</bpmn:incoming>
+<bpmn:outgoing>tp_flow8</bpmn:outgoing>
+<bpmn:outgoing>tp_flow9</bpmn:outgoing>
+<bpmn:outgoing>tp_flow10</bpmn:outgoing>
+<bpmn:outgoing>tp_flow11</bpmn:outgoing>
+<bpmn:outgoing>tp_flow12</bpmn:outgoing>
+<bpmn:outgoing>tp_flow13</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:sendTask id="tp_b1" name="Equity / ETF: execute or trade away; DVP via NSCC/DTC, T+1">
+<bpmn:incoming>tp_flow8</bpmn:incoming>
+<bpmn:outgoing>tp_flow14</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="tp_b2" name="Options: check approval level and coverage; clear via OCC, T+1">
+<bpmn:incoming>tp_flow9</bpmn:incoming>
+<bpmn:outgoing>tp_flow15</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="tp_b3" name="Bonds: price with accrued interest; DTC or Fedwire Securities, T+1">
+<bpmn:incoming>tp_flow10</bpmn:incoming>
+<bpmn:outgoing>tp_flow16</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="tp_b4" name="Mutual funds and MMF: Fund/SERV at next NAV; MMF often same-day">
+<bpmn:incoming>tp_flow11</bpmn:incoming>
+<bpmn:outgoing>tp_flow17</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="tp_b5" name="FX: spot conversion (typically T+2) for foreign settlement">
+<bpmn:incoming>tp_flow12</bpmn:incoming>
+<bpmn:outgoing>tp_flow18</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="tp_b6" name="Alternative funds: subscription docs, investor qualification, fund admin">
+<bpmn:incoming>tp_flow13</bpmn:incoming>
+<bpmn:outgoing>tp_flow19</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:exclusiveGateway id="tp_gm" name="">
+<bpmn:incoming>tp_flow14</bpmn:incoming>
+<bpmn:incoming>tp_flow15</bpmn:incoming>
+<bpmn:incoming>tp_flow16</bpmn:incoming>
+<bpmn:incoming>tp_flow17</bpmn:incoming>
+<bpmn:incoming>tp_flow18</bpmn:incoming>
+<bpmn:incoming>tp_flow19</bpmn:incoming>
+<bpmn:outgoing>tp_flow20</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="tp_t4" name="Match executions, allocations, and broker confirms; flag breaks (AI)">
+<bpmn:incoming>tp_flow20</bpmn:incoming>
+<bpmn:incoming>tp_flow23</bpmn:incoming>
+<bpmn:outgoing>tp_flow21</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:exclusiveGateway id="tp_g3" name="Matched?">
+<bpmn:incoming>tp_flow21</bpmn:incoming>
+<bpmn:outgoing>tp_flow22</bpmn:outgoing>
+<bpmn:outgoing>tp_flow24</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="tp_t5" name="Resolve break with executing broker or advisor">
+<bpmn:incoming>tp_flow22</bpmn:incoming>
+<bpmn:outgoing>tp_flow23</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:serviceTask id="tp_t6" name="Allocate at average price; post trade-date pending at client, RIA master, GL">
+<bpmn:incoming>tp_flow24</bpmn:incoming>
+<bpmn:outgoing>tp_flow25</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:eventBasedGateway id="tp_eg" name="">
+<bpmn:incoming>tp_flow25</bpmn:incoming>
+<bpmn:incoming>tp_flow32</bpmn:incoming>
+<bpmn:outgoing>tp_flow26</bpmn:outgoing>
+<bpmn:outgoing>tp_flow27</bpmn:outgoing>
+</bpmn:eventBasedGateway>
+<bpmn:intermediateCatchEvent id="tp_c1" name="Settlement confirmed">
+<bpmn:incoming>tp_flow26</bpmn:incoming>
+<bpmn:outgoing>tp_flow28</bpmn:outgoing>
+<bpmn:messageEventDefinition id="tp_c1_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:intermediateCatchEvent id="tp_c2" name="Fail or DK notice">
+<bpmn:incoming>tp_flow27</bpmn:incoming>
+<bpmn:outgoing>tp_flow30</bpmn:outgoing>
+<bpmn:messageEventDefinition id="tp_c2_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:serviceTask id="tp_t7" name="Settle: pending to settled at three layers; cash to settlement cycle">
+<bpmn:incoming>tp_flow28</bpmn:incoming>
+<bpmn:outgoing>tp_flow29</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="tp_e" name="Trade settled">
+<bpmn:incoming>tp_flow29</bpmn:incoming>
+<bpmn:messageEventDefinition id="tp_e_def" />
+</bpmn:endEvent>
+<bpmn:serviceTask id="tp_t8" name="Triage fail: classify cause, suggest cure (AI)">
+<bpmn:incoming>tp_flow30</bpmn:incoming>
+<bpmn:outgoing>tp_flow31</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:userTask id="tp_t9" name="Cure fail: re-instruct, buy-in, or contact counterparty">
+<bpmn:incoming>tp_flow31</bpmn:incoming>
+<bpmn:outgoing>tp_flow32</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:sequenceFlow id="tp_flow0" name="" sourceRef="tp_s" targetRef="tp_t1" />
+<bpmn:sequenceFlow id="tp_flow1" name="" sourceRef="tp_t1" targetRef="tp_t2" />
+<bpmn:sequenceFlow id="tp_flow2" name="" sourceRef="tp_t2" targetRef="tp_g1" />
+<bpmn:sequenceFlow id="tp_flow3" name="No" sourceRef="tp_g1" targetRef="tp_t3" />
+<bpmn:sequenceFlow id="tp_flow4" name="" sourceRef="tp_t3" targetRef="tp_gr" />
+<bpmn:sequenceFlow id="tp_flow5" name="Yes: re-check" sourceRef="tp_gr" targetRef="tp_t2" />
+<bpmn:sequenceFlow id="tp_flow6" name="No" sourceRef="tp_gr" targetRef="tp_rej" />
+<bpmn:sequenceFlow id="tp_flow7" name="Yes" sourceRef="tp_g1" targetRef="tp_g2" />
+<bpmn:sequenceFlow id="tp_flow8" name="Equity, ETF" sourceRef="tp_g2" targetRef="tp_b1" />
+<bpmn:sequenceFlow id="tp_flow9" name="Options" sourceRef="tp_g2" targetRef="tp_b2" />
+<bpmn:sequenceFlow id="tp_flow10" name="Bonds" sourceRef="tp_g2" targetRef="tp_b3" />
+<bpmn:sequenceFlow id="tp_flow11" name="MF, MMF" sourceRef="tp_g2" targetRef="tp_b4" />
+<bpmn:sequenceFlow id="tp_flow12" name="FX" sourceRef="tp_g2" targetRef="tp_b5" />
+<bpmn:sequenceFlow id="tp_flow13" name="Alt funds" sourceRef="tp_g2" targetRef="tp_b6" />
+<bpmn:sequenceFlow id="tp_flow14" name="" sourceRef="tp_b1" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow15" name="" sourceRef="tp_b2" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow16" name="" sourceRef="tp_b3" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow17" name="" sourceRef="tp_b4" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow18" name="" sourceRef="tp_b5" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow19" name="" sourceRef="tp_b6" targetRef="tp_gm" />
+<bpmn:sequenceFlow id="tp_flow20" name="" sourceRef="tp_gm" targetRef="tp_t4" />
+<bpmn:sequenceFlow id="tp_flow21" name="" sourceRef="tp_t4" targetRef="tp_g3" />
+<bpmn:sequenceFlow id="tp_flow22" name="No" sourceRef="tp_g3" targetRef="tp_t5" />
+<bpmn:sequenceFlow id="tp_flow23" name="Re-match" sourceRef="tp_t5" targetRef="tp_t4" />
+<bpmn:sequenceFlow id="tp_flow24" name="Yes" sourceRef="tp_g3" targetRef="tp_t6" />
+<bpmn:sequenceFlow id="tp_flow25" name="" sourceRef="tp_t6" targetRef="tp_eg" />
+<bpmn:sequenceFlow id="tp_flow26" name="" sourceRef="tp_eg" targetRef="tp_c1" />
+<bpmn:sequenceFlow id="tp_flow27" name="" sourceRef="tp_eg" targetRef="tp_c2" />
+<bpmn:sequenceFlow id="tp_flow28" name="" sourceRef="tp_c1" targetRef="tp_t7" />
+<bpmn:sequenceFlow id="tp_flow29" name="" sourceRef="tp_t7" targetRef="tp_e" />
+<bpmn:sequenceFlow id="tp_flow30" name="" sourceRef="tp_c2" targetRef="tp_t8" />
+<bpmn:sequenceFlow id="tp_flow31" name="" sourceRef="tp_t8" targetRef="tp_t9" />
+<bpmn:sequenceFlow id="tp_flow32" name="Wait again" sourceRef="tp_t9" targetRef="tp_eg" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="tp_diagram" name="Trade processing (all asset classes)">
+<bpmndi:BPMNPlane id="tp_plane" bpmnElement="tp_collab">
+<bpmndi:BPMNShape id="tp_main_di" bpmnElement="tp_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="4100" height="1170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_lane_ops_di" bpmnElement="tp_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_lane_ai_di" bpmnElement="tp_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_lane_rules_di" bpmnElement="tp_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_lane_ledger_di" bpmnElement="tp_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="634" width="4070" height="660" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_adv_di" bpmnElement="tp_adv" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_mkt_di" bpmnElement="tp_mkt" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1358" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_s_di" bpmnElement="tp_s"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="204" y="195" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t1_di" bpmnElement="tp_t1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="300" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t2_di" bpmnElement="tp_t2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_g1_di" bpmnElement="tp_g1" isMarkerVisible="true"><dc:Bounds x="755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="643" y="502" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t3_di" bpmnElement="tp_t3" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="700" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_gr_di" bpmnElement="tp_gr" isMarkerVisible="true"><dc:Bounds x="955" y="184" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="915" y="240" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_rej_di" bpmnElement="tp_rej"><dc:Bounds x="1162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1120" y="233" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_g2_di" bpmnElement="tp_g2" isMarkerVisible="true"><dc:Bounds x="955" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="915" y="490" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b1_di" bpmnElement="tp_b1" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1100" y="644" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b2_di" bpmnElement="tp_b2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1300" y="754" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b3_di" bpmnElement="tp_b3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1500" y="864" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b4_di" bpmnElement="tp_b4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1700" y="974" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b5_di" bpmnElement="tp_b5" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1900" y="1084" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_b6_di" bpmnElement="tp_b6" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2100" y="1194" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_gm_di" bpmnElement="tp_gm" isMarkerVisible="true"><dc:Bounds x="2355" y="664" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t4_di" bpmnElement="tp_t4" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="2500" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_g3_di" bpmnElement="tp_g3" isMarkerVisible="true"><dc:Bounds x="2755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2715" y="580" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t5_di" bpmnElement="tp_t5" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2700" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t6_di" bpmnElement="tp_t6" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2900" y="644" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_eg_di" bpmnElement="tp_eg"><dc:Bounds x="3155" y="664" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_c1_di" bpmnElement="tp_c1"><dc:Bounds x="3362" y="891" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3320" y="845" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_c2_di" bpmnElement="tp_c2"><dc:Bounds x="3562" y="1001" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3520" y="955" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t7_di" bpmnElement="tp_t7" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3700" y="864" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_e_di" bpmnElement="tp_e"><dc:Bounds x="3962" y="891" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3920" y="933" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t8_di" bpmnElement="tp_t8" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="3700" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_t9_di" bpmnElement="tp_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="3900" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_ann0_di" bpmnElement="tp_ann0"><dc:Bounds x="925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_ann1_di" bpmnElement="tp_ann1"><dc:Bounds x="1525" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_ann2_di" bpmnElement="tp_ann2"><dc:Bounds x="3255" y="517" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="tp_flow0_di" bpmnElement="tp_flow0"><di:waypoint x="180" y="227" /><di:waypoint x="180" y="379" /><di:waypoint x="300" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow1_di" bpmnElement="tp_flow1"><di:waypoint x="460" y="379" /><di:waypoint x="480" y="379" /><di:waypoint x="480" y="549" /><di:waypoint x="500" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow2_di" bpmnElement="tp_flow2"><di:waypoint x="660" y="549" /><di:waypoint x="755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow3_di" bpmnElement="tp_flow3"><di:waypoint x="780" y="524" /><di:waypoint x="780" y="254" /><bpmndi:BPMNLabel><dc:Bounds x="786" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow4_di" bpmnElement="tp_flow4"><di:waypoint x="860" y="209" /><di:waypoint x="955" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow5_di" bpmnElement="tp_flow5"><di:waypoint x="980" y="184" /><di:waypoint x="980" y="136" /><di:waypoint x="580" y="136" /><di:waypoint x="580" y="504" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="162" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow6_di" bpmnElement="tp_flow6"><di:waypoint x="1005" y="209" /><di:waypoint x="1162" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="1011" y="189" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow7_di" bpmnElement="tp_flow7"><di:waypoint x="805" y="549" /><di:waypoint x="955" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow8_di" bpmnElement="tp_flow8"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="689" /><di:waypoint x="1100" y="689" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="669" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow9_di" bpmnElement="tp_flow9"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="799" /><di:waypoint x="1300" y="799" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="779" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow10_di" bpmnElement="tp_flow10"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="909" /><di:waypoint x="1500" y="909" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="889" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow11_di" bpmnElement="tp_flow11"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="1019" /><di:waypoint x="1700" y="1019" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="999" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow12_di" bpmnElement="tp_flow12"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="1129" /><di:waypoint x="1900" y="1129" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="1109" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow13_di" bpmnElement="tp_flow13"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="1239" /><di:waypoint x="2100" y="1239" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="1219" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow14_di" bpmnElement="tp_flow14"><di:waypoint x="1260" y="689" /><di:waypoint x="2355" y="689" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow15_di" bpmnElement="tp_flow15"><di:waypoint x="1460" y="799" /><di:waypoint x="2380" y="799" /><di:waypoint x="2380" y="714" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow16_di" bpmnElement="tp_flow16"><di:waypoint x="1660" y="909" /><di:waypoint x="2380" y="909" /><di:waypoint x="2380" y="714" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow17_di" bpmnElement="tp_flow17"><di:waypoint x="1860" y="1019" /><di:waypoint x="2380" y="1019" /><di:waypoint x="2380" y="714" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow18_di" bpmnElement="tp_flow18"><di:waypoint x="2060" y="1129" /><di:waypoint x="2380" y="1129" /><di:waypoint x="2380" y="714" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow19_di" bpmnElement="tp_flow19"><di:waypoint x="2260" y="1239" /><di:waypoint x="2380" y="1239" /><di:waypoint x="2380" y="714" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow20_di" bpmnElement="tp_flow20"><di:waypoint x="2405" y="689" /><di:waypoint x="2480" y="689" /><di:waypoint x="2480" y="379" /><di:waypoint x="2500" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow21_di" bpmnElement="tp_flow21"><di:waypoint x="2660" y="379" /><di:waypoint x="2680" y="379" /><di:waypoint x="2680" y="549" /><di:waypoint x="2755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow22_di" bpmnElement="tp_flow22"><di:waypoint x="2780" y="524" /><di:waypoint x="2780" y="254" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow23_di" bpmnElement="tp_flow23"><di:waypoint x="2780" y="164" /><di:waypoint x="2780" y="136" /><di:waypoint x="2580" y="136" /><di:waypoint x="2580" y="334" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="142" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow24_di" bpmnElement="tp_flow24"><di:waypoint x="2805" y="549" /><di:waypoint x="2880" y="549" /><di:waypoint x="2880" y="689" /><di:waypoint x="2900" y="689" /><bpmndi:BPMNLabel><dc:Bounds x="2811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow25_di" bpmnElement="tp_flow25"><di:waypoint x="3060" y="689" /><di:waypoint x="3155" y="689" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow26_di" bpmnElement="tp_flow26"><di:waypoint x="3180" y="714" /><di:waypoint x="3180" y="909" /><di:waypoint x="3362" y="909" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow27_di" bpmnElement="tp_flow27"><di:waypoint x="3180" y="714" /><di:waypoint x="3180" y="1019" /><di:waypoint x="3562" y="1019" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow28_di" bpmnElement="tp_flow28"><di:waypoint x="3398" y="909" /><di:waypoint x="3700" y="909" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow29_di" bpmnElement="tp_flow29"><di:waypoint x="3860" y="909" /><di:waypoint x="3962" y="909" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow30_di" bpmnElement="tp_flow30"><di:waypoint x="3598" y="1019" /><di:waypoint x="3680" y="1019" /><di:waypoint x="3680" y="379" /><di:waypoint x="3700" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow31_di" bpmnElement="tp_flow31"><di:waypoint x="3860" y="379" /><di:waypoint x="3880" y="379" /><di:waypoint x="3880" y="209" /><di:waypoint x="3900" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_flow32_di" bpmnElement="tp_flow32"><di:waypoint x="3980" y="164" /><di:waypoint x="3980" y="150" /><di:waypoint x="3180" y="150" /><di:waypoint x="3180" y="664" /><bpmndi:BPMNLabel><dc:Bounds x="3986" y="142" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg0_di" bpmnElement="tp_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg1_di" bpmnElement="tp_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="191" /><di:waypoint x="1180" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="66" width="58" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg2_di" bpmnElement="tp_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3980" y="891" /><di:waypoint x="3980" y="644" /><di:waypoint x="4060" y="644" /><di:waypoint x="4060" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="3938" y="66" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg3_di" bpmnElement="tp_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="734" /><di:waypoint x="1180" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="1322" width="96" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg4_di" bpmnElement="tp_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1380" y="844" /><di:waypoint x="1380" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="1387" y="1322" width="77" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg5_di" bpmnElement="tp_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1580" y="954" /><di:waypoint x="1580" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="1587" y="1322" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg6_di" bpmnElement="tp_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="1064" /><di:waypoint x="1780" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="1787" y="1322" width="96" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg7_di" bpmnElement="tp_msg7" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1980" y="1174" /><di:waypoint x="1980" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="1987" y="1322" width="83" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg8_di" bpmnElement="tp_msg8" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2180" y="1284" /><di:waypoint x="2180" y="1358" /><bpmndi:BPMNLabel><dc:Bounds x="2187" y="1322" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg9_di" bpmnElement="tp_msg9" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3380" y="1358" /><di:waypoint x="3380" y="927" /><bpmndi:BPMNLabel><dc:Bounds x="3387" y="1322" width="77" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="tp_msg10_di" bpmnElement="tp_msg10" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3580" y="1358" /><di:waypoint x="3580" y="1037" /><bpmndi:BPMNLabel><dc:Bounds x="3587" y="1322" width="70" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

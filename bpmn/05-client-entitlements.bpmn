@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ce_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="ce_collab">
+<bpmn:participant id="ce_main" name="Custody operations platform (synthetic reference implementation)" processRef="ce_process" />
+<bpmn:participant id="ce_ria" name="RIA advisor (authorized users)" />
+<bpmn:participant id="ce_cli" name="Client" />
+<bpmn:participant id="ce_svc" name="Bank account verification and OTP services" />
+<bpmn:messageFlow id="ce_msg0" name="Grant or revoke request" sourceRef="ce_ria" targetRef="ce_s" />
+<bpmn:messageFlow id="ce_msg1" name="Decline with reason" sourceRef="ce_ed" targetRef="ce_ria" />
+<bpmn:messageFlow id="ce_msg2" name="Verification request" sourceRef="ce_t5" targetRef="ce_svc" />
+<bpmn:messageFlow id="ce_msg3" name="Verification result" sourceRef="ce_svc" targetRef="ce_ie" />
+<bpmn:messageFlow id="ce_msg4" name="Activation notice" sourceRef="ce_t6" targetRef="ce_cli" />
+<bpmn:textAnnotation id="ce_ann0"><bpmn:text>Defaults: discretionary accounts, no client capabilities; self-directed and dual, trading only.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ce_ann1"><bpmn:text>AI flags client activity that drifts from the account's pattern and recommends revocation; the RIA decides.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="ce_process" name="Client entitlement management (platform enhancement)" isExecutable="false">
+<bpmn:laneSet id="ce_laneset">
+<bpmn:lane id="ce_lane_ops" name="Custody operations (first line)">
+<bpmn:flowNodeRef>ce_s</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_ed</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ce_lane_ai" name="AI assist services">
+</bpmn:lane>
+<bpmn:lane id="ce_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>ce_t1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_t2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_g2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_g3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_gm</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ce_lane_ledger" name="Ledger and account services">
+<bpmn:flowNodeRef>ce_tr</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_er</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_t3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_ie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_t6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ce_e</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="ce_s" name="Grant or revoke request from the RIA">
+<bpmn:outgoing>ce_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ce_s_def" />
+</bpmn:startEvent>
+<bpmn:businessRuleTask id="ce_t1" name="Check the RIA user's entitlement to manage client permissions">
+<bpmn:incoming>ce_flow0</bpmn:incoming>
+<bpmn:outgoing>ce_flow1</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="ce_g1" name="Grant or revoke?">
+<bpmn:incoming>ce_flow1</bpmn:incoming>
+<bpmn:outgoing>ce_flow2</bpmn:outgoing>
+<bpmn:outgoing>ce_flow4</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="ce_tr" name="Revoke capability immediately; log who, when, why">
+<bpmn:incoming>ce_flow2</bpmn:incoming>
+<bpmn:outgoing>ce_flow3</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ce_er" name="Capability revoked">
+<bpmn:incoming>ce_flow3</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:businessRuleTask id="ce_t2" name="Policy ceilings: grantable for this management type and risk rating; no blocking restriction codes">
+<bpmn:incoming>ce_flow4</bpmn:incoming>
+<bpmn:outgoing>ce_flow5</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="ce_g2" name="Within policy?">
+<bpmn:incoming>ce_flow5</bpmn:incoming>
+<bpmn:outgoing>ce_flow6</bpmn:outgoing>
+<bpmn:outgoing>ce_flow7</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:endEvent id="ce_ed" name="Grant declined">
+<bpmn:incoming>ce_flow6</bpmn:incoming>
+<bpmn:messageEventDefinition id="ce_ed_def" />
+</bpmn:endEvent>
+<bpmn:serviceTask id="ce_t3" name="Record grant: capability, limits, approved destinations, expiry; audit log">
+<bpmn:incoming>ce_flow7</bpmn:incoming>
+<bpmn:outgoing>ce_flow8</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="ce_t4" name="Enroll account in monitoring of client-initiated activity">
+<bpmn:incoming>ce_flow8</bpmn:incoming>
+<bpmn:outgoing>ce_flow9</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:exclusiveGateway id="ce_g3" name="Includes money movement?">
+<bpmn:incoming>ce_flow9</bpmn:incoming>
+<bpmn:outgoing>ce_flow10</bpmn:outgoing>
+<bpmn:outgoing>ce_flow11</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:sendTask id="ce_t5" name="Verify the client's bank link: deposit or instant verification">
+<bpmn:incoming>ce_flow10</bpmn:incoming>
+<bpmn:outgoing>ce_flow12</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:intermediateCatchEvent id="ce_ie" name="Bank link verified">
+<bpmn:incoming>ce_flow12</bpmn:incoming>
+<bpmn:outgoing>ce_flow13</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ce_ie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:exclusiveGateway id="ce_gm" name="">
+<bpmn:incoming>ce_flow11</bpmn:incoming>
+<bpmn:incoming>ce_flow13</bpmn:incoming>
+<bpmn:outgoing>ce_flow14</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:sendTask id="ce_t6" name="Notify the client: capability active; OTP required on each request">
+<bpmn:incoming>ce_flow14</bpmn:incoming>
+<bpmn:outgoing>ce_flow15</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:endEvent id="ce_e" name="Capability active">
+<bpmn:incoming>ce_flow15</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="ce_flow0" name="" sourceRef="ce_s" targetRef="ce_t1" />
+<bpmn:sequenceFlow id="ce_flow1" name="" sourceRef="ce_t1" targetRef="ce_g1" />
+<bpmn:sequenceFlow id="ce_flow2" name="Revoke" sourceRef="ce_g1" targetRef="ce_tr" />
+<bpmn:sequenceFlow id="ce_flow3" name="" sourceRef="ce_tr" targetRef="ce_er" />
+<bpmn:sequenceFlow id="ce_flow4" name="Grant" sourceRef="ce_g1" targetRef="ce_t2" />
+<bpmn:sequenceFlow id="ce_flow5" name="" sourceRef="ce_t2" targetRef="ce_g2" />
+<bpmn:sequenceFlow id="ce_flow6" name="No" sourceRef="ce_g2" targetRef="ce_ed" />
+<bpmn:sequenceFlow id="ce_flow7" name="Yes" sourceRef="ce_g2" targetRef="ce_t3" />
+<bpmn:sequenceFlow id="ce_flow8" name="" sourceRef="ce_t3" targetRef="ce_t4" />
+<bpmn:sequenceFlow id="ce_flow9" name="" sourceRef="ce_t4" targetRef="ce_g3" />
+<bpmn:sequenceFlow id="ce_flow10" name="Yes" sourceRef="ce_g3" targetRef="ce_t5" />
+<bpmn:sequenceFlow id="ce_flow11" name="No" sourceRef="ce_g3" targetRef="ce_gm" />
+<bpmn:sequenceFlow id="ce_flow12" name="" sourceRef="ce_t5" targetRef="ce_ie" />
+<bpmn:sequenceFlow id="ce_flow13" name="" sourceRef="ce_ie" targetRef="ce_gm" />
+<bpmn:sequenceFlow id="ce_flow14" name="" sourceRef="ce_gm" targetRef="ce_t6" />
+<bpmn:sequenceFlow id="ce_flow15" name="" sourceRef="ce_t6" targetRef="ce_e" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="ce_diagram" name="Client entitlement management (platform enhancement)">
+<bpmndi:BPMNPlane id="ce_plane" bpmnElement="ce_collab">
+<bpmndi:BPMNShape id="ce_main_di" bpmnElement="ce_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="2700" height="750" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_lane_ops_di" bpmnElement="ce_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="2670" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_lane_ai_di" bpmnElement="ce_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="2670" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_lane_rules_di" bpmnElement="ce_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="2670" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_lane_ledger_di" bpmnElement="ce_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="634" width="2670" height="240" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ria_di" bpmnElement="ce_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="80" y="0" width="1600" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_cli_di" bpmnElement="ce_cli" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="1680" y="0" width="1000" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_svc_di" bpmnElement="ce_svc" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="938" width="2700" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_s_di" bpmnElement="ce_s"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="233" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t1_di" bpmnElement="ce_t1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="300" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_g1_di" bpmnElement="ce_g1" isMarkerVisible="true"><dc:Bounds x="555" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="443" y="502" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_tr_di" bpmnElement="ce_tr" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="700" y="764" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_er_di" bpmnElement="ce_er"><dc:Bounds x="962" y="791" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="920" y="833" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t2_di" bpmnElement="ce_t2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="700" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_g2_di" bpmnElement="ce_g2" isMarkerVisible="true"><dc:Bounds x="955" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="915" y="580" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ed_di" bpmnElement="ce_ed"><dc:Bounds x="1162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1204" y="195" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t3_di" bpmnElement="ce_t3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1100" y="654" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t4_di" bpmnElement="ce_t4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1300" y="654" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_g3_di" bpmnElement="ce_g3" isMarkerVisible="true"><dc:Bounds x="1555" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1515" y="490" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t5_di" bpmnElement="ce_t5" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1700" y="654" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ie_di" bpmnElement="ce_ie"><dc:Bounds x="1962" y="681" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1920" y="635" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_gm_di" bpmnElement="ce_gm" isMarkerVisible="true"><dc:Bounds x="2155" y="524" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_t6_di" bpmnElement="ce_t6" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2300" y="654" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_e_di" bpmnElement="ce_e"><dc:Bounds x="2562" y="681" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="723" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ann0_di" bpmnElement="ce_ann0"><dc:Bounds x="745" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ann1_di" bpmnElement="ce_ann1"><dc:Bounds x="1925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="ce_flow0_di" bpmnElement="ce_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="549" /><di:waypoint x="300" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow1_di" bpmnElement="ce_flow1"><di:waypoint x="460" y="549" /><di:waypoint x="555" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow2_di" bpmnElement="ce_flow2"><di:waypoint x="580" y="574" /><di:waypoint x="580" y="809" /><di:waypoint x="700" y="809" /><bpmndi:BPMNLabel><dc:Bounds x="586" y="580" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow3_di" bpmnElement="ce_flow3"><di:waypoint x="860" y="809" /><di:waypoint x="962" y="809" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow4_di" bpmnElement="ce_flow4"><di:waypoint x="605" y="549" /><di:waypoint x="700" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="611" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow5_di" bpmnElement="ce_flow5"><di:waypoint x="860" y="549" /><di:waypoint x="955" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow6_di" bpmnElement="ce_flow6"><di:waypoint x="980" y="524" /><di:waypoint x="980" y="209" /><di:waypoint x="1162" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow7_di" bpmnElement="ce_flow7"><di:waypoint x="1005" y="549" /><di:waypoint x="1080" y="549" /><di:waypoint x="1080" y="699" /><di:waypoint x="1100" y="699" /><bpmndi:BPMNLabel><dc:Bounds x="1011" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow8_di" bpmnElement="ce_flow8"><di:waypoint x="1260" y="699" /><di:waypoint x="1300" y="699" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow9_di" bpmnElement="ce_flow9"><di:waypoint x="1460" y="699" /><di:waypoint x="1480" y="699" /><di:waypoint x="1480" y="549" /><di:waypoint x="1555" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow10_di" bpmnElement="ce_flow10"><di:waypoint x="1580" y="574" /><di:waypoint x="1580" y="699" /><di:waypoint x="1700" y="699" /><bpmndi:BPMNLabel><dc:Bounds x="1586" y="580" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow11_di" bpmnElement="ce_flow11"><di:waypoint x="1605" y="549" /><di:waypoint x="2155" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="1611" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow12_di" bpmnElement="ce_flow12"><di:waypoint x="1860" y="699" /><di:waypoint x="1962" y="699" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow13_di" bpmnElement="ce_flow13"><di:waypoint x="1998" y="699" /><di:waypoint x="2180" y="699" /><di:waypoint x="2180" y="574" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow14_di" bpmnElement="ce_flow14"><di:waypoint x="2205" y="549" /><di:waypoint x="2280" y="549" /><di:waypoint x="2280" y="699" /><di:waypoint x="2300" y="699" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_flow15_di" bpmnElement="ce_flow15"><di:waypoint x="2460" y="699" /><di:waypoint x="2562" y="699" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_msg0_di" bpmnElement="ce_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_msg1_di" bpmnElement="ce_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="191" /><di:waypoint x="1180" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="66" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_msg2_di" bpmnElement="ce_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="744" /><di:waypoint x="1780" y="938" /><bpmndi:BPMNLabel><dc:Bounds x="1787" y="902" width="128" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_msg3_di" bpmnElement="ce_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1980" y="938" /><di:waypoint x="1980" y="717" /><bpmndi:BPMNLabel><dc:Bounds x="1987" y="902" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ce_msg4_di" bpmnElement="ce_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2380" y="654" /><di:waypoint x="2380" y="644" /><di:waypoint x="2460" y="644" /><di:waypoint x="2460" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="2344" y="66" width="109" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

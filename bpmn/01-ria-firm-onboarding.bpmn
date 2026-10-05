@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="rf_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="rf_collab">
+<bpmn:participant id="rf_main" name="Custody operations platform (synthetic reference implementation)" processRef="rf_process" />
+<bpmn:participant id="rf_ria" name="RIA firm (applicant)" />
+<bpmn:participant id="rf_data" name="Public registration data (SEC IAPD, FINRA BrokerCheck) and identity verification services" />
+<bpmn:messageFlow id="rf_msg0" name="Application package" sourceRef="rf_ria" targetRef="rf_s" />
+<bpmn:messageFlow id="rf_msg1" name="Missing-items request" sourceRef="rf_t3" targetRef="rf_ria" />
+<bpmn:messageFlow id="rf_msg2" name="Missing items" sourceRef="rf_ria" targetRef="rf_ie" />
+<bpmn:messageFlow id="rf_msg3" name="Decline notice" sourceRef="rf_ed1" targetRef="rf_ria" />
+<bpmn:messageFlow id="rf_msg4" name="Decline notice" sourceRef="rf_ed2" targetRef="rf_ria" />
+<bpmn:messageFlow id="rf_msg5" name="Activation and master account details" sourceRef="rf_e" targetRef="rf_ria" />
+<bpmn:messageFlow id="rf_msg6" name="Registration lookup" sourceRef="rf_t4" targetRef="rf_data" />
+<bpmn:messageFlow id="rf_msg7" name="Identity verification" sourceRef="rf_t5" targetRef="rf_data" />
+<bpmn:textAnnotation id="rf_ann0"><bpmn:text>Firm-level checks always run, whatever path the RIA's client accounts later take.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="rf_ann1"><bpmn:text>The reliance result decides whether discretionary client accounts can use path A.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="rf_process" name="RIA firm onboarding and due diligence" isExecutable="false">
+<bpmn:laneSet id="rf_laneset">
+<bpmn:lane id="rf_lane_ops" name="Custody operations (first line)">
+<bpmn:flowNodeRef>rf_s</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_ie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_ca1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_ed1</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="rf_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>rf_t1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t6</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="rf_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>rf_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t8</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t10</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="rf_lane_comp" name="AML compliance (second line)">
+<bpmn:flowNodeRef>rf_t9</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_g6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_ed2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="rf_lane_ledger" name="Ledger and account services">
+<bpmn:flowNodeRef>rf_t11</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_t12</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>rf_e</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="rf_s" name="RIA application received">
+<bpmn:outgoing>rf_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="rf_s_def" />
+</bpmn:startEvent>
+<bpmn:serviceTask id="rf_t1" name="Extract firm documents: custodial agreement, Form ADV, formation docs, ownership chart (AI)">
+<bpmn:incoming>rf_flow0</bpmn:incoming>
+<bpmn:incoming>rf_flow5</bpmn:incoming>
+<bpmn:outgoing>rf_flow1</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="rf_t2" name="Check completeness; categorize NIGO (AI)">
+<bpmn:incoming>rf_flow1</bpmn:incoming>
+<bpmn:outgoing>rf_flow2</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:exclusiveGateway id="rf_g1" name="Package complete?">
+<bpmn:incoming>rf_flow2</bpmn:incoming>
+<bpmn:outgoing>rf_flow3</bpmn:outgoing>
+<bpmn:outgoing>rf_flow6</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:sendTask id="rf_t3" name="Request missing items from the RIA">
+<bpmn:incoming>rf_flow3</bpmn:incoming>
+<bpmn:outgoing>rf_flow4</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:intermediateCatchEvent id="rf_ie" name="Items received">
+<bpmn:incoming>rf_flow4</bpmn:incoming>
+<bpmn:outgoing>rf_flow5</bpmn:outgoing>
+<bpmn:messageEventDefinition id="rf_ie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:businessRuleTask id="rf_t4" name="Verify registration and licensing: SEC or state, adviser licenses, disciplinary history">
+<bpmn:incoming>rf_flow6</bpmn:incoming>
+<bpmn:outgoing>rf_flow7</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:businessRuleTask id="rf_t5" name="KYB and CIP on the firm; verify identity of owners and control persons">
+<bpmn:incoming>rf_flow7</bpmn:incoming>
+<bpmn:outgoing>rf_flow8</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:serviceTask id="rf_t6" name="PEP and adverse media screening of owners and principals; summarize hits (AI)">
+<bpmn:incoming>rf_flow8</bpmn:incoming>
+<bpmn:outgoing>rf_flow9</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="rf_t7" name="First-line check of firm and principals against the sanctions flagged list">
+<bpmn:incoming>rf_flow9</bpmn:incoming>
+<bpmn:outgoing>rf_flow10</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="rf_g2" name="Flagged?">
+<bpmn:incoming>rf_flow10</bpmn:incoming>
+<bpmn:outgoing>rf_flow11</bpmn:outgoing>
+<bpmn:outgoing>rf_flow15</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:callActivity id="rf_ca1" name="Sanctions escalation (shared subprocess)" calledElement="sx_process">
+<bpmn:incoming>rf_flow11</bpmn:incoming>
+<bpmn:outgoing>rf_flow12</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:exclusiveGateway id="rf_g3" name="Cleared by sanctions team?">
+<bpmn:incoming>rf_flow12</bpmn:incoming>
+<bpmn:outgoing>rf_flow13</bpmn:outgoing>
+<bpmn:outgoing>rf_flow14</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:endEvent id="rf_ed1" name="Relationship declined">
+<bpmn:incoming>rf_flow13</bpmn:incoming>
+<bpmn:messageEventDefinition id="rf_ed1_def" />
+</bpmn:endEvent>
+<bpmn:exclusiveGateway id="rf_g4" name="">
+<bpmn:incoming>rf_flow14</bpmn:incoming>
+<bpmn:incoming>rf_flow15</bpmn:incoming>
+<bpmn:outgoing>rf_flow16</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:businessRuleTask id="rf_t8" name="Risk-rate the RIA: ownership, jurisdictions, client base, PEP, media, disciplinary history">
+<bpmn:incoming>rf_flow16</bpmn:incoming>
+<bpmn:outgoing>rf_flow17</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="rf_g5" name="Risk level?">
+<bpmn:incoming>rf_flow17</bpmn:incoming>
+<bpmn:outgoing>rf_flow18</bpmn:outgoing>
+<bpmn:outgoing>rf_flow22</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="rf_t9" name="EDD: owners' source of wealth, source of firm funds, enhanced review">
+<bpmn:incoming>rf_flow18</bpmn:incoming>
+<bpmn:outgoing>rf_flow19</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="rf_g6" name="EDD approved?">
+<bpmn:incoming>rf_flow19</bpmn:incoming>
+<bpmn:outgoing>rf_flow20</bpmn:outgoing>
+<bpmn:outgoing>rf_flow21</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:endEvent id="rf_ed2" name="Relationship declined">
+<bpmn:incoming>rf_flow20</bpmn:incoming>
+<bpmn:messageEventDefinition id="rf_ed2_def" />
+</bpmn:endEvent>
+<bpmn:exclusiveGateway id="rf_g7" name="">
+<bpmn:incoming>rf_flow21</bpmn:incoming>
+<bpmn:incoming>rf_flow22</bpmn:incoming>
+<bpmn:outgoing>rf_flow23</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:businessRuleTask id="rf_t10" name="Determine reliance eligibility: SEC registration, reliance contract, annual AML certification">
+<bpmn:incoming>rf_flow23</bpmn:incoming>
+<bpmn:outgoing>rf_flow24</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:serviceTask id="rf_t11" name="Open master and house accounts; set users, entitlements, fee-deduction authority">
+<bpmn:incoming>rf_flow24</bpmn:incoming>
+<bpmn:outgoing>rf_flow25</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="rf_t12" name="Schedule rolling review and annual certification timer">
+<bpmn:incoming>rf_flow25</bpmn:incoming>
+<bpmn:outgoing>rf_flow26</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="rf_e" name="RIA firm active">
+<bpmn:incoming>rf_flow26</bpmn:incoming>
+<bpmn:messageEventDefinition id="rf_e_def" />
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="rf_flow0" name="" sourceRef="rf_s" targetRef="rf_t1" />
+<bpmn:sequenceFlow id="rf_flow1" name="" sourceRef="rf_t1" targetRef="rf_t2" />
+<bpmn:sequenceFlow id="rf_flow2" name="" sourceRef="rf_t2" targetRef="rf_g1" />
+<bpmn:sequenceFlow id="rf_flow3" name="No" sourceRef="rf_g1" targetRef="rf_t3" />
+<bpmn:sequenceFlow id="rf_flow4" name="" sourceRef="rf_t3" targetRef="rf_ie" />
+<bpmn:sequenceFlow id="rf_flow5" name="Re-extract" sourceRef="rf_ie" targetRef="rf_t1" />
+<bpmn:sequenceFlow id="rf_flow6" name="Yes" sourceRef="rf_g1" targetRef="rf_t4" />
+<bpmn:sequenceFlow id="rf_flow7" name="" sourceRef="rf_t4" targetRef="rf_t5" />
+<bpmn:sequenceFlow id="rf_flow8" name="" sourceRef="rf_t5" targetRef="rf_t6" />
+<bpmn:sequenceFlow id="rf_flow9" name="" sourceRef="rf_t6" targetRef="rf_t7" />
+<bpmn:sequenceFlow id="rf_flow10" name="" sourceRef="rf_t7" targetRef="rf_g2" />
+<bpmn:sequenceFlow id="rf_flow11" name="Yes" sourceRef="rf_g2" targetRef="rf_ca1" />
+<bpmn:sequenceFlow id="rf_flow12" name="" sourceRef="rf_ca1" targetRef="rf_g3" />
+<bpmn:sequenceFlow id="rf_flow13" name="No" sourceRef="rf_g3" targetRef="rf_ed1" />
+<bpmn:sequenceFlow id="rf_flow14" name="Yes" sourceRef="rf_g3" targetRef="rf_g4" />
+<bpmn:sequenceFlow id="rf_flow15" name="No" sourceRef="rf_g2" targetRef="rf_g4" />
+<bpmn:sequenceFlow id="rf_flow16" name="" sourceRef="rf_g4" targetRef="rf_t8" />
+<bpmn:sequenceFlow id="rf_flow17" name="" sourceRef="rf_t8" targetRef="rf_g5" />
+<bpmn:sequenceFlow id="rf_flow18" name="High" sourceRef="rf_g5" targetRef="rf_t9" />
+<bpmn:sequenceFlow id="rf_flow19" name="" sourceRef="rf_t9" targetRef="rf_g6" />
+<bpmn:sequenceFlow id="rf_flow20" name="No" sourceRef="rf_g6" targetRef="rf_ed2" />
+<bpmn:sequenceFlow id="rf_flow21" name="Yes" sourceRef="rf_g6" targetRef="rf_g7" />
+<bpmn:sequenceFlow id="rf_flow22" name="Standard" sourceRef="rf_g5" targetRef="rf_g7" />
+<bpmn:sequenceFlow id="rf_flow23" name="" sourceRef="rf_g7" targetRef="rf_t10" />
+<bpmn:sequenceFlow id="rf_flow24" name="" sourceRef="rf_t10" targetRef="rf_t11" />
+<bpmn:sequenceFlow id="rf_flow25" name="" sourceRef="rf_t11" targetRef="rf_t12" />
+<bpmn:sequenceFlow id="rf_flow26" name="" sourceRef="rf_t12" targetRef="rf_e" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="rf_diagram" name="RIA firm onboarding and due diligence">
+<bpmndi:BPMNPlane id="rf_plane" bpmnElement="rf_collab">
+<bpmndi:BPMNShape id="rf_main_di" bpmnElement="rf_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="4300" height="870" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_lane_ops_di" bpmnElement="rf_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="4270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_lane_ai_di" bpmnElement="rf_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="4270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_lane_rules_di" bpmnElement="rf_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="4270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_lane_comp_di" bpmnElement="rf_lane_comp" isHorizontal="true"><dc:Bounds x="30" y="634" width="4270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_lane_ledger_di" bpmnElement="rf_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="804" width="4270" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ria_di" bpmnElement="rf_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4300" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_data_di" bpmnElement="rf_data" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1058" width="4300" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_s_di" bpmnElement="rf_s"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="204" y="195" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t1_di" bpmnElement="rf_t1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="300" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t2_di" bpmnElement="rf_t2" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="500" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g1_di" bpmnElement="rf_g1" isMarkerVisible="true"><dc:Bounds x="755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="715" y="580" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t3_di" bpmnElement="rf_t3" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="700" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ie_di" bpmnElement="rf_ie"><dc:Bounds x="962" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1004" y="195" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t4_di" bpmnElement="rf_t4" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="900" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t5_di" bpmnElement="rf_t5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1100" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t6_di" bpmnElement="rf_t6" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1300" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t7_di" bpmnElement="rf_t7" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g2_di" bpmnElement="rf_g2" isMarkerVisible="true"><dc:Bounds x="1755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1643" y="502" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ca1_di" bpmnElement="rf_ca1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1900" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g3_di" bpmnElement="rf_g3" isMarkerVisible="true"><dc:Bounds x="2155" y="184" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2115" y="240" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ed1_di" bpmnElement="rf_ed1"><dc:Bounds x="2362" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2320" y="233" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g4_di" bpmnElement="rf_g4" isMarkerVisible="true"><dc:Bounds x="2355" y="524" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t8_di" bpmnElement="rf_t8" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g5_di" bpmnElement="rf_g5" isMarkerVisible="true"><dc:Bounds x="2755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2643" y="502" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t9_di" bpmnElement="rf_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2900" y="674" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g6_di" bpmnElement="rf_g6" isMarkerVisible="true"><dc:Bounds x="3155" y="694" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="3115" y="750" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ed2_di" bpmnElement="rf_ed2"><dc:Bounds x="3362" y="701" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3320" y="743" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_g7_di" bpmnElement="rf_g7" isMarkerVisible="true"><dc:Bounds x="3355" y="524" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t10_di" bpmnElement="rf_t10" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t11_di" bpmnElement="rf_t11" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3700" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_t12_di" bpmnElement="rf_t12" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3900" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_e_di" bpmnElement="rf_e"><dc:Bounds x="4162" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4120" y="923" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ann0_di" bpmnElement="rf_ann0"><dc:Bounds x="925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ann1_di" bpmnElement="rf_ann1"><dc:Bounds x="3725" y="687" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="rf_flow0_di" bpmnElement="rf_flow0"><di:waypoint x="180" y="227" /><di:waypoint x="180" y="379" /><di:waypoint x="300" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow1_di" bpmnElement="rf_flow1"><di:waypoint x="460" y="379" /><di:waypoint x="500" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow2_di" bpmnElement="rf_flow2"><di:waypoint x="660" y="379" /><di:waypoint x="680" y="379" /><di:waypoint x="680" y="549" /><di:waypoint x="755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow3_di" bpmnElement="rf_flow3"><di:waypoint x="780" y="524" /><di:waypoint x="780" y="254" /><bpmndi:BPMNLabel><dc:Bounds x="786" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow4_di" bpmnElement="rf_flow4"><di:waypoint x="860" y="209" /><di:waypoint x="962" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow5_di" bpmnElement="rf_flow5"><di:waypoint x="980" y="227" /><di:waypoint x="980" y="282" /><di:waypoint x="380" y="282" /><di:waypoint x="380" y="334" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="233" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow6_di" bpmnElement="rf_flow6"><di:waypoint x="805" y="549" /><di:waypoint x="900" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow7_di" bpmnElement="rf_flow7"><di:waypoint x="1060" y="549" /><di:waypoint x="1100" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow8_di" bpmnElement="rf_flow8"><di:waypoint x="1260" y="549" /><di:waypoint x="1280" y="549" /><di:waypoint x="1280" y="379" /><di:waypoint x="1300" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow9_di" bpmnElement="rf_flow9"><di:waypoint x="1460" y="379" /><di:waypoint x="1480" y="379" /><di:waypoint x="1480" y="549" /><di:waypoint x="1500" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow10_di" bpmnElement="rf_flow10"><di:waypoint x="1660" y="549" /><di:waypoint x="1755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow11_di" bpmnElement="rf_flow11"><di:waypoint x="1780" y="524" /><di:waypoint x="1780" y="209" /><di:waypoint x="1900" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="1786" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow12_di" bpmnElement="rf_flow12"><di:waypoint x="2060" y="209" /><di:waypoint x="2155" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow13_di" bpmnElement="rf_flow13"><di:waypoint x="2205" y="209" /><di:waypoint x="2362" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="2211" y="189" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow14_di" bpmnElement="rf_flow14"><di:waypoint x="2180" y="234" /><di:waypoint x="2180" y="549" /><di:waypoint x="2355" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="2186" y="240" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow15_di" bpmnElement="rf_flow15"><di:waypoint x="1805" y="549" /><di:waypoint x="2355" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="1811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow16_di" bpmnElement="rf_flow16"><di:waypoint x="2405" y="549" /><di:waypoint x="2500" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow17_di" bpmnElement="rf_flow17"><di:waypoint x="2660" y="549" /><di:waypoint x="2755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow18_di" bpmnElement="rf_flow18"><di:waypoint x="2780" y="574" /><di:waypoint x="2780" y="719" /><di:waypoint x="2900" y="719" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="580" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow19_di" bpmnElement="rf_flow19"><di:waypoint x="3060" y="719" /><di:waypoint x="3155" y="719" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow20_di" bpmnElement="rf_flow20"><di:waypoint x="3205" y="719" /><di:waypoint x="3362" y="719" /><bpmndi:BPMNLabel><dc:Bounds x="3211" y="699" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow21_di" bpmnElement="rf_flow21"><di:waypoint x="3180" y="694" /><di:waypoint x="3180" y="549" /><di:waypoint x="3355" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="3186" y="672" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow22_di" bpmnElement="rf_flow22"><di:waypoint x="2805" y="549" /><di:waypoint x="3355" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="2811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow23_di" bpmnElement="rf_flow23"><di:waypoint x="3405" y="549" /><di:waypoint x="3500" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow24_di" bpmnElement="rf_flow24"><di:waypoint x="3660" y="549" /><di:waypoint x="3680" y="549" /><di:waypoint x="3680" y="899" /><di:waypoint x="3700" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow25_di" bpmnElement="rf_flow25"><di:waypoint x="3860" y="899" /><di:waypoint x="3900" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_flow26_di" bpmnElement="rf_flow26"><di:waypoint x="4060" y="899" /><di:waypoint x="4162" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg0_di" bpmnElement="rf_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg1_di" bpmnElement="rf_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="780" y="164" /><di:waypoint x="780" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="787" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg2_di" bpmnElement="rf_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="980" y="60" /><di:waypoint x="980" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="987" y="66" width="83" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg3_di" bpmnElement="rf_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2380" y="191" /><di:waypoint x="2380" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="2387" y="66" width="90" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg4_di" bpmnElement="rf_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3380" y="701" /><di:waypoint x="3380" y="644" /><di:waypoint x="3480" y="644" /><di:waypoint x="3480" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="3487" y="66" width="90" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg5_di" bpmnElement="rf_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4180" y="881" /><di:waypoint x="4180" y="814" /><di:waypoint x="4260" y="814" /><di:waypoint x="4260" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="4123" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg6_di" bpmnElement="rf_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="980" y="594" /><di:waypoint x="980" y="624" /><di:waypoint x="1080" y="624" /><di:waypoint x="1080" y="1058" /><bpmndi:BPMNLabel><dc:Bounds x="1087" y="1022" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="rf_msg7_di" bpmnElement="rf_msg7" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="594" /><di:waypoint x="1180" y="624" /><di:waypoint x="1280" y="624" /><di:waypoint x="1280" y="1058" /><bpmndi:BPMNLabel><dc:Bounds x="1287" y="1022" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

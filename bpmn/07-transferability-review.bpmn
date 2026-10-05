@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="xr_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="xr_collab">
+<bpmn:participant id="xr_main" name="Custody operations platform (synthetic reference implementation)" processRef="xr_process" />
+<bpmn:participant id="xr_adv" name="RIA advisor or client (and, through them, the delivering firm)" />
+<bpmn:participant id="xr_spn" name="Sponsors, transfer agents, and fund administrators" />
+<bpmn:messageFlow id="xr_msg0" name="LOI" sourceRef="xr_t4" targetRef="xr_spn" />
+<bpmn:messageFlow id="xr_msg1" name="Confirmation" sourceRef="xr_spn" targetRef="xr_ie1" />
+<bpmn:messageFlow id="xr_msg2" name="Liquidation request" sourceRef="xr_t5" targetRef="xr_adv" />
+<bpmn:messageFlow id="xr_msg3" name="Liquidation done" sourceRef="xr_adv" targetRef="xr_ie2" />
+<bpmn:textAnnotation id="xr_ann0"><bpmn:text>No agreement but the client wants to keep the asset: request product acceptance; the transfer waits.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="xr_ann1"><bpmn:text>Runs in both directions: incoming funding and outgoing transfers, including offboarding.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="xr_process" name="Transferability review (shared subprocess)" isExecutable="false">
+<bpmn:laneSet id="xr_laneset">
+<bpmn:lane id="xr_lane_ops" name="Custody operations (first line)">
+<bpmn:flowNodeRef>xr_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_ie1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_ie2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="xr_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>xr_t1</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="xr_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>xr_s</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_t2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_gj</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_t6</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="xr_lane_ledger" name="Ledger and account services">
+<bpmn:flowNodeRef>xr_t3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>xr_e</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="xr_s" name="Transfer requested (incoming or outgoing)">
+<bpmn:outgoing>xr_flow0</bpmn:outgoing>
+</bpmn:startEvent>
+<bpmn:serviceTask id="xr_t1" name="Extract positions from the statement; match to the security master (AI)">
+<bpmn:incoming>xr_flow0</bpmn:incoming>
+<bpmn:outgoing>xr_flow1</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="xr_t2" name="Check each position: agreement with asset manager; ACATS, DTC, Fund/SERV eligibility">
+<bpmn:incoming>xr_flow1</bpmn:incoming>
+<bpmn:outgoing>xr_flow2</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:inclusiveGateway id="xr_g1" name="Dispositions needed?">
+<bpmn:incoming>xr_flow2</bpmn:incoming>
+<bpmn:outgoing>xr_flow3</bpmn:outgoing>
+<bpmn:outgoing>xr_flow4</bpmn:outgoing>
+<bpmn:outgoing>xr_flow5</bpmn:outgoing>
+</bpmn:inclusiveGateway>
+<bpmn:sendTask id="xr_t4" name="Send LOI to sponsor, transfer agent, or administrator (AI pre-filled)">
+<bpmn:incoming>xr_flow3</bpmn:incoming>
+<bpmn:outgoing>xr_flow6</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:sendTask id="xr_t5" name="Request liquidation before transfer (AI pre-filled)">
+<bpmn:incoming>xr_flow4</bpmn:incoming>
+<bpmn:outgoing>xr_flow7</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:serviceTask id="xr_t3" name="Mark positions for ACATS in-kind transfer">
+<bpmn:incoming>xr_flow5</bpmn:incoming>
+<bpmn:outgoing>xr_flow10</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:intermediateCatchEvent id="xr_ie1" name="Re-registration confirmed">
+<bpmn:incoming>xr_flow6</bpmn:incoming>
+<bpmn:outgoing>xr_flow8</bpmn:outgoing>
+<bpmn:messageEventDefinition id="xr_ie1_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:intermediateCatchEvent id="xr_ie2" name="Liquidation confirmed">
+<bpmn:incoming>xr_flow7</bpmn:incoming>
+<bpmn:outgoing>xr_flow9</bpmn:outgoing>
+<bpmn:messageEventDefinition id="xr_ie2_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:inclusiveGateway id="xr_gj" name="">
+<bpmn:incoming>xr_flow8</bpmn:incoming>
+<bpmn:incoming>xr_flow9</bpmn:incoming>
+<bpmn:incoming>xr_flow10</bpmn:incoming>
+<bpmn:outgoing>xr_flow11</bpmn:outgoing>
+</bpmn:inclusiveGateway>
+<bpmn:businessRuleTask id="xr_t6" name="Confirm every position has a disposition; release full or partial transfer">
+<bpmn:incoming>xr_flow11</bpmn:incoming>
+<bpmn:outgoing>xr_flow12</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:endEvent id="xr_e" name="Released to the transfers process">
+<bpmn:incoming>xr_flow12</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="xr_flow0" name="" sourceRef="xr_s" targetRef="xr_t1" />
+<bpmn:sequenceFlow id="xr_flow1" name="" sourceRef="xr_t1" targetRef="xr_t2" />
+<bpmn:sequenceFlow id="xr_flow2" name="" sourceRef="xr_t2" targetRef="xr_g1" />
+<bpmn:sequenceFlow id="xr_flow3" name="Holdable, not ACATS" sourceRef="xr_g1" targetRef="xr_t4" />
+<bpmn:sequenceFlow id="xr_flow4" name="Not holdable" sourceRef="xr_g1" targetRef="xr_t5" />
+<bpmn:sequenceFlow id="xr_flow5" name="In kind via ACATS" sourceRef="xr_g1" targetRef="xr_t3" />
+<bpmn:sequenceFlow id="xr_flow6" name="" sourceRef="xr_t4" targetRef="xr_ie1" />
+<bpmn:sequenceFlow id="xr_flow7" name="" sourceRef="xr_t5" targetRef="xr_ie2" />
+<bpmn:sequenceFlow id="xr_flow8" name="" sourceRef="xr_ie1" targetRef="xr_gj" />
+<bpmn:sequenceFlow id="xr_flow9" name="" sourceRef="xr_ie2" targetRef="xr_gj" />
+<bpmn:sequenceFlow id="xr_flow10" name="" sourceRef="xr_t3" targetRef="xr_gj" />
+<bpmn:sequenceFlow id="xr_flow11" name="" sourceRef="xr_gj" targetRef="xr_t6" />
+<bpmn:sequenceFlow id="xr_flow12" name="" sourceRef="xr_t6" targetRef="xr_e" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="xr_diagram" name="Transferability review (shared subprocess)">
+<bpmndi:BPMNPlane id="xr_plane" bpmnElement="xr_collab">
+<bpmndi:BPMNShape id="xr_main_di" bpmnElement="xr_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="2300" height="760" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_lane_ops_di" bpmnElement="xr_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="2270" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_lane_ai_di" bpmnElement="xr_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="354" width="2270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_lane_rules_di" bpmnElement="xr_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="524" width="2270" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_lane_ledger_di" bpmnElement="xr_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="694" width="2270" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_adv_di" bpmnElement="xr_adv" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="2300" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_spn_di" bpmnElement="xr_spn" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="948" width="2300" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_s_di" bpmnElement="xr_s"><dc:Bounds x="162" y="591" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="633" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t1_di" bpmnElement="xr_t1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="300" y="394" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t2_di" bpmnElement="xr_t2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="500" y="564" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_g1_di" bpmnElement="xr_g1"><dc:Bounds x="755" y="584" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="643" y="562" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t4_di" bpmnElement="xr_t4" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="900" y="144" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t5_di" bpmnElement="xr_t5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1100" y="249" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t3_di" bpmnElement="xr_t3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1100" y="744" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_ie1_di" bpmnElement="xr_ie1"><dc:Bounds x="1362" y="171" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1320" y="125" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_ie2_di" bpmnElement="xr_ie2"><dc:Bounds x="1562" y="276" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1520" y="318" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_gj_di" bpmnElement="xr_gj"><dc:Bounds x="1755" y="584" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_t6_di" bpmnElement="xr_t6" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1900" y="564" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_e_di" bpmnElement="xr_e"><dc:Bounds x="2162" y="771" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2120" y="813" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_ann0_di" bpmnElement="xr_ann0"><dc:Bounds x="1085" y="407" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="xr_ann1_di" bpmnElement="xr_ann1"><dc:Bounds x="1525" y="407" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="xr_flow0_di" bpmnElement="xr_flow0"><di:waypoint x="198" y="609" /><di:waypoint x="280" y="609" /><di:waypoint x="280" y="439" /><di:waypoint x="300" y="439" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow1_di" bpmnElement="xr_flow1"><di:waypoint x="460" y="439" /><di:waypoint x="480" y="439" /><di:waypoint x="480" y="609" /><di:waypoint x="500" y="609" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow2_di" bpmnElement="xr_flow2"><di:waypoint x="660" y="609" /><di:waypoint x="755" y="609" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow3_di" bpmnElement="xr_flow3"><di:waypoint x="780" y="584" /><di:waypoint x="780" y="189" /><di:waypoint x="900" y="189" /><bpmndi:BPMNLabel><dc:Bounds x="786" y="169" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow4_di" bpmnElement="xr_flow4"><di:waypoint x="780" y="584" /><di:waypoint x="780" y="294" /><di:waypoint x="1100" y="294" /><bpmndi:BPMNLabel><dc:Bounds x="786" y="274" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow5_di" bpmnElement="xr_flow5"><di:waypoint x="780" y="634" /><di:waypoint x="780" y="789" /><di:waypoint x="1100" y="789" /><bpmndi:BPMNLabel><dc:Bounds x="786" y="640" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow6_di" bpmnElement="xr_flow6"><di:waypoint x="1060" y="189" /><di:waypoint x="1362" y="189" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow7_di" bpmnElement="xr_flow7"><di:waypoint x="1260" y="294" /><di:waypoint x="1562" y="294" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow8_di" bpmnElement="xr_flow8"><di:waypoint x="1398" y="189" /><di:waypoint x="1780" y="189" /><di:waypoint x="1780" y="584" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow9_di" bpmnElement="xr_flow9"><di:waypoint x="1598" y="294" /><di:waypoint x="1780" y="294" /><di:waypoint x="1780" y="584" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow10_di" bpmnElement="xr_flow10"><di:waypoint x="1260" y="789" /><di:waypoint x="1780" y="789" /><di:waypoint x="1780" y="634" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow11_di" bpmnElement="xr_flow11"><di:waypoint x="1805" y="609" /><di:waypoint x="1900" y="609" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_flow12_di" bpmnElement="xr_flow12"><di:waypoint x="2060" y="609" /><di:waypoint x="2080" y="609" /><di:waypoint x="2080" y="789" /><di:waypoint x="2162" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_msg0_di" bpmnElement="xr_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="980" y="234" /><di:waypoint x="980" y="948" /><bpmndi:BPMNLabel><dc:Bounds x="987" y="912" width="40" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_msg1_di" bpmnElement="xr_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1380" y="948" /><di:waypoint x="1380" y="207" /><bpmndi:BPMNLabel><dc:Bounds x="1387" y="912" width="77" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_msg2_di" bpmnElement="xr_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="249" /><di:waypoint x="1180" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="66" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="xr_msg3_di" bpmnElement="xr_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1580" y="60" /><di:waypoint x="1580" y="276" /><bpmndi:BPMNLabel><dc:Bounds x="1587" y="66" width="102" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

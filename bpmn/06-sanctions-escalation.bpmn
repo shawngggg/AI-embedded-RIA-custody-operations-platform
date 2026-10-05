@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="sx_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="sx_collab">
+<bpmn:participant id="sx_main" name="Custody operations platform (synthetic reference implementation)" processRef="sx_process" />
+<bpmn:participant id="sx_team" name="Sanctions team (second line)" />
+<bpmn:messageFlow id="sx_msg0" name="Escalation package" sourceRef="sx_t3" targetRef="sx_team" />
+<bpmn:messageFlow id="sx_msg1" name="Determination" sourceRef="sx_team" targetRef="sx_ie" />
+<bpmn:textAnnotation id="sx_ann0"><bpmn:text>Only the sanctions team can authorize removing a sanctions restriction code.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="sx_process" name="Sanctions escalation and restriction codes (shared subprocess)" isExecutable="false">
+<bpmn:laneSet id="sx_laneset">
+<bpmn:lane id="sx_lane_ops" name="Custody operations (first line)">
+<bpmn:flowNodeRef>sx_s</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_t3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_eg</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_ie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_tm</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_tf</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="sx_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>sx_t2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="sx_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>sx_g1</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="sx_lane_ledger" name="Ledger and account services">
+<bpmn:flowNodeRef>sx_t1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_e1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>sx_e2</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="sx_s" name="Match on flagged list: entity, institution, product, or individual">
+<bpmn:outgoing>sx_flow0</bpmn:outgoing>
+</bpmn:startEvent>
+<bpmn:serviceTask id="sx_t1" name="Place hold: restriction code with reason, scope, owner = sanctions team">
+<bpmn:incoming>sx_flow0</bpmn:incoming>
+<bpmn:outgoing>sx_flow1</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="sx_t2" name="Assemble evidence: identifiers, date of birth, nationality, transliterations (AI)">
+<bpmn:incoming>sx_flow1</bpmn:incoming>
+<bpmn:outgoing>sx_flow2</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:userTask id="sx_t3" name="Review package; escalate to the sanctions team">
+<bpmn:incoming>sx_flow2</bpmn:incoming>
+<bpmn:outgoing>sx_flow3</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:eventBasedGateway id="sx_eg" name="">
+<bpmn:incoming>sx_flow3</bpmn:incoming>
+<bpmn:incoming>sx_flow7</bpmn:incoming>
+<bpmn:outgoing>sx_flow4</bpmn:outgoing>
+<bpmn:outgoing>sx_flow5</bpmn:outgoing>
+</bpmn:eventBasedGateway>
+<bpmn:intermediateCatchEvent id="sx_ie" name="Determination received">
+<bpmn:incoming>sx_flow4</bpmn:incoming>
+<bpmn:outgoing>sx_flow8</bpmn:outgoing>
+<bpmn:messageEventDefinition id="sx_ie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:intermediateCatchEvent id="sx_tm" name="Escalation SLA reached">
+<bpmn:incoming>sx_flow5</bpmn:incoming>
+<bpmn:outgoing>sx_flow6</bpmn:outgoing>
+<bpmn:timerEventDefinition id="sx_tm_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:userTask id="sx_tf" name="Follow up with the sanctions team">
+<bpmn:incoming>sx_flow6</bpmn:incoming>
+<bpmn:outgoing>sx_flow7</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="sx_g1" name="Determination?">
+<bpmn:incoming>sx_flow8</bpmn:incoming>
+<bpmn:outgoing>sx_flow9</bpmn:outgoing>
+<bpmn:outgoing>sx_flow10</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="sx_t4" name="Remove restriction code (sanctions authorization logged); resume">
+<bpmn:incoming>sx_flow9</bpmn:incoming>
+<bpmn:outgoing>sx_flow11</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="sx_t5" name="Keep blocked status as directed; activity stays stopped">
+<bpmn:incoming>sx_flow10</bpmn:incoming>
+<bpmn:outgoing>sx_flow12</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="sx_e1" name="Released">
+<bpmn:incoming>sx_flow11</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:endEvent id="sx_e2" name="Blocked; sanctions team handles OFAC reporting">
+<bpmn:incoming>sx_flow12</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="sx_flow0" name="" sourceRef="sx_s" targetRef="sx_t1" />
+<bpmn:sequenceFlow id="sx_flow1" name="" sourceRef="sx_t1" targetRef="sx_t2" />
+<bpmn:sequenceFlow id="sx_flow2" name="" sourceRef="sx_t2" targetRef="sx_t3" />
+<bpmn:sequenceFlow id="sx_flow3" name="" sourceRef="sx_t3" targetRef="sx_eg" />
+<bpmn:sequenceFlow id="sx_flow4" name="" sourceRef="sx_eg" targetRef="sx_ie" />
+<bpmn:sequenceFlow id="sx_flow5" name="" sourceRef="sx_eg" targetRef="sx_tm" />
+<bpmn:sequenceFlow id="sx_flow6" name="" sourceRef="sx_tm" targetRef="sx_tf" />
+<bpmn:sequenceFlow id="sx_flow7" name="Wait again" sourceRef="sx_tf" targetRef="sx_eg" />
+<bpmn:sequenceFlow id="sx_flow8" name="" sourceRef="sx_ie" targetRef="sx_g1" />
+<bpmn:sequenceFlow id="sx_flow9" name="False positive" sourceRef="sx_g1" targetRef="sx_t4" />
+<bpmn:sequenceFlow id="sx_flow10" name="True match" sourceRef="sx_g1" targetRef="sx_t5" />
+<bpmn:sequenceFlow id="sx_flow11" name="" sourceRef="sx_t4" targetRef="sx_e1" />
+<bpmn:sequenceFlow id="sx_flow12" name="" sourceRef="sx_t5" targetRef="sx_e2" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="sx_diagram" name="Sanctions escalation and restriction codes (shared subprocess)">
+<bpmndi:BPMNPlane id="sx_plane" bpmnElement="sx_collab">
+<bpmndi:BPMNShape id="sx_main_di" bpmnElement="sx_main" isHorizontal="true"><dc:Bounds x="0" y="0" width="1900" height="810" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_lane_ops_di" bpmnElement="sx_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="0" width="1870" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_lane_ai_di" bpmnElement="sx_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="230" width="1870" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_lane_rules_di" bpmnElement="sx_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="400" width="1870" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_lane_ledger_di" bpmnElement="sx_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="570" width="1870" height="240" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_team_di" bpmnElement="sx_team" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="874" width="1900" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_s_di" bpmnElement="sx_s"><dc:Bounds x="162" y="47" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="89" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_t1_di" bpmnElement="sx_t1" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="300" y="590" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_t2_di" bpmnElement="sx_t2" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="500" y="270" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_t3_di" bpmnElement="sx_t3" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="700" y="20" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_eg_di" bpmnElement="sx_eg"><dc:Bounds x="955" y="40" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_ie_di" bpmnElement="sx_ie"><dc:Bounds x="1162" y="47" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1204" y="51" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_tm_di" bpmnElement="sx_tm"><dc:Bounds x="962" y="152" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="836" y="156" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_tf_di" bpmnElement="sx_tf" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1300" y="125" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_g1_di" bpmnElement="sx_g1" isMarkerVisible="true"><dc:Bounds x="1355" y="460" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1243" y="438" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_t4_di" bpmnElement="sx_t4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1500" y="590" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_t5_di" bpmnElement="sx_t5" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1500" y="700" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_e1_di" bpmnElement="sx_e1"><dc:Bounds x="1762" y="617" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1720" y="659" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_e2_di" bpmnElement="sx_e2"><dc:Bounds x="1762" y="727" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1720" y="769" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_ann0_di" bpmnElement="sx_ann0"><dc:Bounds x="1345" y="283" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="sx_flow0_di" bpmnElement="sx_flow0"><di:waypoint x="198" y="65" /><di:waypoint x="280" y="65" /><di:waypoint x="280" y="635" /><di:waypoint x="300" y="635" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow1_di" bpmnElement="sx_flow1"><di:waypoint x="460" y="635" /><di:waypoint x="480" y="635" /><di:waypoint x="480" y="315" /><di:waypoint x="500" y="315" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow2_di" bpmnElement="sx_flow2"><di:waypoint x="660" y="315" /><di:waypoint x="680" y="315" /><di:waypoint x="680" y="65" /><di:waypoint x="700" y="65" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow3_di" bpmnElement="sx_flow3"><di:waypoint x="860" y="65" /><di:waypoint x="955" y="65" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow4_di" bpmnElement="sx_flow4"><di:waypoint x="1005" y="65" /><di:waypoint x="1162" y="65" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow5_di" bpmnElement="sx_flow5"><di:waypoint x="980" y="90" /><di:waypoint x="980" y="152" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow6_di" bpmnElement="sx_flow6"><di:waypoint x="998" y="170" /><di:waypoint x="1300" y="170" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow7_di" bpmnElement="sx_flow7"><di:waypoint x="1380" y="125" /><di:waypoint x="1380" y="12" /><di:waypoint x="980" y="12" /><di:waypoint x="980" y="40" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="18" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow8_di" bpmnElement="sx_flow8"><di:waypoint x="1198" y="65" /><di:waypoint x="1280" y="65" /><di:waypoint x="1280" y="485" /><di:waypoint x="1355" y="485" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow9_di" bpmnElement="sx_flow9"><di:waypoint x="1405" y="485" /><di:waypoint x="1580" y="485" /><di:waypoint x="1580" y="590" /><bpmndi:BPMNLabel><dc:Bounds x="1411" y="465" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow10_di" bpmnElement="sx_flow10"><di:waypoint x="1380" y="510" /><di:waypoint x="1380" y="745" /><di:waypoint x="1500" y="745" /><bpmndi:BPMNLabel><dc:Bounds x="1386" y="725" width="125" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow11_di" bpmnElement="sx_flow11"><di:waypoint x="1660" y="635" /><di:waypoint x="1762" y="635" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_flow12_di" bpmnElement="sx_flow12"><di:waypoint x="1660" y="745" /><di:waypoint x="1762" y="745" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_msg0_di" bpmnElement="sx_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="780" y="110" /><di:waypoint x="780" y="220" /><di:waypoint x="880" y="220" /><di:waypoint x="880" y="874" /><bpmndi:BPMNLabel><dc:Bounds x="887" y="838" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="sx_msg1_di" bpmnElement="sx_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="874" /><di:waypoint x="1180" y="83" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="838" width="83" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

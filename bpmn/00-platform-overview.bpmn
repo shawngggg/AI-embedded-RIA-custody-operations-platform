@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ov_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="ov_collab">
+<bpmn:participant id="ov_main" name="Custody operations platform (synthetic reference implementation)" processRef="ov_process" />
+<bpmn:participant id="ov_infra" name="Market infrastructure: NSCC ACATS, contra firms, transfer agents, Fedwire, ACH, fund administrators" />
+<bpmn:participant id="ov_adv" name="RIA advisor" />
+<bpmn:participant id="ov_cli" name="End client" />
+<bpmn:participant id="ov_state" name="State unclaimed property administrators" />
+<bpmn:messageFlow id="ov_msg0" name="Opening package" sourceRef="ov_adv" targetRef="ov_s1" />
+<bpmn:messageFlow id="ov_msg1" name="Transfer request" sourceRef="ov_adv" targetRef="ov_s2" />
+<bpmn:messageFlow id="ov_msg2" name="Closure request" sourceRef="ov_adv" targetRef="ov_s5" />
+<bpmn:messageFlow id="ov_msg3" name="Orders" sourceRef="ov_adv" targetRef="ov_s7" />
+<bpmn:messageFlow id="ov_msg4" name="Instructions" sourceRef="ov_sp2" targetRef="ov_infra" />
+<bpmn:messageFlow id="ov_msg5" name="Confirmations, rejects" sourceRef="ov_infra" targetRef="ov_sp2" />
+<bpmn:messageFlow id="ov_msg6" name="Trade settlement" sourceRef="ov_sp10" targetRef="ov_infra" />
+<bpmn:messageFlow id="ov_msg7" name="Event announcement" sourceRef="ov_infra" targetRef="ov_s8" />
+<bpmn:messageFlow id="ov_msg8" name="Fund notices" sourceRef="ov_infra" targetRef="ov_s9" />
+<bpmn:messageFlow id="ov_msg9" name="Settlement activity" sourceRef="ov_infra" targetRef="ov_sp3" />
+<bpmn:messageFlow id="ov_msg10" name="Position files" sourceRef="ov_infra" targetRef="ov_sp4" />
+<bpmn:messageFlow id="ov_msg11" name="Outgoing ACATS (TIF)" sourceRef="ov_infra" targetRef="ov_sp9" />
+<bpmn:messageFlow id="ov_msg12" name="Fee report" sourceRef="ov_sp6" targetRef="ov_adv" />
+<bpmn:messageFlow id="ov_msg13" name="Account statements" sourceRef="ov_sp7" targetRef="ov_cli" />
+<bpmn:messageFlow id="ov_msg14" name="Outreach request" sourceRef="ov_sp8" targetRef="ov_adv" />
+<bpmn:messageFlow id="ov_msg15" name="Due-diligence letter" sourceRef="ov_sp8" targetRef="ov_cli" />
+<bpmn:messageFlow id="ov_msg16" name="Holder report and remittance" sourceRef="ov_sp8" targetRef="ov_state" />
+<bpmn:textAnnotation id="ov_ann0"><bpmn:text>Every subprocess reads from and posts to one double-entry ledger: client accounts roll up to the RIA master, RIA masters roll up to the custodian GL.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ov_ann1"><bpmn:text>Also event-driven: account maintenance, client entitlements, and the deceased client account (see their detail views).</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ov_ann2"><bpmn:text>Billing and reporting wait until reconciliation has certified the period.</bpmn:text></bpmn:textAnnotation>
+<bpmn:association id="ov_ann2_assoc" sourceRef="ov_ie" targetRef="ov_ann2" />
+<bpmn:textAnnotation id="ov_ann3"><bpmn:text>Undeliverable residuals from offboarding and uncashed checks feed the escheatment cycle.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="ov_process" name="Platform overview (level 1)" isExecutable="false">
+<bpmn:laneSet id="ov_laneset">
+<bpmn:lane id="ov_lane_acct" name="Account lifecycle (event-driven)">
+<bpmn:flowNodeRef>ov_s1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_gm</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_s2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_s5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp9</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e5</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ov_lane_trade" name="Trading and asset servicing">
+<bpmn:flowNodeRef>ov_s7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp10</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_s8</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp11</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e8</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_s9</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp12</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e9</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ov_lane_daily" name="Daily cycle">
+<bpmn:flowNodeRef>ov_s3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ov_lane_period" name="Periodic cycle">
+<bpmn:flowNodeRef>ov_s4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_ie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_pg</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp7</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_pj</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e3</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ov_lane_reg" name="Regulatory cycle">
+<bpmn:flowNodeRef>ov_s6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_sp8</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ov_e6</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="ov_s1" name="Onboarding package received">
+<bpmn:outgoing>ov_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s1_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp1" name="RIA and client onboarding">
+<bpmn:incoming>ov_flow0</bpmn:incoming>
+<bpmn:outgoing>ov_flow1</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:exclusiveGateway id="ov_gm" name="">
+<bpmn:incoming>ov_flow1</bpmn:incoming>
+<bpmn:incoming>ov_flow2</bpmn:incoming>
+<bpmn:outgoing>ov_flow3</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:startEvent id="ov_s2" name="Transfer or cash request received">
+<bpmn:outgoing>ov_flow2</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s2_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp2" name="Asset and money transfers">
+<bpmn:incoming>ov_flow3</bpmn:incoming>
+<bpmn:outgoing>ov_flow4</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e1" name="Account active and funded">
+<bpmn:incoming>ov_flow4</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s5" name="Closure request or outgoing ACATS received">
+<bpmn:outgoing>ov_flow5</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s5_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp9" name="Client offboarding">
+<bpmn:incoming>ov_flow5</bpmn:incoming>
+<bpmn:outgoing>ov_flow6</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e5" name="Account closed">
+<bpmn:incoming>ov_flow6</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s7" name="Order received">
+<bpmn:outgoing>ov_flow7</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s7_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp10" name="Trade processing (all asset classes)">
+<bpmn:incoming>ov_flow7</bpmn:incoming>
+<bpmn:outgoing>ov_flow8</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e7" name="Trade settled">
+<bpmn:incoming>ov_flow8</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s8" name="Corporate action announced">
+<bpmn:outgoing>ov_flow9</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s8_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp11" name="Corporate actions">
+<bpmn:incoming>ov_flow9</bpmn:incoming>
+<bpmn:outgoing>ov_flow10</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e8" name="Event closed">
+<bpmn:incoming>ov_flow10</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s9" name="Capital call or distribution notice">
+<bpmn:outgoing>ov_flow11</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ov_s9_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp12" name="Capital calls and distributions">
+<bpmn:incoming>ov_flow11</bpmn:incoming>
+<bpmn:outgoing>ov_flow12</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e9" name="Capital event closed">
+<bpmn:incoming>ov_flow12</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s3" name="Each business day">
+<bpmn:outgoing>ov_flow13</bpmn:outgoing>
+<bpmn:timerEventDefinition id="ov_s3_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp3" name="Cash settlement across three layers">
+<bpmn:incoming>ov_flow13</bpmn:incoming>
+<bpmn:outgoing>ov_flow14</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:subProcess id="ov_sp4" name="Position reconciliation">
+<bpmn:incoming>ov_flow14</bpmn:incoming>
+<bpmn:incoming>ov_flow18</bpmn:incoming>
+<bpmn:outgoing>ov_flow15</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:exclusiveGateway id="ov_g1" name="Books proven?">
+<bpmn:incoming>ov_flow15</bpmn:incoming>
+<bpmn:outgoing>ov_flow16</bpmn:outgoing>
+<bpmn:outgoing>ov_flow17</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:subProcess id="ov_sp5" name="Break resolution (inside reconciliation)">
+<bpmn:incoming>ov_flow17</bpmn:incoming>
+<bpmn:outgoing>ov_flow18</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e2" name="Day closed">
+<bpmn:incoming>ov_flow16</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s4" name="Period end: monthly or quarterly">
+<bpmn:outgoing>ov_flow19</bpmn:outgoing>
+<bpmn:timerEventDefinition id="ov_s4_def" />
+</bpmn:startEvent>
+<bpmn:intermediateCatchEvent id="ov_ie" name="Period certified by reconciliation">
+<bpmn:incoming>ov_flow19</bpmn:incoming>
+<bpmn:outgoing>ov_flow20</bpmn:outgoing>
+<bpmn:conditionalEventDefinition id="ov_ie_def"><bpmn:condition xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">condition_met == true</bpmn:condition></bpmn:conditionalEventDefinition>
+</bpmn:intermediateCatchEvent>
+<bpmn:parallelGateway id="ov_pg" name="">
+<bpmn:incoming>ov_flow20</bpmn:incoming>
+<bpmn:outgoing>ov_flow21</bpmn:outgoing>
+<bpmn:outgoing>ov_flow22</bpmn:outgoing>
+</bpmn:parallelGateway>
+<bpmn:subProcess id="ov_sp6" name="Advisor billing">
+<bpmn:incoming>ov_flow21</bpmn:incoming>
+<bpmn:outgoing>ov_flow23</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:subProcess id="ov_sp7" name="Client reporting">
+<bpmn:incoming>ov_flow22</bpmn:incoming>
+<bpmn:outgoing>ov_flow24</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:parallelGateway id="ov_pj" name="">
+<bpmn:incoming>ov_flow23</bpmn:incoming>
+<bpmn:incoming>ov_flow24</bpmn:incoming>
+<bpmn:outgoing>ov_flow25</bpmn:outgoing>
+</bpmn:parallelGateway>
+<bpmn:endEvent id="ov_e3" name="Period closed">
+<bpmn:incoming>ov_flow25</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ov_s6" name="Daily dormancy and lost-owner monitoring">
+<bpmn:outgoing>ov_flow26</bpmn:outgoing>
+<bpmn:timerEventDefinition id="ov_s6_def" />
+</bpmn:startEvent>
+<bpmn:subProcess id="ov_sp8" name="Escheatment and unclaimed property">
+<bpmn:incoming>ov_flow26</bpmn:incoming>
+<bpmn:outgoing>ov_flow27</bpmn:outgoing>
+</bpmn:subProcess>
+<bpmn:endEvent id="ov_e6" name="Owner located or property reported">
+<bpmn:incoming>ov_flow27</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="ov_flow0" name="" sourceRef="ov_s1" targetRef="ov_sp1" />
+<bpmn:sequenceFlow id="ov_flow1" name="" sourceRef="ov_sp1" targetRef="ov_gm" />
+<bpmn:sequenceFlow id="ov_flow2" name="" sourceRef="ov_s2" targetRef="ov_gm" />
+<bpmn:sequenceFlow id="ov_flow3" name="" sourceRef="ov_gm" targetRef="ov_sp2" />
+<bpmn:sequenceFlow id="ov_flow4" name="" sourceRef="ov_sp2" targetRef="ov_e1" />
+<bpmn:sequenceFlow id="ov_flow5" name="" sourceRef="ov_s5" targetRef="ov_sp9" />
+<bpmn:sequenceFlow id="ov_flow6" name="" sourceRef="ov_sp9" targetRef="ov_e5" />
+<bpmn:sequenceFlow id="ov_flow7" name="" sourceRef="ov_s7" targetRef="ov_sp10" />
+<bpmn:sequenceFlow id="ov_flow8" name="" sourceRef="ov_sp10" targetRef="ov_e7" />
+<bpmn:sequenceFlow id="ov_flow9" name="" sourceRef="ov_s8" targetRef="ov_sp11" />
+<bpmn:sequenceFlow id="ov_flow10" name="" sourceRef="ov_sp11" targetRef="ov_e8" />
+<bpmn:sequenceFlow id="ov_flow11" name="" sourceRef="ov_s9" targetRef="ov_sp12" />
+<bpmn:sequenceFlow id="ov_flow12" name="" sourceRef="ov_sp12" targetRef="ov_e9" />
+<bpmn:sequenceFlow id="ov_flow13" name="" sourceRef="ov_s3" targetRef="ov_sp3" />
+<bpmn:sequenceFlow id="ov_flow14" name="" sourceRef="ov_sp3" targetRef="ov_sp4" />
+<bpmn:sequenceFlow id="ov_flow15" name="" sourceRef="ov_sp4" targetRef="ov_g1" />
+<bpmn:sequenceFlow id="ov_flow16" name="Yes" sourceRef="ov_g1" targetRef="ov_e2" />
+<bpmn:sequenceFlow id="ov_flow17" name="No" sourceRef="ov_g1" targetRef="ov_sp5" />
+<bpmn:sequenceFlow id="ov_flow18" name="Re-run match" sourceRef="ov_sp5" targetRef="ov_sp4" />
+<bpmn:sequenceFlow id="ov_flow19" name="" sourceRef="ov_s4" targetRef="ov_ie" />
+<bpmn:sequenceFlow id="ov_flow20" name="" sourceRef="ov_ie" targetRef="ov_pg" />
+<bpmn:sequenceFlow id="ov_flow21" name="" sourceRef="ov_pg" targetRef="ov_sp6" />
+<bpmn:sequenceFlow id="ov_flow22" name="" sourceRef="ov_pg" targetRef="ov_sp7" />
+<bpmn:sequenceFlow id="ov_flow23" name="" sourceRef="ov_sp6" targetRef="ov_pj" />
+<bpmn:sequenceFlow id="ov_flow24" name="" sourceRef="ov_sp7" targetRef="ov_pj" />
+<bpmn:sequenceFlow id="ov_flow25" name="" sourceRef="ov_pj" targetRef="ov_e3" />
+<bpmn:sequenceFlow id="ov_flow26" name="" sourceRef="ov_s6" targetRef="ov_sp8" />
+<bpmn:sequenceFlow id="ov_flow27" name="" sourceRef="ov_sp8" targetRef="ov_e6" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="ov_diagram" name="Platform overview (level 1)">
+<bpmndi:BPMNPlane id="ov_plane" bpmnElement="ov_collab">
+<bpmndi:BPMNShape id="ov_main_di" bpmnElement="ov_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="1990" height="1120" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_lane_acct_di" bpmnElement="ov_lane_acct" isHorizontal="true"><dc:Bounds x="30" y="124" width="1960" height="280" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_lane_trade_di" bpmnElement="ov_lane_trade" isHorizontal="true"><dc:Bounds x="30" y="404" width="1960" height="180" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_lane_daily_di" bpmnElement="ov_lane_daily" isHorizontal="true"><dc:Bounds x="30" y="584" width="1960" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_lane_period_di" bpmnElement="ov_lane_period" isHorizontal="true"><dc:Bounds x="30" y="814" width="1960" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_lane_reg_di" bpmnElement="ov_lane_reg" isHorizontal="true"><dc:Bounds x="30" y="1044" width="1960" height="200" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_infra_di" bpmnElement="ov_infra" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="1990" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_adv_di" bpmnElement="ov_adv" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="80" y="1308" width="840" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_cli_di" bpmnElement="ov_cli" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="920" y="1308" width="420" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_state_di" bpmnElement="ov_state" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="1340" y="1308" width="630" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s1_di" bpmnElement="ov_s1"><dc:Bounds x="167" y="176" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="125" y="130" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp1_di" bpmnElement="ov_sp1" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="315" y="149" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_gm_di" bpmnElement="ov_gm" isMarkerVisible="true"><dc:Bounds x="580" y="169" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s2_di" bpmnElement="ov_s2"><dc:Bounds x="587" y="256" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="629" y="260" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp2_di" bpmnElement="ov_sp2" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="735" y="149" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e1_di" bpmnElement="ov_e1"><dc:Bounds x="1007" y="176" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="965" y="218" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s5_di" bpmnElement="ov_s5"><dc:Bounds x="1007" y="321" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="965" y="275" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp9_di" bpmnElement="ov_sp9" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="1155" y="294" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e5_di" bpmnElement="ov_e5"><dc:Bounds x="1427" y="321" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1385" y="363" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s7_di" bpmnElement="ov_s7"><dc:Bounds x="167" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="125" y="420" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp10_di" bpmnElement="ov_sp10" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="315" y="439" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e7_di" bpmnElement="ov_e7"><dc:Bounds x="587" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="545" y="508" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s8_di" bpmnElement="ov_s8"><dc:Bounds x="797" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="755" y="508" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp11_di" bpmnElement="ov_sp11" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="945" y="439" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e8_di" bpmnElement="ov_e8"><dc:Bounds x="1217" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1175" y="508" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s9_di" bpmnElement="ov_s9"><dc:Bounds x="1427" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1385" y="508" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp12_di" bpmnElement="ov_sp12" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="1575" y="439" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e9_di" bpmnElement="ov_e9"><dc:Bounds x="1847" y="466" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1805" y="508" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s3_di" bpmnElement="ov_s3"><dc:Bounds x="167" y="636" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="125" y="678" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp3_di" bpmnElement="ov_sp3" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="315" y="609" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp4_di" bpmnElement="ov_sp4" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="525" y="609" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_g1_di" bpmnElement="ov_g1" isMarkerVisible="true"><dc:Bounds x="790" y="629" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="750" y="595" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp5_di" bpmnElement="ov_sp5" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="735" y="712" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e2_di" bpmnElement="ov_e2"><dc:Bounds x="1007" y="636" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="965" y="678" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s4_di" bpmnElement="ov_s4"><dc:Bounds x="167" y="866" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="125" y="908" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_ie_di" bpmnElement="ov_ie"><dc:Bounds x="377" y="866" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="335" y="820" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_pg_di" bpmnElement="ov_pg"><dc:Bounds x="580" y="859" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp6_di" bpmnElement="ov_sp6" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="735" y="839" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp7_di" bpmnElement="ov_sp7" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="945" y="942" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_pj_di" bpmnElement="ov_pj"><dc:Bounds x="1210" y="859" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e3_di" bpmnElement="ov_e3"><dc:Bounds x="1427" y="866" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1385" y="908" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_s6_di" bpmnElement="ov_s6"><dc:Bounds x="167" y="1111" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="125" y="1153" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_sp8_di" bpmnElement="ov_sp8" isExpanded="false" bioc:stroke="#1F3864" bioc:fill="#FFFFFF" color:background-color="#FFFFFF" color:border-color="#1F3864"><dc:Bounds x="315" y="1084" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_e6_di" bpmnElement="ov_e6"><dc:Bounds x="587" y="1111" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="545" y="1153" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_ann0_di" bpmnElement="ov_ann0"><dc:Bounds x="1560" y="162" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_ann1_di" bpmnElement="ov_ann1"><dc:Bounds x="1770" y="307" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ov_ann2_di" bpmnElement="ov_ann2"><dc:Bounds x="300" y="957" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="ov_ann2_assoc_di" bpmnElement="ov_ann2_assoc"><di:waypoint x="395" y="902" /><di:waypoint x="395" y="957" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="ov_ann3_di" bpmnElement="ov_ann3"><dc:Bounds x="1390" y="1097" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="ov_flow0_di" bpmnElement="ov_flow0"><di:waypoint x="203" y="194" /><di:waypoint x="315" y="194" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow1_di" bpmnElement="ov_flow1"><di:waypoint x="475" y="194" /><di:waypoint x="580" y="194" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow2_di" bpmnElement="ov_flow2"><di:waypoint x="605" y="256" /><di:waypoint x="605" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow3_di" bpmnElement="ov_flow3"><di:waypoint x="630" y="194" /><di:waypoint x="735" y="194" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow4_di" bpmnElement="ov_flow4"><di:waypoint x="895" y="194" /><di:waypoint x="1007" y="194" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow5_di" bpmnElement="ov_flow5"><di:waypoint x="1043" y="339" /><di:waypoint x="1155" y="339" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow6_di" bpmnElement="ov_flow6"><di:waypoint x="1315" y="339" /><di:waypoint x="1427" y="339" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow7_di" bpmnElement="ov_flow7"><di:waypoint x="203" y="484" /><di:waypoint x="315" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow8_di" bpmnElement="ov_flow8"><di:waypoint x="475" y="484" /><di:waypoint x="587" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow9_di" bpmnElement="ov_flow9"><di:waypoint x="833" y="484" /><di:waypoint x="945" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow10_di" bpmnElement="ov_flow10"><di:waypoint x="1105" y="484" /><di:waypoint x="1217" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow11_di" bpmnElement="ov_flow11"><di:waypoint x="1463" y="484" /><di:waypoint x="1575" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow12_di" bpmnElement="ov_flow12"><di:waypoint x="1735" y="484" /><di:waypoint x="1847" y="484" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow13_di" bpmnElement="ov_flow13"><di:waypoint x="203" y="654" /><di:waypoint x="315" y="654" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow14_di" bpmnElement="ov_flow14"><di:waypoint x="475" y="654" /><di:waypoint x="525" y="654" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow15_di" bpmnElement="ov_flow15"><di:waypoint x="685" y="654" /><di:waypoint x="790" y="654" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow16_di" bpmnElement="ov_flow16"><di:waypoint x="840" y="654" /><di:waypoint x="1007" y="654" /><bpmndi:BPMNLabel><dc:Bounds x="846" y="634" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow17_di" bpmnElement="ov_flow17"><di:waypoint x="815" y="679" /><di:waypoint x="815" y="712" /><bpmndi:BPMNLabel><dc:Bounds x="821" y="685" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow18_di" bpmnElement="ov_flow18"><di:waypoint x="735" y="757" /><di:waypoint x="605" y="757" /><di:waypoint x="605" y="699" /><bpmndi:BPMNLabel><dc:Bounds x="639" y="737" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow19_di" bpmnElement="ov_flow19"><di:waypoint x="203" y="884" /><di:waypoint x="377" y="884" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow20_di" bpmnElement="ov_flow20"><di:waypoint x="413" y="884" /><di:waypoint x="580" y="884" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow21_di" bpmnElement="ov_flow21"><di:waypoint x="630" y="884" /><di:waypoint x="735" y="884" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow22_di" bpmnElement="ov_flow22"><di:waypoint x="605" y="909" /><di:waypoint x="605" y="987" /><di:waypoint x="945" y="987" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow23_di" bpmnElement="ov_flow23"><di:waypoint x="895" y="884" /><di:waypoint x="1210" y="884" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow24_di" bpmnElement="ov_flow24"><di:waypoint x="1105" y="987" /><di:waypoint x="1235" y="987" /><di:waypoint x="1235" y="909" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow25_di" bpmnElement="ov_flow25"><di:waypoint x="1260" y="884" /><di:waypoint x="1427" y="884" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow26_di" bpmnElement="ov_flow26"><di:waypoint x="203" y="1129" /><di:waypoint x="315" y="1129" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_flow27_di" bpmnElement="ov_flow27"><di:waypoint x="475" y="1129" /><di:waypoint x="587" y="1129" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg0_di" bpmnElement="ov_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="275" y="1308" /><di:waypoint x="275" y="394" /><di:waypoint x="185" y="394" /><di:waypoint x="185" y="212" /><bpmndi:BPMNLabel><dc:Bounds x="282" y="1272" width="96" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg1_di" bpmnElement="ov_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="485" y="1308" /><di:waypoint x="485" y="394" /><di:waypoint x="605" y="394" /><di:waypoint x="605" y="292" /><bpmndi:BPMNLabel><dc:Bounds x="492" y="1272" width="102" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg2_di" bpmnElement="ov_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="725" y="1308" /><di:waypoint x="725" y="394" /><di:waypoint x="1025" y="394" /><di:waypoint x="1025" y="357" /><bpmndi:BPMNLabel><dc:Bounds x="732" y="1254" width="96" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg3_di" bpmnElement="ov_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="305" y="1308" /><di:waypoint x="305" y="574" /><di:waypoint x="185" y="574" /><di:waypoint x="185" y="502" /><bpmndi:BPMNLabel><dc:Bounds x="258" y="1254" width="40" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg4_di" bpmnElement="ov_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="780" y="149" /><di:waypoint x="780" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="696" y="88" width="77" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg5_di" bpmnElement="ov_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="850" y="60" /><di:waypoint x="850" y="149" /><bpmndi:BPMNLabel><dc:Bounds x="857" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg6_di" bpmnElement="ov_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="395" y="439" /><di:waypoint x="395" y="414" /><di:waypoint x="305" y="414" /><di:waypoint x="305" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="196" y="88" width="102" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg7_di" bpmnElement="ov_msg7" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="915" y="60" /><di:waypoint x="915" y="414" /><di:waypoint x="815" y="414" /><di:waypoint x="815" y="466" /><bpmndi:BPMNLabel><dc:Bounds x="922" y="88" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg8_di" bpmnElement="ov_msg8" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1355" y="60" /><di:waypoint x="1355" y="414" /><di:waypoint x="1445" y="414" /><di:waypoint x="1445" y="466" /><bpmndi:BPMNLabel><dc:Bounds x="1362" y="88" width="77" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg9_di" bpmnElement="ov_msg9" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="515" y="60" /><di:waypoint x="515" y="594" /><di:waypoint x="395" y="594" /><di:waypoint x="395" y="609" /><bpmndi:BPMNLabel><dc:Bounds x="386" y="66" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg10_di" bpmnElement="ov_msg10" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="695" y="60" /><di:waypoint x="695" y="594" /><di:waypoint x="605" y="594" /><di:waypoint x="605" y="609" /><bpmndi:BPMNLabel><dc:Bounds x="598" y="66" width="90" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg11_di" bpmnElement="ov_msg11" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1275" y="60" /><di:waypoint x="1275" y="294" /><bpmndi:BPMNLabel><dc:Bounds x="1282" y="66" width="128" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg12_di" bpmnElement="ov_msg12" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="815" y="929" /><di:waypoint x="815" y="1308" /><bpmndi:BPMNLabel><dc:Bounds x="822" y="1272" width="64" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg13_di" bpmnElement="ov_msg13" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1025" y="1032" /><di:waypoint x="1025" y="1308" /><bpmndi:BPMNLabel><dc:Bounds x="1032" y="1272" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg14_di" bpmnElement="ov_msg14" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="355" y="1174" /><di:waypoint x="355" y="1308" /><bpmndi:BPMNLabel><dc:Bounds x="362" y="1254" width="102" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg15_di" bpmnElement="ov_msg15" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="395" y="1174" /><di:waypoint x="395" y="1234" /><di:waypoint x="935" y="1234" /><di:waypoint x="935" y="1308" /><bpmndi:BPMNLabel><dc:Bounds x="942" y="1254" width="128" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ov_msg16_di" bpmnElement="ov_msg16" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="435" y="1174" /><di:waypoint x="435" y="1218" /><di:waypoint x="1355" y="1218" /><di:waypoint x="1355" y="1308" /><bpmndi:BPMNLabel><dc:Bounds x="1362" y="1272" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

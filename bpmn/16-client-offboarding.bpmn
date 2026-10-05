@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="co_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="co_collab">
+<bpmn:participant id="co_main" name="Custody operations platform (synthetic reference implementation)" processRef="co_process" />
+<bpmn:participant id="co_ria" name="RIA advisor" />
+<bpmn:participant id="co_rcv" name="Receiving firm or institution (NSCC ACATS or direct)" />
+<bpmn:messageFlow id="co_msg0" name="Termination notice" sourceRef="co_ria" targetRef="co_s1" />
+<bpmn:messageFlow id="co_msg1" name="TIF or transfer instructions" sourceRef="co_rcv" targetRef="co_ie1" />
+<bpmn:messageFlow id="co_msg2" name="Closure confirmation" sourceRef="co_e" targetRef="co_ria" />
+<bpmn:textAnnotation id="co_ann0"><bpmn:text>The client never initiates offboarding directly; the RIA notifies the custodian.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="co_ann1"><bpmn:text>Undeliverable residuals and uncashed checks enter the escheatment process.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="co_process" name="Client offboarding (client leaves the RIA, or compliance exit)" isExecutable="false">
+<bpmn:laneSet id="co_laneset">
+<bpmn:lane id="co_lane_ops" name="Custody operations (first line)">
+<bpmn:flowNodeRef>co_s1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t7</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="co_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>co_t6</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="co_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>co_g0</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_g1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_g2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_g3</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="co_lane_comp" name="Compliance and supervision">
+<bpmn:flowNodeRef>co_s3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t3</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="co_lane_ledger" name="Ledger and settlement engine">
+<bpmn:flowNodeRef>co_t1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_ie1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_ca1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_ca2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_tw</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t8</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t9</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_t10</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>co_e</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="co_s1" name="RIA notifies: client is leaving">
+<bpmn:outgoing>co_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="co_s1_def" />
+</bpmn:startEvent>
+<bpmn:startEvent id="co_s3" name="Compliance exit decision">
+<bpmn:outgoing>co_flow1</bpmn:outgoing>
+<bpmn:conditionalEventDefinition id="co_s3_def"><bpmn:condition xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">condition_met == true</bpmn:condition></bpmn:conditionalEventDefinition>
+</bpmn:startEvent>
+<bpmn:exclusiveGateway id="co_g0" name="">
+<bpmn:incoming>co_flow0</bpmn:incoming>
+<bpmn:incoming>co_flow1</bpmn:incoming>
+<bpmn:outgoing>co_flow2</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="co_t1" name="Restriction code: outgoing transfers only (no trading, no other money movement)">
+<bpmn:incoming>co_flow2</bpmn:incoming>
+<bpmn:outgoing>co_flow3</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="co_t2" name="Closure pre-checks: open orders, pending items, debit balances, other holds">
+<bpmn:incoming>co_flow3</bpmn:incoming>
+<bpmn:outgoing>co_flow4</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="co_g1" name="Other holds?">
+<bpmn:incoming>co_flow4</bpmn:incoming>
+<bpmn:outgoing>co_flow5</bpmn:outgoing>
+<bpmn:outgoing>co_flow6</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="co_t3" name="Resolve hold: garnishment, levy, court order, AML (sanctions holds stay with the sanctions team)">
+<bpmn:incoming>co_flow5</bpmn:incoming>
+<bpmn:outgoing>co_flow7</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="co_g2" name="">
+<bpmn:incoming>co_flow6</bpmn:incoming>
+<bpmn:incoming>co_flow7</bpmn:incoming>
+<bpmn:outgoing>co_flow8</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="co_t4" name="Calculate final pro-rated advisory fee (refund if billed in advance)">
+<bpmn:incoming>co_flow8</bpmn:incoming>
+<bpmn:outgoing>co_flow9</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:intermediateCatchEvent id="co_ie1" name="Transfer request from the receiving firm">
+<bpmn:incoming>co_flow9</bpmn:incoming>
+<bpmn:outgoing>co_flow10</bpmn:outgoing>
+<bpmn:messageEventDefinition id="co_ie1_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:callActivity id="co_ca1" name="Transferability review, outgoing (shared subprocess)" calledElement="xr_process">
+<bpmn:incoming>co_flow10</bpmn:incoming>
+<bpmn:outgoing>co_flow11</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:callActivity id="co_ca2" name="Transfer assets (transfers process)" calledElement="tr_process">
+<bpmn:incoming>co_flow11</bpmn:incoming>
+<bpmn:outgoing>co_flow12</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:intermediateCatchEvent id="co_tw" name="Residual monitoring window ends">
+<bpmn:incoming>co_flow12</bpmn:incoming>
+<bpmn:outgoing>co_flow13</bpmn:outgoing>
+<bpmn:timerEventDefinition id="co_tw_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:businessRuleTask id="co_t5" name="Verify zero balances at client, RIA master, and GL">
+<bpmn:incoming>co_flow13</bpmn:incoming>
+<bpmn:incoming>co_flow18</bpmn:incoming>
+<bpmn:outgoing>co_flow14</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="co_g3" name="Zero balance?">
+<bpmn:incoming>co_flow14</bpmn:incoming>
+<bpmn:outgoing>co_flow15</bpmn:outgoing>
+<bpmn:outgoing>co_flow19</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="co_t6" name="Identify residual items and propose disposition (AI)">
+<bpmn:incoming>co_flow15</bpmn:incoming>
+<bpmn:outgoing>co_flow16</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:userTask id="co_t7" name="Approve residual disposition">
+<bpmn:incoming>co_flow16</bpmn:incoming>
+<bpmn:outgoing>co_flow17</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:serviceTask id="co_t8" name="Post residual: deliver via transfers or move to unclaimed-property liability">
+<bpmn:incoming>co_flow17</bpmn:incoming>
+<bpmn:outgoing>co_flow18</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="co_t9" name="Close account: revoke RIA authority and client grants; end instructions">
+<bpmn:incoming>co_flow19</bpmn:incoming>
+<bpmn:outgoing>co_flow20</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="co_t10" name="Retain records; flag final-year tax reporting (1099s, 1099-R)">
+<bpmn:incoming>co_flow20</bpmn:incoming>
+<bpmn:outgoing>co_flow21</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="co_e" name="Closure confirmed">
+<bpmn:incoming>co_flow21</bpmn:incoming>
+<bpmn:messageEventDefinition id="co_e_def" />
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="co_flow0" name="" sourceRef="co_s1" targetRef="co_g0" />
+<bpmn:sequenceFlow id="co_flow1" name="" sourceRef="co_s3" targetRef="co_g0" />
+<bpmn:sequenceFlow id="co_flow2" name="" sourceRef="co_g0" targetRef="co_t1" />
+<bpmn:sequenceFlow id="co_flow3" name="" sourceRef="co_t1" targetRef="co_t2" />
+<bpmn:sequenceFlow id="co_flow4" name="" sourceRef="co_t2" targetRef="co_g1" />
+<bpmn:sequenceFlow id="co_flow5" name="Yes" sourceRef="co_g1" targetRef="co_t3" />
+<bpmn:sequenceFlow id="co_flow6" name="No" sourceRef="co_g1" targetRef="co_g2" />
+<bpmn:sequenceFlow id="co_flow7" name="" sourceRef="co_t3" targetRef="co_g2" />
+<bpmn:sequenceFlow id="co_flow8" name="" sourceRef="co_g2" targetRef="co_t4" />
+<bpmn:sequenceFlow id="co_flow9" name="" sourceRef="co_t4" targetRef="co_ie1" />
+<bpmn:sequenceFlow id="co_flow10" name="" sourceRef="co_ie1" targetRef="co_ca1" />
+<bpmn:sequenceFlow id="co_flow11" name="" sourceRef="co_ca1" targetRef="co_ca2" />
+<bpmn:sequenceFlow id="co_flow12" name="" sourceRef="co_ca2" targetRef="co_tw" />
+<bpmn:sequenceFlow id="co_flow13" name="" sourceRef="co_tw" targetRef="co_t5" />
+<bpmn:sequenceFlow id="co_flow14" name="" sourceRef="co_t5" targetRef="co_g3" />
+<bpmn:sequenceFlow id="co_flow15" name="No" sourceRef="co_g3" targetRef="co_t6" />
+<bpmn:sequenceFlow id="co_flow16" name="" sourceRef="co_t6" targetRef="co_t7" />
+<bpmn:sequenceFlow id="co_flow17" name="" sourceRef="co_t7" targetRef="co_t8" />
+<bpmn:sequenceFlow id="co_flow18" name="Re-verify" sourceRef="co_t8" targetRef="co_t5" />
+<bpmn:sequenceFlow id="co_flow19" name="Yes" sourceRef="co_g3" targetRef="co_t9" />
+<bpmn:sequenceFlow id="co_flow20" name="" sourceRef="co_t9" targetRef="co_t10" />
+<bpmn:sequenceFlow id="co_flow21" name="" sourceRef="co_t10" targetRef="co_e" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="co_diagram" name="Client offboarding (client leaves the RIA, or compliance exit)">
+<bpmndi:BPMNPlane id="co_plane" bpmnElement="co_collab">
+<bpmndi:BPMNShape id="co_main_di" bpmnElement="co_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="4100" height="870" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_lane_ops_di" bpmnElement="co_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_lane_ai_di" bpmnElement="co_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_lane_rules_di" bpmnElement="co_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_lane_comp_di" bpmnElement="co_lane_comp" isHorizontal="true"><dc:Bounds x="30" y="634" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_lane_ledger_di" bpmnElement="co_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="804" width="4070" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ria_di" bpmnElement="co_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_rcv_di" bpmnElement="co_rcv" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1058" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_s1_di" bpmnElement="co_s1"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="204" y="195" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_s3_di" bpmnElement="co_s3"><dc:Bounds x="162" y="701" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="204" y="705" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_g0_di" bpmnElement="co_g0" isMarkerVisible="true"><dc:Bounds x="355" y="524" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t1_di" bpmnElement="co_t1" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="500" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t2_di" bpmnElement="co_t2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="700" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_g1_di" bpmnElement="co_g1" isMarkerVisible="true"><dc:Bounds x="955" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="843" y="502" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t3_di" bpmnElement="co_t3" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1100" y="674" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_g2_di" bpmnElement="co_g2" isMarkerVisible="true"><dc:Bounds x="1355" y="524" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t4_di" bpmnElement="co_t4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1500" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ie1_di" bpmnElement="co_ie1"><dc:Bounds x="1762" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1720" y="835" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ca1_di" bpmnElement="co_ca1" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1900" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ca2_di" bpmnElement="co_ca2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2100" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_tw_di" bpmnElement="co_tw"><dc:Bounds x="2362" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2320" y="923" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t5_di" bpmnElement="co_t5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_g3_di" bpmnElement="co_g3" isMarkerVisible="true"><dc:Bounds x="2755" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2715" y="580" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t6_di" bpmnElement="co_t6" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="2900" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t7_di" bpmnElement="co_t7" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="3100" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t8_di" bpmnElement="co_t8" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3300" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t9_di" bpmnElement="co_t9" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3500" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_t10_di" bpmnElement="co_t10" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3700" y="854" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_e_di" bpmnElement="co_e"><dc:Bounds x="3962" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3920" y="923" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ann0_di" bpmnElement="co_ann0"><dc:Bounds x="925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ann1_di" bpmnElement="co_ann1"><dc:Bounds x="3325" y="687" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="co_flow0_di" bpmnElement="co_flow0"><di:waypoint x="180" y="227" /><di:waypoint x="180" y="549" /><di:waypoint x="355" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow1_di" bpmnElement="co_flow1"><di:waypoint x="180" y="701" /><di:waypoint x="180" y="549" /><di:waypoint x="355" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow2_di" bpmnElement="co_flow2"><di:waypoint x="405" y="549" /><di:waypoint x="480" y="549" /><di:waypoint x="480" y="899" /><di:waypoint x="500" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow3_di" bpmnElement="co_flow3"><di:waypoint x="660" y="899" /><di:waypoint x="680" y="899" /><di:waypoint x="680" y="549" /><di:waypoint x="700" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow4_di" bpmnElement="co_flow4"><di:waypoint x="860" y="549" /><di:waypoint x="955" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow5_di" bpmnElement="co_flow5"><di:waypoint x="980" y="574" /><di:waypoint x="980" y="719" /><di:waypoint x="1100" y="719" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="580" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow6_di" bpmnElement="co_flow6"><di:waypoint x="1005" y="549" /><di:waypoint x="1355" y="549" /><bpmndi:BPMNLabel><dc:Bounds x="1011" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow7_di" bpmnElement="co_flow7"><di:waypoint x="1260" y="719" /><di:waypoint x="1380" y="719" /><di:waypoint x="1380" y="574" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow8_di" bpmnElement="co_flow8"><di:waypoint x="1405" y="549" /><di:waypoint x="1480" y="549" /><di:waypoint x="1480" y="899" /><di:waypoint x="1500" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow9_di" bpmnElement="co_flow9"><di:waypoint x="1660" y="899" /><di:waypoint x="1762" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow10_di" bpmnElement="co_flow10"><di:waypoint x="1798" y="899" /><di:waypoint x="1900" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow11_di" bpmnElement="co_flow11"><di:waypoint x="2060" y="899" /><di:waypoint x="2100" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow12_di" bpmnElement="co_flow12"><di:waypoint x="2260" y="899" /><di:waypoint x="2362" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow13_di" bpmnElement="co_flow13"><di:waypoint x="2398" y="899" /><di:waypoint x="2480" y="899" /><di:waypoint x="2480" y="549" /><di:waypoint x="2500" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow14_di" bpmnElement="co_flow14"><di:waypoint x="2660" y="549" /><di:waypoint x="2755" y="549" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow15_di" bpmnElement="co_flow15"><di:waypoint x="2780" y="524" /><di:waypoint x="2780" y="379" /><di:waypoint x="2900" y="379" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="502" width="110" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow16_di" bpmnElement="co_flow16"><di:waypoint x="3060" y="379" /><di:waypoint x="3080" y="379" /><di:waypoint x="3080" y="209" /><di:waypoint x="3100" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow17_di" bpmnElement="co_flow17"><di:waypoint x="3260" y="209" /><di:waypoint x="3280" y="209" /><di:waypoint x="3280" y="899" /><di:waypoint x="3300" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow18_di" bpmnElement="co_flow18"><di:waypoint x="3380" y="944" /><di:waypoint x="3380" y="982" /><di:waypoint x="2580" y="982" /><di:waypoint x="2580" y="594" /><bpmndi:BPMNLabel><dc:Bounds x="2586" y="600" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow19_di" bpmnElement="co_flow19"><di:waypoint x="2805" y="549" /><di:waypoint x="3480" y="549" /><di:waypoint x="3480" y="899" /><di:waypoint x="3500" y="899" /><bpmndi:BPMNLabel><dc:Bounds x="2811" y="529" width="90" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow20_di" bpmnElement="co_flow20"><di:waypoint x="3660" y="899" /><di:waypoint x="3700" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_flow21_di" bpmnElement="co_flow21"><di:waypoint x="3860" y="899" /><di:waypoint x="3962" y="899" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_msg0_di" bpmnElement="co_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_msg1_di" bpmnElement="co_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="1058" /><di:waypoint x="1780" y="917" /><bpmndi:BPMNLabel><dc:Bounds x="1787" y="1022" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="co_msg2_di" bpmnElement="co_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3980" y="881" /><di:waypoint x="3980" y="814" /><di:waypoint x="4060" y="814" /><di:waypoint x="4060" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="3925" y="66" width="128" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>
