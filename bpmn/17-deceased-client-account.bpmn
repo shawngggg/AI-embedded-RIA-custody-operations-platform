@@ -2,13 +2,13 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="dc_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="dc_collab">
 <bpmn:participant id="dc_main" name="Custody operations platform (synthetic reference implementation)" processRef="dc_process" />
-<bpmn:participant id="dc_ext" name="RIA advisor, and the client's family or estate representative" />
+<bpmn:participant id="dc_ext" name="Client&#39;s family, estate representative, or beneficiaries; the RIA is kept informed" />
 <bpmn:messageFlow id="dc_msg0" name="Death notification" sourceRef="dc_ext" targetRef="dc_s" />
-<bpmn:messageFlow id="dc_msg1" name="Confirmation request" sourceRef="dc_t2" targetRef="dc_ext" />
-<bpmn:messageFlow id="dc_msg2" name="RIA confirmation, death certificate" sourceRef="dc_ext" targetRef="dc_ie1" />
+<bpmn:messageFlow id="dc_msg1" name="Certificate request; notice to the RIA" sourceRef="dc_t2" targetRef="dc_ext" />
+<bpmn:messageFlow id="dc_msg2" name="Death certificate" sourceRef="dc_ext" targetRef="dc_ie1" />
 <bpmn:messageFlow id="dc_msg3" name="Estate process notice" sourceRef="dc_t7" targetRef="dc_ext" />
 <bpmn:messageFlow id="dc_msg4" name="Court or small-estate documents" sourceRef="dc_ext" targetRef="dc_ie2" />
-<bpmn:textAnnotation id="dc_ann0"><bpmn:text>The custodian acts only on the RIA's confirmation, because its agreement is with the RIA.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="dc_ann0"><bpmn:text>The account agreement is with the account owner, and the RIA&#39;s authority ends at death. Executors, surviving owners, or beneficiaries give instructions; the RIA is kept informed and can help.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="dc_ann1"><bpmn:text>Clear ownership: a TOD or IRA beneficiary designation, or a surviving joint owner.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="dc_ann2"><bpmn:text>If no one establishes ownership, the account eventually enters escheatment.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
@@ -48,36 +48,36 @@
 <bpmn:flowNodeRef>dc_e</bpmn:flowNodeRef>
 </bpmn:lane>
 </bpmn:laneSet>
-<bpmn:startEvent id="dc_s" name="Death notification received (RIA or family)">
+<bpmn:startEvent id="dc_s" name="Death notification received (family, estate representative, or RIA)">
 <bpmn:outgoing>dc_flow0</bpmn:outgoing>
 <bpmn:messageEventDefinition id="dc_s_def" />
 </bpmn:startEvent>
-<bpmn:serviceTask id="dc_t1" name="Protective hold: nothing moves pending RIA confirmation">
+<bpmn:serviceTask id="dc_t1" name="Restrict on notice: deceased hold; the RIA&#39;s trading authority stops">
 <bpmn:incoming>dc_flow0</bpmn:incoming>
 <bpmn:outgoing>dc_flow1</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:sendTask id="dc_t2" name="Confirm with the RIA; request the death certificate">
+<bpmn:sendTask id="dc_t2" name="Request the death certificate; inform the RIA">
 <bpmn:incoming>dc_flow1</bpmn:incoming>
 <bpmn:outgoing>dc_flow2</bpmn:outgoing>
 </bpmn:sendTask>
-<bpmn:intermediateCatchEvent id="dc_ie1" name="RIA confirmation and death certificate received">
+<bpmn:intermediateCatchEvent id="dc_ie1" name="Death certificate received">
 <bpmn:incoming>dc_flow2</bpmn:incoming>
 <bpmn:outgoing>dc_flow3</bpmn:outgoing>
 <bpmn:messageEventDefinition id="dc_ie1_def" />
 </bpmn:intermediateCatchEvent>
-<bpmn:exclusiveGateway id="dc_g1" name="Death confirmed by RIA?">
+<bpmn:exclusiveGateway id="dc_g1" name="Death verified?">
 <bpmn:incoming>dc_flow3</bpmn:incoming>
 <bpmn:outgoing>dc_flow4</bpmn:outgoing>
 <bpmn:outgoing>dc_flow6</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:serviceTask id="dc_t3" name="Remove protective hold">
+<bpmn:serviceTask id="dc_t3" name="Remove the hold">
 <bpmn:incoming>dc_flow4</bpmn:incoming>
 <bpmn:outgoing>dc_flow5</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:endEvent id="dc_e1" name="Notification not confirmed">
+<bpmn:endEvent id="dc_e1" name="Notification not verified">
 <bpmn:incoming>dc_flow5</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:serviceTask id="dc_t4" name="Full lockdown: deceased restriction code; RIA authority under the LPOA ends">
+<bpmn:serviceTask id="dc_t4" name="Full lockdown: deceased restriction code; the RIA&#39;s LPOA has ended">
 <bpmn:incoming>dc_flow6</bpmn:incoming>
 <bpmn:outgoing>dc_flow7</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -94,7 +94,7 @@
 <bpmn:incoming>dc_flow9</bpmn:incoming>
 <bpmn:outgoing>dc_flow14</bpmn:outgoing>
 </bpmn:userTask>
-<bpmn:sendTask id="dc_t7" name="Notify RIA and family: estate process required under state law">
+<bpmn:sendTask id="dc_t7" name="Notify the family and the RIA: estate process required under state law">
 <bpmn:incoming>dc_flow10</bpmn:incoming>
 <bpmn:outgoing>dc_flow11</bpmn:outgoing>
 </bpmn:sendTask>
@@ -125,7 +125,7 @@
 <bpmn:outgoing>dc_flow18</bpmn:outgoing>
 <bpmn:outgoing>dc_flow19</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:serviceTask id="dc_t11" name="Journal assets to the new owner's account under the RIA">
+<bpmn:serviceTask id="dc_t11" name="Journal assets to the new owner&#39;s account; the RIA manages it only under a new agreement">
 <bpmn:incoming>dc_flow18</bpmn:incoming>
 <bpmn:outgoing>dc_flow20</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -202,7 +202,7 @@
 <bpmndi:BPMNShape id="dc_gm2_di" bpmnElement="dc_gm2" isMarkerVisible="true"><dc:Bounds x="3355" y="844" width="50" height="50" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="dc_t12_di" bpmnElement="dc_t12" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3500" y="824" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="dc_e_di" bpmnElement="dc_e"><dc:Bounds x="3762" y="851" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3720" y="893" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="dc_ann0_di" bpmnElement="dc_ann0"><dc:Bounds x="905" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="dc_ann0_di" bpmnElement="dc_ann0"><dc:Bounds x="905" y="347" width="270" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="dc_ann1_di" bpmnElement="dc_ann1"><dc:Bounds x="2125" y="347" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="dc_ann2_di" bpmnElement="dc_ann2"><dc:Bounds x="2525" y="687" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="dc_flow0_di" bpmnElement="dc_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="869" /><di:waypoint x="300" y="869" /></bpmndi:BPMNEdge>

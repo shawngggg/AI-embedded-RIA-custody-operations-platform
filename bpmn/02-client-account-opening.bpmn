@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ao_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="ao_collab">
 <bpmn:participant id="ao_main" name="Custody operations platform (synthetic reference implementation)" processRef="ao_process" />
-<bpmn:participant id="ao_req" name="RIA advisor (sole channel for applications, documents, and requests)" />
+<bpmn:participant id="ao_req" name="RIA advisor (submits client-signed applications and documents)" />
 <bpmn:participant id="ao_svc" name="Identity verification, PEP and adverse media services" />
 <bpmn:messageFlow id="ao_msg0" name="Application" sourceRef="ao_req" targetRef="ao_s" />
 <bpmn:messageFlow id="ao_msg1" name="Returned: not eligible" sourceRef="ao_e0" targetRef="ao_req" />
@@ -12,7 +12,7 @@
 <bpmn:messageFlow id="ao_msg5" name="Account details" sourceRef="ao_e" targetRef="ao_req" />
 <bpmn:messageFlow id="ao_msg6" name="Identity check" sourceRef="ao_b1" targetRef="ao_svc" />
 <bpmn:messageFlow id="ao_msg7" name="Screening request" sourceRef="ao_t5" targetRef="ao_svc" />
-<bpmn:textAnnotation id="ao_ann0"><bpmn:text>Path A: a pure RIA account under a reliance-eligible RIA, using only RIA-provided information. Path B: the client&#39;s self-directed account, or any account under an RIA that isn&#39;t reliance-eligible.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ao_ann0"><bpmn:text>Path A: a pure RIA account under a reliance-eligible RIA, using only RIA-provided information. Path B: the client&#39;s self-directed account, or any account under an RIA that isn&#39;t reliance-eligible. Reliance doesn&#39;t shift accountability: the custodian stays responsible for its AML program, SARs, and sanctions.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann1"><bpmn:text>Entity accounts add formation and registration documents, operating agreement, memorandum and articles of association.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann2"><bpmn:text>Identity that can't be verified follows the CIP failure procedure: request more documents, then decline.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
@@ -271,7 +271,7 @@
 <bpmndi:BPMNShape id="ao_t10_di" bpmnElement="ao_t10" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4500" y="914" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ca2_di" bpmnElement="ao_ca2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4700" y="914" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_e_di" bpmnElement="ao_e"><dc:Bounds x="4962" y="941" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4920" y="983" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="ao_ann0_di" bpmnElement="ao_ann0"><dc:Bounds x="1345" y="347" width="260" height="96" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ao_ann0_di" bpmnElement="ao_ann0"><dc:Bounds x="1345" y="347" width="340" height="104" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann1_di" bpmnElement="ao_ann1"><dc:Bounds x="305" y="347" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann2_di" bpmnElement="ao_ann2"><dc:Bounds x="1685" y="747" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="ao_flow0_di" bpmnElement="ao_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="529" /><di:waypoint x="300" y="529" /></bpmndi:BPMNEdge>

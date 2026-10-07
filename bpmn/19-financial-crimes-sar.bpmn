@@ -2,20 +2,24 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="fc_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="fc_collab">
 <bpmn:participant id="fc_main" name="Custody operations platform (synthetic reference implementation)" processRef="fc_process" />
-<bpmn:participant id="fc_ria" name="RIA advisor (asked for context only; never told about a SAR)" />
+<bpmn:participant id="fc_ria" name="RIA advisor (asked for facts only; never told whether a SAR exists)" />
 <bpmn:participant id="fc_fin" name="FinCEN BSA E-Filing" />
-<bpmn:messageFlow id="fc_msg0" name="Information request" sourceRef="fc_t2" targetRef="fc_ria" />
-<bpmn:messageFlow id="fc_msg1" name="Context and documents" sourceRef="fc_ria" targetRef="fc_t2" />
+<bpmn:messageFlow id="fc_msg0" name="Request for facts and documents" sourceRef="fc_t2" targetRef="fc_ria" />
+<bpmn:messageFlow id="fc_msg1" name="Facts and documents" sourceRef="fc_ria" targetRef="fc_t2" />
 <bpmn:messageFlow id="fc_msg2" name="SAR (BSA XML)" sourceRef="fc_t11" targetRef="fc_fin" />
 <bpmn:messageFlow id="fc_msg3" name="Acknowledgment" sourceRef="fc_fin" targetRef="fc_ie" />
-<bpmn:textAnnotation id="fc_ann0"><bpmn:text>SAR confidentiality: no one tells the RIA, the client, or anyone outside the case team that a SAR exists or was filed.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="fc_ann0"><bpmn:text>First line refers and stops there: referrers get an acknowledgment, never the outcome. No one tells the RIA, the client, or anyone outside the case team whether a SAR exists.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="fc_ann1"><bpmn:text>AI drafts on an isolated, no-retention deployment approved for SAR data; it never decides or files.</bpmn:text></bpmn:textAnnotation>
-<bpmn:textAnnotation id="fc_ann2"><bpmn:text>Flagged-list hits go to sanctions escalation instead. FinCEN 314(a) requests run as a separate routine: search records, confirm matches, report them.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="fc_ann2"><bpmn:text>Flagged-list hits go to sanctions escalation instead. FinCEN 314(a) requests run separately: search 12 months of accounts and 6 months of transactions within 2 weeks; reply only on a match.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="fc_ann3"><bpmn:text>Investigators may ask the RIA for underlying facts and documents but never mention a SAR. No joint SAR with the RIA: advisers aren't under a SAR rule before Jan 1, 2028.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="fc_ann4"><bpmn:text>Ongoing schemes or terrorist financing: also call law enforcement right away. A law enforcement keep-open request doesn't bind the firm; requests run up to six months.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="fc_ann5"><bpmn:text>Continuing activity: FinCEN's October 2025 SAR FAQs dropped the required 90-day re-review; risk-based monitoring is enough. BSA E-Filing acknowledges within about 2 business days; a rejected batch is fixed and resubmitted.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="fc_process" name="Financial crimes and SAR filing" isExecutable="false">
 <bpmn:laneSet id="fc_laneset">
 <bpmn:lane id="fc_lane_ops" name="Custody operations (first line)">
 <bpmn:flowNodeRef>fc_s1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>fc_t0</bpmn:flowNodeRef>
 </bpmn:lane>
 <bpmn:lane id="fc_lane_ai" name="AI assist (isolated deployment)">
 <bpmn:flowNodeRef>fc_t1</bpmn:flowNodeRef>
@@ -53,213 +57,223 @@
 <bpmn:flowNodeRef>fc_e3</bpmn:flowNodeRef>
 </bpmn:lane>
 </bpmn:laneSet>
-<bpmn:startEvent id="fc_s1" name="Unusual-activity referral from operations">
+<bpmn:startEvent id="fc_s1" name="Unusual activity noticed in daily work">
 <bpmn:outgoing>fc_flow0</bpmn:outgoing>
 </bpmn:startEvent>
-<bpmn:startEvent id="fc_s2" name="Monitoring scenario hit: money movement, deposits, trading">
+<bpmn:userTask id="fc_t0" name="Refer it with the facts: money movement, deposits, trading, or RIA or entity concerns">
+<bpmn:incoming>fc_flow0</bpmn:incoming>
 <bpmn:outgoing>fc_flow1</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:startEvent id="fc_s2" name="Monitoring scenario hit: money movement, deposits, trading">
+<bpmn:outgoing>fc_flow2</bpmn:outgoing>
 <bpmn:conditionalEventDefinition id="fc_s2_def"><bpmn:condition xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" /></bpmn:conditionalEventDefinition>
 </bpmn:startEvent>
 <bpmn:exclusiveGateway id="fc_g0" name="">
-<bpmn:incoming>fc_flow0</bpmn:incoming>
 <bpmn:incoming>fc_flow1</bpmn:incoming>
-<bpmn:outgoing>fc_flow2</bpmn:outgoing>
-</bpmn:exclusiveGateway>
-<bpmn:serviceTask id="fc_t1" name="Cluster related alerts across accounts and RIAs; assemble the case file (AI)">
 <bpmn:incoming>fc_flow2</bpmn:incoming>
 <bpmn:outgoing>fc_flow3</bpmn:outgoing>
-</bpmn:serviceTask>
-<bpmn:userTask id="fc_t2" name="Investigate; ask the RIA for context without revealing suspicion">
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="fc_t1" name="Cluster related alerts across accounts and RIAs; assemble the case file (AI)">
 <bpmn:incoming>fc_flow3</bpmn:incoming>
 <bpmn:outgoing>fc_flow4</bpmn:outgoing>
-</bpmn:userTask>
-<bpmn:exclusiveGateway id="fc_g1" name="Suspicious?">
+</bpmn:serviceTask>
+<bpmn:userTask id="fc_t2" name="Investigate: activity, KYC file, history; ask the RIA for facts unless it may be involved">
 <bpmn:incoming>fc_flow4</bpmn:incoming>
 <bpmn:outgoing>fc_flow5</bpmn:outgoing>
-<bpmn:outgoing>fc_flow7</bpmn:outgoing>
-</bpmn:exclusiveGateway>
-<bpmn:userTask id="fc_t4" name="Close the alert with documented rationale">
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="fc_g1" name="Suspicious?">
 <bpmn:incoming>fc_flow5</bpmn:incoming>
 <bpmn:outgoing>fc_flow6</bpmn:outgoing>
+<bpmn:outgoing>fc_flow8</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="fc_t4" name="Close the alert with a short rationale">
+<bpmn:incoming>fc_flow6</bpmn:incoming>
+<bpmn:outgoing>fc_flow7</bpmn:outgoing>
 </bpmn:userTask>
 <bpmn:endEvent id="fc_e1" name="Closed, no filing">
-<bpmn:incoming>fc_flow6</bpmn:incoming>
-</bpmn:endEvent>
-<bpmn:businessRuleTask id="fc_t5" name="Record the determination date; start the clock: 30 days, or 60 with no suspect">
 <bpmn:incoming>fc_flow7</bpmn:incoming>
-<bpmn:outgoing>fc_flow8</bpmn:outgoing>
-</bpmn:businessRuleTask>
-<bpmn:serviceTask id="fc_t6" name="Draft the SAR narrative and pre-fill filing fields from case facts (AI)">
+</bpmn:endEvent>
+<bpmn:businessRuleTask id="fc_t5" name="Record when suspicion was established; clock: 30 days, up to 60 with no suspect">
 <bpmn:incoming>fc_flow8</bpmn:incoming>
 <bpmn:outgoing>fc_flow9</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:serviceTask id="fc_t6" name="Draft the SAR narrative and pre-fill filing fields from case facts (AI)">
+<bpmn:incoming>fc_flow9</bpmn:incoming>
+<bpmn:outgoing>fc_flow10</bpmn:outgoing>
 </bpmn:serviceTask>
 <bpmn:userTask id="fc_t7" name="Review and finalize the narrative; recommend filing">
-<bpmn:incoming>fc_flow9</bpmn:incoming>
-<bpmn:incoming>fc_flow12</bpmn:incoming>
-<bpmn:outgoing>fc_flow10</bpmn:outgoing>
-</bpmn:userTask>
-<bpmn:userTask id="fc_t8" name="Review the recommendation and narrative">
 <bpmn:incoming>fc_flow10</bpmn:incoming>
+<bpmn:incoming>fc_flow13</bpmn:incoming>
 <bpmn:outgoing>fc_flow11</bpmn:outgoing>
 </bpmn:userTask>
-<bpmn:exclusiveGateway id="fc_g2" name="Decision?">
+<bpmn:userTask id="fc_t8" name="Review the recommendation and narrative">
 <bpmn:incoming>fc_flow11</bpmn:incoming>
 <bpmn:outgoing>fc_flow12</bpmn:outgoing>
-<bpmn:outgoing>fc_flow13</bpmn:outgoing>
-<bpmn:outgoing>fc_flow15</bpmn:outgoing>
-</bpmn:exclusiveGateway>
-<bpmn:userTask id="fc_t9" name="Document the decision not to file">
-<bpmn:incoming>fc_flow13</bpmn:incoming>
-<bpmn:outgoing>fc_flow14</bpmn:outgoing>
 </bpmn:userTask>
-<bpmn:endEvent id="fc_e2" name="Not filed; rationale retained">
-<bpmn:incoming>fc_flow14</bpmn:incoming>
-</bpmn:endEvent>
-<bpmn:businessRuleTask id="fc_t10" name="Validate against FinCEN's schema; confirm the deadline">
-<bpmn:incoming>fc_flow15</bpmn:incoming>
+<bpmn:exclusiveGateway id="fc_g2" name="Decision?">
+<bpmn:incoming>fc_flow12</bpmn:incoming>
+<bpmn:outgoing>fc_flow13</bpmn:outgoing>
+<bpmn:outgoing>fc_flow14</bpmn:outgoing>
 <bpmn:outgoing>fc_flow16</bpmn:outgoing>
-</bpmn:businessRuleTask>
-<bpmn:sendTask id="fc_t11" name="Submit the SAR through BSA E-Filing">
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="fc_t9" name="Record the decision not to file with a short rationale">
+<bpmn:incoming>fc_flow14</bpmn:incoming>
+<bpmn:outgoing>fc_flow15</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:endEvent id="fc_e2" name="Not filed">
+<bpmn:incoming>fc_flow15</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:businessRuleTask id="fc_t10" name="Validate against FinCEN's SAR schema; confirm the deadline">
 <bpmn:incoming>fc_flow16</bpmn:incoming>
 <bpmn:outgoing>fc_flow17</bpmn:outgoing>
-</bpmn:sendTask>
-<bpmn:intermediateCatchEvent id="fc_ie" name="Acknowledgment received (BSA ID)">
+</bpmn:businessRuleTask>
+<bpmn:sendTask id="fc_t11" name="Submit the SAR through BSA E-Filing">
 <bpmn:incoming>fc_flow17</bpmn:incoming>
 <bpmn:outgoing>fc_flow18</bpmn:outgoing>
-<bpmn:messageEventDefinition id="fc_ie_def" />
-</bpmn:intermediateCatchEvent>
-<bpmn:serviceTask id="fc_t12" name="Store the filing and acknowledgment in the restricted case record">
+</bpmn:sendTask>
+<bpmn:intermediateCatchEvent id="fc_ie" name="Acknowledgment with BSA ID">
 <bpmn:incoming>fc_flow18</bpmn:incoming>
 <bpmn:outgoing>fc_flow19</bpmn:outgoing>
-</bpmn:serviceTask>
-<bpmn:userTask id="fc_t13" name="Decide the relationship: continue, restrict, or exit">
+<bpmn:messageEventDefinition id="fc_ie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:serviceTask id="fc_t12" name="Store the SAR, acknowledgment, and supporting documents for 5 years (restricted)">
 <bpmn:incoming>fc_flow19</bpmn:incoming>
 <bpmn:outgoing>fc_flow20</bpmn:outgoing>
-</bpmn:userTask>
-<bpmn:exclusiveGateway id="fc_g3" name="Action?">
+</bpmn:serviceTask>
+<bpmn:userTask id="fc_t13" name="Decide the relationship: continue, restrict, or exit">
 <bpmn:incoming>fc_flow20</bpmn:incoming>
 <bpmn:outgoing>fc_flow21</bpmn:outgoing>
-<bpmn:outgoing>fc_flow23</bpmn:outgoing>
-<bpmn:outgoing>fc_flow25</bpmn:outgoing>
-</bpmn:exclusiveGateway>
-<bpmn:callActivity id="fc_ca" name="Exit through client offboarding" calledElement="co_process">
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="fc_g3" name="Action?">
 <bpmn:incoming>fc_flow21</bpmn:incoming>
 <bpmn:outgoing>fc_flow22</bpmn:outgoing>
+<bpmn:outgoing>fc_flow24</bpmn:outgoing>
+<bpmn:outgoing>fc_flow26</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:callActivity id="fc_ca" name="Exit through client offboarding" calledElement="co_process">
+<bpmn:incoming>fc_flow22</bpmn:incoming>
+<bpmn:outgoing>fc_flow23</bpmn:outgoing>
 </bpmn:callActivity>
 <bpmn:endEvent id="fc_e4" name="Exit started">
-<bpmn:incoming>fc_flow22</bpmn:incoming>
+<bpmn:incoming>fc_flow23</bpmn:incoming>
 </bpmn:endEvent>
 <bpmn:serviceTask id="fc_t15" name="Apply AML restriction code (owner: AML compliance)">
-<bpmn:incoming>fc_flow23</bpmn:incoming>
-<bpmn:outgoing>fc_flow24</bpmn:outgoing>
-</bpmn:serviceTask>
-<bpmn:serviceTask id="fc_t14" name="Schedule the continuing-activity review">
 <bpmn:incoming>fc_flow24</bpmn:incoming>
-<bpmn:incoming>fc_flow25</bpmn:incoming>
-<bpmn:outgoing>fc_flow26</bpmn:outgoing>
+<bpmn:outgoing>fc_flow25</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:endEvent id="fc_e3" name="Case closed; review scheduled">
+<bpmn:serviceTask id="fc_t14" name="Keep under risk-based monitoring; file a continuing SAR if activity persists">
+<bpmn:incoming>fc_flow25</bpmn:incoming>
 <bpmn:incoming>fc_flow26</bpmn:incoming>
+<bpmn:outgoing>fc_flow27</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="fc_e3" name="Case closed; monitoring continues">
+<bpmn:incoming>fc_flow27</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:sequenceFlow id="fc_flow0" name="" sourceRef="fc_s1" targetRef="fc_g0" />
-<bpmn:sequenceFlow id="fc_flow1" name="" sourceRef="fc_s2" targetRef="fc_g0" />
-<bpmn:sequenceFlow id="fc_flow2" name="" sourceRef="fc_g0" targetRef="fc_t1" />
-<bpmn:sequenceFlow id="fc_flow3" name="" sourceRef="fc_t1" targetRef="fc_t2" />
-<bpmn:sequenceFlow id="fc_flow4" name="" sourceRef="fc_t2" targetRef="fc_g1" />
-<bpmn:sequenceFlow id="fc_flow5" name="No" sourceRef="fc_g1" targetRef="fc_t4" />
-<bpmn:sequenceFlow id="fc_flow6" name="" sourceRef="fc_t4" targetRef="fc_e1" />
-<bpmn:sequenceFlow id="fc_flow7" name="Yes" sourceRef="fc_g1" targetRef="fc_t5" />
-<bpmn:sequenceFlow id="fc_flow8" name="" sourceRef="fc_t5" targetRef="fc_t6" />
-<bpmn:sequenceFlow id="fc_flow9" name="" sourceRef="fc_t6" targetRef="fc_t7" />
-<bpmn:sequenceFlow id="fc_flow10" name="" sourceRef="fc_t7" targetRef="fc_t8" />
-<bpmn:sequenceFlow id="fc_flow11" name="" sourceRef="fc_t8" targetRef="fc_g2" />
-<bpmn:sequenceFlow id="fc_flow12" name="Revise" sourceRef="fc_g2" targetRef="fc_t7" />
-<bpmn:sequenceFlow id="fc_flow13" name="Decline" sourceRef="fc_g2" targetRef="fc_t9" />
-<bpmn:sequenceFlow id="fc_flow14" name="" sourceRef="fc_t9" targetRef="fc_e2" />
-<bpmn:sequenceFlow id="fc_flow15" name="File" sourceRef="fc_g2" targetRef="fc_t10" />
-<bpmn:sequenceFlow id="fc_flow16" name="" sourceRef="fc_t10" targetRef="fc_t11" />
-<bpmn:sequenceFlow id="fc_flow17" name="" sourceRef="fc_t11" targetRef="fc_ie" />
-<bpmn:sequenceFlow id="fc_flow18" name="" sourceRef="fc_ie" targetRef="fc_t12" />
-<bpmn:sequenceFlow id="fc_flow19" name="" sourceRef="fc_t12" targetRef="fc_t13" />
-<bpmn:sequenceFlow id="fc_flow20" name="" sourceRef="fc_t13" targetRef="fc_g3" />
-<bpmn:sequenceFlow id="fc_flow21" name="Exit" sourceRef="fc_g3" targetRef="fc_ca" />
-<bpmn:sequenceFlow id="fc_flow22" name="" sourceRef="fc_ca" targetRef="fc_e4" />
-<bpmn:sequenceFlow id="fc_flow23" name="Restrict" sourceRef="fc_g3" targetRef="fc_t15" />
-<bpmn:sequenceFlow id="fc_flow24" name="" sourceRef="fc_t15" targetRef="fc_t14" />
-<bpmn:sequenceFlow id="fc_flow25" name="Continue" sourceRef="fc_g3" targetRef="fc_t14" />
-<bpmn:sequenceFlow id="fc_flow26" name="" sourceRef="fc_t14" targetRef="fc_e3" />
+<bpmn:sequenceFlow id="fc_flow0" name="" sourceRef="fc_s1" targetRef="fc_t0" />
+<bpmn:sequenceFlow id="fc_flow1" name="" sourceRef="fc_t0" targetRef="fc_g0" />
+<bpmn:sequenceFlow id="fc_flow2" name="" sourceRef="fc_s2" targetRef="fc_g0" />
+<bpmn:sequenceFlow id="fc_flow3" name="" sourceRef="fc_g0" targetRef="fc_t1" />
+<bpmn:sequenceFlow id="fc_flow4" name="" sourceRef="fc_t1" targetRef="fc_t2" />
+<bpmn:sequenceFlow id="fc_flow5" name="" sourceRef="fc_t2" targetRef="fc_g1" />
+<bpmn:sequenceFlow id="fc_flow6" name="No" sourceRef="fc_g1" targetRef="fc_t4" />
+<bpmn:sequenceFlow id="fc_flow7" name="" sourceRef="fc_t4" targetRef="fc_e1" />
+<bpmn:sequenceFlow id="fc_flow8" name="Yes" sourceRef="fc_g1" targetRef="fc_t5" />
+<bpmn:sequenceFlow id="fc_flow9" name="" sourceRef="fc_t5" targetRef="fc_t6" />
+<bpmn:sequenceFlow id="fc_flow10" name="" sourceRef="fc_t6" targetRef="fc_t7" />
+<bpmn:sequenceFlow id="fc_flow11" name="" sourceRef="fc_t7" targetRef="fc_t8" />
+<bpmn:sequenceFlow id="fc_flow12" name="" sourceRef="fc_t8" targetRef="fc_g2" />
+<bpmn:sequenceFlow id="fc_flow13" name="Revise" sourceRef="fc_g2" targetRef="fc_t7" />
+<bpmn:sequenceFlow id="fc_flow14" name="Decline" sourceRef="fc_g2" targetRef="fc_t9" />
+<bpmn:sequenceFlow id="fc_flow15" name="" sourceRef="fc_t9" targetRef="fc_e2" />
+<bpmn:sequenceFlow id="fc_flow16" name="File" sourceRef="fc_g2" targetRef="fc_t10" />
+<bpmn:sequenceFlow id="fc_flow17" name="" sourceRef="fc_t10" targetRef="fc_t11" />
+<bpmn:sequenceFlow id="fc_flow18" name="" sourceRef="fc_t11" targetRef="fc_ie" />
+<bpmn:sequenceFlow id="fc_flow19" name="" sourceRef="fc_ie" targetRef="fc_t12" />
+<bpmn:sequenceFlow id="fc_flow20" name="" sourceRef="fc_t12" targetRef="fc_t13" />
+<bpmn:sequenceFlow id="fc_flow21" name="" sourceRef="fc_t13" targetRef="fc_g3" />
+<bpmn:sequenceFlow id="fc_flow22" name="Exit" sourceRef="fc_g3" targetRef="fc_ca" />
+<bpmn:sequenceFlow id="fc_flow23" name="" sourceRef="fc_ca" targetRef="fc_e4" />
+<bpmn:sequenceFlow id="fc_flow24" name="Restrict" sourceRef="fc_g3" targetRef="fc_t15" />
+<bpmn:sequenceFlow id="fc_flow25" name="" sourceRef="fc_t15" targetRef="fc_t14" />
+<bpmn:sequenceFlow id="fc_flow26" name="Continue" sourceRef="fc_g3" targetRef="fc_t14" />
+<bpmn:sequenceFlow id="fc_flow27" name="" sourceRef="fc_t14" targetRef="fc_e3" />
 </bpmn:process>
 <bpmndi:BPMNDiagram id="fc_diagram" name="Financial crimes and SAR filing">
 <bpmndi:BPMNPlane id="fc_plane" bpmnElement="fc_collab">
-<bpmndi:BPMNShape id="fc_main_di" bpmnElement="fc_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="3900" height="1200" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_ops_di" bpmnElement="fc_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="3870" height="170" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_ai_di" bpmnElement="fc_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="3870" height="170" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_rules_di" bpmnElement="fc_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="3870" height="190" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_inv_di" bpmnElement="fc_lane_inv" isHorizontal="true"><dc:Bounds x="30" y="654" width="3870" height="250" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_bsa_di" bpmnElement="fc_lane_bsa" isHorizontal="true"><dc:Bounds x="30" y="904" width="3870" height="230" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_lane_ledger_di" bpmnElement="fc_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="1134" width="3870" height="190" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ria_di" bpmnElement="fc_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="3900" height="60" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_fin_di" bpmnElement="fc_fin" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1388" width="3900" height="60" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_s1_di" bpmnElement="fc_s1"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="147" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_s2_di" bpmnElement="fc_s2"><dc:Bounds x="162" y="541" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="583" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_g0_di" bpmnElement="fc_g0" isMarkerVisible="true"><dc:Bounds x="355" y="534" width="50" height="50" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t1_di" bpmnElement="fc_t1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="500" y="334" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t2_di" bpmnElement="fc_t2" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="700" y="679" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_g1_di" bpmnElement="fc_g1" isMarkerVisible="true"><dc:Bounds x="955" y="699" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="915" y="669" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t4_di" bpmnElement="fc_t4" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1100" y="794" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_e1_di" bpmnElement="fc_e1"><dc:Bounds x="1362" y="821" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1404" y="825" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t5_di" bpmnElement="fc_t5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1100" y="514" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t6_di" bpmnElement="fc_t6" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1300" y="334" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t7_di" bpmnElement="fc_t7" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1500" y="679" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t8_di" bpmnElement="fc_t8" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1700" y="919" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_g2_di" bpmnElement="fc_g2" isMarkerVisible="true"><dc:Bounds x="1955" y="939" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1843" y="917" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t9_di" bpmnElement="fc_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2100" y="1034" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_e2_di" bpmnElement="fc_e2"><dc:Bounds x="2362" y="1061" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2320" y="1103" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t10_di" bpmnElement="fc_t10" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2100" y="514" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t11_di" bpmnElement="fc_t11" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2300" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ie_di" bpmnElement="fc_ie"><dc:Bounds x="2562" y="1211" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="1167" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t12_di" bpmnElement="fc_t12" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2700" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t13_di" bpmnElement="fc_t13" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2900" y="919" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_g3_di" bpmnElement="fc_g3" isMarkerVisible="true"><dc:Bounds x="3155" y="939" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="3043" y="917" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ca_di" bpmnElement="fc_ca" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3300" y="679" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_e4_di" bpmnElement="fc_e4"><dc:Bounds x="3562" y="706" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3520" y="748" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t15_di" bpmnElement="fc_t15" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3300" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_t14_di" bpmnElement="fc_t14" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3500" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_e3_di" bpmnElement="fc_e3"><dc:Bounds x="3762" y="1211" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3720" y="1253" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ann0_di" bpmnElement="fc_ann0"><dc:Bounds x="1460" y="174" width="240" height="70" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ann1_di" bpmnElement="fc_ann1"><dc:Bounds x="2060" y="347" width="240" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="fc_ann2_di" bpmnElement="fc_ann2"><dc:Bounds x="2430" y="169" width="300" height="80" /></bpmndi:BPMNShape>
-<bpmndi:BPMNEdge id="fc_flow0_di" bpmnElement="fc_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="380" y="209" /><di:waypoint x="380" y="534" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow1_di" bpmnElement="fc_flow1"><di:waypoint x="198" y="559" /><di:waypoint x="355" y="559" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow2_di" bpmnElement="fc_flow2"><di:waypoint x="405" y="559" /><di:waypoint x="480" y="559" /><di:waypoint x="480" y="379" /><di:waypoint x="500" y="379" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow3_di" bpmnElement="fc_flow3"><di:waypoint x="660" y="379" /><di:waypoint x="680" y="379" /><di:waypoint x="680" y="724" /><di:waypoint x="700" y="724" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow4_di" bpmnElement="fc_flow4"><di:waypoint x="860" y="724" /><di:waypoint x="955" y="724" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow5_di" bpmnElement="fc_flow5"><di:waypoint x="980" y="749" /><di:waypoint x="980" y="839" /><di:waypoint x="1100" y="839" /><bpmndi:BPMNLabel><dc:Bounds x="986" y="819" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow6_di" bpmnElement="fc_flow6"><di:waypoint x="1260" y="839" /><di:waypoint x="1362" y="839" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow7_di" bpmnElement="fc_flow7"><di:waypoint x="1005" y="724" /><di:waypoint x="1080" y="724" /><di:waypoint x="1080" y="559" /><di:waypoint x="1100" y="559" /><bpmndi:BPMNLabel><dc:Bounds x="1011" y="704" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow8_di" bpmnElement="fc_flow8"><di:waypoint x="1260" y="559" /><di:waypoint x="1280" y="559" /><di:waypoint x="1280" y="379" /><di:waypoint x="1300" y="379" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow9_di" bpmnElement="fc_flow9"><di:waypoint x="1460" y="379" /><di:waypoint x="1480" y="379" /><di:waypoint x="1480" y="724" /><di:waypoint x="1500" y="724" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow10_di" bpmnElement="fc_flow10"><di:waypoint x="1660" y="724" /><di:waypoint x="1680" y="724" /><di:waypoint x="1680" y="964" /><di:waypoint x="1700" y="964" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow11_di" bpmnElement="fc_flow11"><di:waypoint x="1860" y="964" /><di:waypoint x="1955" y="964" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow12_di" bpmnElement="fc_flow12"><di:waypoint x="1980" y="939" /><di:waypoint x="1980" y="664" /><di:waypoint x="1580" y="664" /><di:waypoint x="1580" y="679" /><bpmndi:BPMNLabel><dc:Bounds x="1760" y="668" width="42" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow13_di" bpmnElement="fc_flow13"><di:waypoint x="1980" y="989" /><di:waypoint x="1980" y="1079" /><di:waypoint x="2100" y="1079" /><bpmndi:BPMNLabel><dc:Bounds x="1986" y="1059" width="49" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow14_di" bpmnElement="fc_flow14"><di:waypoint x="2260" y="1079" /><di:waypoint x="2362" y="1079" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow15_di" bpmnElement="fc_flow15"><di:waypoint x="2005" y="964" /><di:waypoint x="2080" y="964" /><di:waypoint x="2080" y="559" /><di:waypoint x="2100" y="559" /><bpmndi:BPMNLabel><dc:Bounds x="2011" y="944" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow16_di" bpmnElement="fc_flow16"><di:waypoint x="2260" y="559" /><di:waypoint x="2280" y="559" /><di:waypoint x="2280" y="1229" /><di:waypoint x="2300" y="1229" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow17_di" bpmnElement="fc_flow17"><di:waypoint x="2460" y="1229" /><di:waypoint x="2562" y="1229" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow18_di" bpmnElement="fc_flow18"><di:waypoint x="2598" y="1229" /><di:waypoint x="2700" y="1229" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow19_di" bpmnElement="fc_flow19"><di:waypoint x="2860" y="1229" /><di:waypoint x="2880" y="1229" /><di:waypoint x="2880" y="964" /><di:waypoint x="2900" y="964" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow20_di" bpmnElement="fc_flow20"><di:waypoint x="3060" y="964" /><di:waypoint x="3155" y="964" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow21_di" bpmnElement="fc_flow21"><di:waypoint x="3180" y="939" /><di:waypoint x="3180" y="724" /><di:waypoint x="3300" y="724" /><bpmndi:BPMNLabel><dc:Bounds x="3186" y="704" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow22_di" bpmnElement="fc_flow22"><di:waypoint x="3460" y="724" /><di:waypoint x="3562" y="724" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow23_di" bpmnElement="fc_flow23"><di:waypoint x="3180" y="989" /><di:waypoint x="3180" y="1229" /><di:waypoint x="3300" y="1229" /><bpmndi:BPMNLabel><dc:Bounds x="3186" y="1209" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow24_di" bpmnElement="fc_flow24"><di:waypoint x="3460" y="1229" /><di:waypoint x="3500" y="1229" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow25_di" bpmnElement="fc_flow25"><di:waypoint x="3205" y="964" /><di:waypoint x="3580" y="964" /><di:waypoint x="3580" y="1184" /><bpmndi:BPMNLabel><dc:Bounds x="3211" y="944" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_flow26_di" bpmnElement="fc_flow26"><di:waypoint x="3660" y="1229" /><di:waypoint x="3762" y="1229" /></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_msg0_di" bpmnElement="fc_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="750" y="679" /><di:waypoint x="750" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="610" y="66" width="133" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_msg1_di" bpmnElement="fc_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="810" y="60" /><di:waypoint x="810" y="679" /><bpmndi:BPMNLabel><dc:Bounds x="817" y="66" width="147" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_msg2_di" bpmnElement="fc_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2380" y="1274" /><di:waypoint x="2380" y="1388" /><bpmndi:BPMNLabel><dc:Bounds x="2387" y="1352" width="91" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="fc_msg3_di" bpmnElement="fc_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2580" y="1388" /><di:waypoint x="2580" y="1247" /><bpmndi:BPMNLabel><dc:Bounds x="2587" y="1352" width="98" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="fc_main_di" bpmnElement="fc_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="4100" height="1200" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_ops_di" bpmnElement="fc_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_ai_di" bpmnElement="fc_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="294" width="4070" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_rules_di" bpmnElement="fc_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="4070" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_inv_di" bpmnElement="fc_lane_inv" isHorizontal="true"><dc:Bounds x="30" y="654" width="4070" height="250" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_bsa_di" bpmnElement="fc_lane_bsa" isHorizontal="true"><dc:Bounds x="30" y="904" width="4070" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_lane_ledger_di" bpmnElement="fc_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="1134" width="4070" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ria_di" bpmnElement="fc_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_fin_di" bpmnElement="fc_fin" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1388" width="4100" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_s1_di" bpmnElement="fc_s1"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="233" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t0_di" bpmnElement="fc_t0" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="300" y="164" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_s2_di" bpmnElement="fc_s2"><dc:Bounds x="362" y="541" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="320" y="583" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_g0_di" bpmnElement="fc_g0" isMarkerVisible="true"><dc:Bounds x="555" y="534" width="50" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t1_di" bpmnElement="fc_t1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="700" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t2_di" bpmnElement="fc_t2" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="900" y="679" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_g1_di" bpmnElement="fc_g1" isMarkerVisible="true"><dc:Bounds x="1155" y="699" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="1115" y="669" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t4_di" bpmnElement="fc_t4" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1300" y="794" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_e1_di" bpmnElement="fc_e1"><dc:Bounds x="1562" y="821" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1604" y="825" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t5_di" bpmnElement="fc_t5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1300" y="514" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t6_di" bpmnElement="fc_t6" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1500" y="334" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t7_di" bpmnElement="fc_t7" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1700" y="679" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t8_di" bpmnElement="fc_t8" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="1900" y="919" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_g2_di" bpmnElement="fc_g2" isMarkerVisible="true"><dc:Bounds x="2155" y="939" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2043" y="917" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t9_di" bpmnElement="fc_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2300" y="1034" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_e2_di" bpmnElement="fc_e2"><dc:Bounds x="2562" y="1061" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="1103" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t10_di" bpmnElement="fc_t10" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2300" y="514" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t11_di" bpmnElement="fc_t11" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2500" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ie_di" bpmnElement="fc_ie"><dc:Bounds x="2762" y="1211" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2720" y="1167" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t12_di" bpmnElement="fc_t12" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2900" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t13_di" bpmnElement="fc_t13" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="3100" y="919" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_g3_di" bpmnElement="fc_g3" isMarkerVisible="true"><dc:Bounds x="3355" y="939" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="3243" y="917" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ca_di" bpmnElement="fc_ca" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3500" y="679" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_e4_di" bpmnElement="fc_e4"><dc:Bounds x="3762" y="706" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3720" y="748" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t15_di" bpmnElement="fc_t15" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3500" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_t14_di" bpmnElement="fc_t14" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3700" y="1184" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_e3_di" bpmnElement="fc_e3"><dc:Bounds x="3962" y="1211" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3920" y="1253" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann0_di" bpmnElement="fc_ann0"><dc:Bounds x="1615" y="169" width="330" height="80" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann1_di" bpmnElement="fc_ann1"><dc:Bounds x="2155" y="347" width="250" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann2_di" bpmnElement="fc_ann2"><dc:Bounds x="2810" y="164" width="340" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann3_di" bpmnElement="fc_ann3"><dc:Bounds x="300" y="733" width="360" height="92" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann4_di" bpmnElement="fc_ann4"><dc:Bounds x="490" y="977" width="380" height="84" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="fc_ann5_di" bpmnElement="fc_ann5"><dc:Bounds x="850" y="1187" width="460" height="84" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="fc_flow0_di" bpmnElement="fc_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="300" y="209" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow1_di" bpmnElement="fc_flow1"><di:waypoint x="460" y="209" /><di:waypoint x="580" y="209" /><di:waypoint x="580" y="534" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow2_di" bpmnElement="fc_flow2"><di:waypoint x="398" y="559" /><di:waypoint x="555" y="559" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow3_di" bpmnElement="fc_flow3"><di:waypoint x="605" y="559" /><di:waypoint x="680" y="559" /><di:waypoint x="680" y="379" /><di:waypoint x="700" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow4_di" bpmnElement="fc_flow4"><di:waypoint x="860" y="379" /><di:waypoint x="880" y="379" /><di:waypoint x="880" y="724" /><di:waypoint x="900" y="724" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow5_di" bpmnElement="fc_flow5"><di:waypoint x="1060" y="724" /><di:waypoint x="1155" y="724" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow6_di" bpmnElement="fc_flow6"><di:waypoint x="1180" y="749" /><di:waypoint x="1180" y="839" /><di:waypoint x="1300" y="839" /><bpmndi:BPMNLabel><dc:Bounds x="1186" y="819" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow7_di" bpmnElement="fc_flow7"><di:waypoint x="1460" y="839" /><di:waypoint x="1562" y="839" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow8_di" bpmnElement="fc_flow8"><di:waypoint x="1205" y="724" /><di:waypoint x="1280" y="724" /><di:waypoint x="1280" y="559" /><di:waypoint x="1300" y="559" /><bpmndi:BPMNLabel><dc:Bounds x="1211" y="704" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow9_di" bpmnElement="fc_flow9"><di:waypoint x="1460" y="559" /><di:waypoint x="1480" y="559" /><di:waypoint x="1480" y="379" /><di:waypoint x="1500" y="379" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow10_di" bpmnElement="fc_flow10"><di:waypoint x="1660" y="379" /><di:waypoint x="1680" y="379" /><di:waypoint x="1680" y="724" /><di:waypoint x="1700" y="724" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow11_di" bpmnElement="fc_flow11"><di:waypoint x="1860" y="724" /><di:waypoint x="1880" y="724" /><di:waypoint x="1880" y="964" /><di:waypoint x="1900" y="964" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow12_di" bpmnElement="fc_flow12"><di:waypoint x="2060" y="964" /><di:waypoint x="2155" y="964" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow13_di" bpmnElement="fc_flow13"><di:waypoint x="2180" y="939" /><di:waypoint x="2180" y="664" /><di:waypoint x="1780" y="664" /><di:waypoint x="1780" y="679" /><bpmndi:BPMNLabel><dc:Bounds x="1960" y="668" width="42" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow14_di" bpmnElement="fc_flow14"><di:waypoint x="2180" y="989" /><di:waypoint x="2180" y="1079" /><di:waypoint x="2300" y="1079" /><bpmndi:BPMNLabel><dc:Bounds x="2186" y="1059" width="49" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow15_di" bpmnElement="fc_flow15"><di:waypoint x="2460" y="1079" /><di:waypoint x="2562" y="1079" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow16_di" bpmnElement="fc_flow16"><di:waypoint x="2205" y="964" /><di:waypoint x="2280" y="964" /><di:waypoint x="2280" y="559" /><di:waypoint x="2300" y="559" /><bpmndi:BPMNLabel><dc:Bounds x="2211" y="944" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow17_di" bpmnElement="fc_flow17"><di:waypoint x="2460" y="559" /><di:waypoint x="2480" y="559" /><di:waypoint x="2480" y="1229" /><di:waypoint x="2500" y="1229" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow18_di" bpmnElement="fc_flow18"><di:waypoint x="2660" y="1229" /><di:waypoint x="2762" y="1229" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow19_di" bpmnElement="fc_flow19"><di:waypoint x="2798" y="1229" /><di:waypoint x="2900" y="1229" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow20_di" bpmnElement="fc_flow20"><di:waypoint x="3060" y="1229" /><di:waypoint x="3080" y="1229" /><di:waypoint x="3080" y="964" /><di:waypoint x="3100" y="964" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow21_di" bpmnElement="fc_flow21"><di:waypoint x="3260" y="964" /><di:waypoint x="3355" y="964" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow22_di" bpmnElement="fc_flow22"><di:waypoint x="3380" y="939" /><di:waypoint x="3380" y="724" /><di:waypoint x="3500" y="724" /><bpmndi:BPMNLabel><dc:Bounds x="3386" y="704" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow23_di" bpmnElement="fc_flow23"><di:waypoint x="3660" y="724" /><di:waypoint x="3762" y="724" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow24_di" bpmnElement="fc_flow24"><di:waypoint x="3380" y="989" /><di:waypoint x="3380" y="1229" /><di:waypoint x="3500" y="1229" /><bpmndi:BPMNLabel><dc:Bounds x="3386" y="1209" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow25_di" bpmnElement="fc_flow25"><di:waypoint x="3660" y="1229" /><di:waypoint x="3700" y="1229" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow26_di" bpmnElement="fc_flow26"><di:waypoint x="3405" y="964" /><di:waypoint x="3780" y="964" /><di:waypoint x="3780" y="1184" /><bpmndi:BPMNLabel><dc:Bounds x="3411" y="944" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_flow27_di" bpmnElement="fc_flow27"><di:waypoint x="3860" y="1229" /><di:waypoint x="3962" y="1229" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_msg0_di" bpmnElement="fc_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="950" y="679" /><di:waypoint x="950" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="726" y="66" width="217" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_msg1_di" bpmnElement="fc_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1010" y="60" /><di:waypoint x="1010" y="679" /><bpmndi:BPMNLabel><dc:Bounds x="1017" y="66" width="133" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_msg2_di" bpmnElement="fc_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2580" y="1274" /><di:waypoint x="2580" y="1388" /><bpmndi:BPMNLabel><dc:Bounds x="2587" y="1352" width="91" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="fc_msg3_di" bpmnElement="fc_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2780" y="1388" /><di:waypoint x="2780" y="1247" /><bpmndi:BPMNLabel><dc:Bounds x="2787" y="1352" width="98" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 </bpmndi:BPMNPlane>
 </bpmndi:BPMNDiagram>
 </bpmn:definitions>

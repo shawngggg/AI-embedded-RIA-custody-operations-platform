@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="tp_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="tp_collab">
 <bpmn:participant id="tp_main" name="Custody operations platform (synthetic reference implementation)" processRef="tp_process" />
-<bpmn:participant id="tp_adv" name="RIA advisor, or the client in their self-directed account" />
+<bpmn:participant id="tp_adv" name="RIA advisor, or the client in their self-directed account (the custodian supervises that trading as the client&#39;s broker-dealer)" />
 <bpmn:participant id="tp_mkt" name="Executing brokers and market infrastructure: NSCC/DTC, OCC, Fund/SERV, Fedwire Securities, CLS, fund administrators" />
 <bpmn:messageFlow id="tp_msg0" name="Block order or trade-away notice" sourceRef="tp_adv" targetRef="tp_s" />
 <bpmn:messageFlow id="tp_msg1" name="Rejection" sourceRef="tp_rej" targetRef="tp_adv" />
@@ -15,7 +15,7 @@
 <bpmn:messageFlow id="tp_msg8" name="Subscription and wire" sourceRef="tp_b6" targetRef="tp_mkt" />
 <bpmn:messageFlow id="tp_msg9" name="Confirmation" sourceRef="tp_mkt" targetRef="tp_c1" />
 <bpmn:messageFlow id="tp_msg10" name="Fail notice" sourceRef="tp_mkt" targetRef="tp_c2" />
-<bpmn:textAnnotation id="tp_ann0"><bpmn:text>Buying power uses settled cash, so cash accounts avoid good-faith violations.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="tp_ann0"><bpmn:text>Buying power uses settled cash, so cash accounts avoid good-faith violations; margin accounts follow the custodian&#39;s credit and intraday margin rules.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="tp_ann1"><bpmn:text>Block trades are allocated at one average price so every account gets the same execution.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="tp_ann2"><bpmn:text>Cash legs hand off to the daily cash settlement cycle; positions feed reconciliation.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
@@ -64,7 +64,7 @@
 <bpmn:incoming>tp_flow0</bpmn:incoming>
 <bpmn:outgoing>tp_flow1</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:businessRuleTask id="tp_t2" name="Pre-trade checks: order source, RIA permissions, retirement limits, buying power">
+<bpmn:businessRuleTask id="tp_t2" name="Pre-trade checks: source, permissions, options level, retirement limits, buying power">
 <bpmn:incoming>tp_flow1</bpmn:incoming>
 <bpmn:incoming>tp_flow5</bpmn:incoming>
 <bpmn:outgoing>tp_flow2</bpmn:outgoing>
@@ -248,7 +248,7 @@
 <bpmndi:BPMNShape id="tp_e_di" bpmnElement="tp_e"><dc:Bounds x="3962" y="891" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3920" y="933" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="tp_t8_di" bpmnElement="tp_t8" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="3700" y="334" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="tp_t9_di" bpmnElement="tp_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="3900" y="164" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="tp_ann0_di" bpmnElement="tp_ann0"><dc:Bounds x="925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="tp_ann0_di" bpmnElement="tp_ann0"><dc:Bounds x="925" y="347" width="240" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="tp_ann1_di" bpmnElement="tp_ann1"><dc:Bounds x="1525" y="347" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="tp_ann2_di" bpmnElement="tp_ann2"><dc:Bounds x="3255" y="517" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="tp_flow0_di" bpmnElement="tp_flow0"><di:waypoint x="180" y="227" /><di:waypoint x="180" y="379" /><di:waypoint x="300" y="379" /></bpmndi:BPMNEdge>

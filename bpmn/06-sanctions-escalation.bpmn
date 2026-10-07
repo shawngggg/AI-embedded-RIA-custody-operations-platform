@@ -5,7 +5,7 @@
 <bpmn:participant id="sx_team" name="Sanctions team (second line)" />
 <bpmn:messageFlow id="sx_msg0" name="Escalation package" sourceRef="sx_t3" targetRef="sx_team" />
 <bpmn:messageFlow id="sx_msg1" name="Determination" sourceRef="sx_team" targetRef="sx_ie" />
-<bpmn:textAnnotation id="sx_ann0"><bpmn:text>Only the sanctions team can authorize removing a sanctions restriction code.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="sx_ann0"><bpmn:text>Only the sanctions team can authorize removing a sanctions restriction code. On a confirmed match it blocks the property, reports to OFAC within 10 business days, and keeps records for 10 years.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="sx_process" name="Sanctions escalation and restriction codes (shared subprocess)" isExecutable="false">
 <bpmn:laneSet id="sx_laneset">
@@ -120,7 +120,7 @@
 <bpmndi:BPMNShape id="sx_t5_di" bpmnElement="sx_t5" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1500" y="700" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="sx_e1_di" bpmnElement="sx_e1"><dc:Bounds x="1762" y="617" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1720" y="659" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="sx_e2_di" bpmnElement="sx_e2"><dc:Bounds x="1762" y="727" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1720" y="769" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="sx_ann0_di" bpmnElement="sx_ann0"><dc:Bounds x="1345" y="283" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sx_ann0_di" bpmnElement="sx_ann0"><dc:Bounds x="1345" y="283" width="270" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="sx_flow0_di" bpmnElement="sx_flow0"><di:waypoint x="198" y="65" /><di:waypoint x="280" y="65" /><di:waypoint x="280" y="635" /><di:waypoint x="300" y="635" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="sx_flow1_di" bpmnElement="sx_flow1"><di:waypoint x="460" y="635" /><di:waypoint x="480" y="635" /><di:waypoint x="480" y="315" /><di:waypoint x="500" y="315" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="sx_flow2_di" bpmnElement="sx_flow2"><di:waypoint x="660" y="315" /><di:waypoint x="680" y="315" /><di:waypoint x="680" y="65" /><di:waypoint x="700" y="65" /></bpmndi:BPMNEdge>

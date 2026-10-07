@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="tr_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="tr_collab">
 <bpmn:participant id="tr_main" name="Custody operations platform (synthetic reference implementation)" processRef="tr_process" />
-<bpmn:participant id="tr_adv" name="RIA advisor, or the client (incoming to the self-directed account; outgoing only with a grant)" />
+<bpmn:participant id="tr_adv" name="RIA advisor, or the client (incoming anytime; outgoing by self-service grant or a signed request)" />
 <bpmn:participant id="tr_infra" name="Market infrastructure: NSCC ACATS, contra firms, transfer agents, Fedwire, ACH" />
 <bpmn:messageFlow id="tr_msg0" name="Transfer or disbursement request" sourceRef="tr_adv" targetRef="tr_s" />
 <bpmn:messageFlow id="tr_msg1" name="Rejection with reason" sourceRef="tr_rej" targetRef="tr_adv" />
@@ -77,7 +77,7 @@
 <bpmn:incoming>tr_flow1</bpmn:incoming>
 <bpmn:outgoing>tr_flow2</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:businessRuleTask id="tr_t3" name="Validate requester and account: RIA, or client per self-directed rules">
+<bpmn:businessRuleTask id="tr_t3" name="Validate requester and authority: RIA, client grant, or client-signed request">
 <bpmn:incoming>tr_flow2</bpmn:incoming>
 <bpmn:outgoing>tr_flow3</bpmn:outgoing>
 </bpmn:businessRuleTask>
@@ -131,7 +131,7 @@
 <bpmn:incoming>tr_flow15</bpmn:incoming>
 <bpmn:outgoing>tr_flow21</bpmn:outgoing>
 </bpmn:userTask>
-<bpmn:userTask id="tr_t5" name="Risk review: third-party payee, recent profile change, SLOA conditions">
+<bpmn:userTask id="tr_t5" name="Risk review: third-party payee, recent changes, SLOA conditions, low-priced deposits">
 <bpmn:incoming>tr_flow16</bpmn:incoming>
 <bpmn:outgoing>tr_flow18</bpmn:outgoing>
 </bpmn:userTask>
@@ -150,7 +150,7 @@
 <bpmn:incoming>tr_flow21</bpmn:incoming>
 <bpmn:outgoing>tr_flow22</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:businessRuleTask id="tr_t6" name="Controls gate: dollar authority, maker-checker; RIA confirmation, or client OTP and verified bank link">
+<bpmn:businessRuleTask id="tr_t6" name="Controls gate: dollar authority, maker-checker; RIA confirmation, client OTP and verified link, or callback">
 <bpmn:incoming>tr_flow22</bpmn:incoming>
 <bpmn:incoming>tr_flow42</bpmn:incoming>
 <bpmn:outgoing>tr_flow23</bpmn:outgoing>

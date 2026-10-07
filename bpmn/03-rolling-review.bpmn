@@ -7,7 +7,7 @@
 <bpmn:messageFlow id="rr_msg1" name="Updated information" sourceRef="rr_req" targetRef="rr_ie" />
 <bpmn:textAnnotation id="rr_ann0"><bpmn:text>Runs for RIA firms too: KYB, registration and licensing, ADV changes, annual reliance certification.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="rr_ann1"><bpmn:text>Flagged-list hits call the sanctions escalation subprocess.</bpmn:text></bpmn:textAnnotation>
-<bpmn:textAnnotation id="rr_ann2"><bpmn:text>Review cadence is a policy setting. Demo assumption: high risk semi-annual, all others annual.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="rr_ann2"><bpmn:text>Risk-based cadence is a policy choice, not a fixed rule (demo: high risk semi-annual, others annual). Trigger events, such as new screening hits or ownership changes, start an early review.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="rr_process" name="Rolling review (annual or semi-annual)" isExecutable="false">
 <bpmn:laneSet id="rr_laneset">
@@ -40,7 +40,7 @@
 <bpmn:flowNodeRef>rr_e</bpmn:flowNodeRef>
 </bpmn:lane>
 </bpmn:laneSet>
-<bpmn:startEvent id="rr_s1" name="Annual or semi-annual review date">
+<bpmn:startEvent id="rr_s1" name="Review due by risk tier">
 <bpmn:outgoing>rr_flow0</bpmn:outgoing>
 <bpmn:timerEventDefinition id="rr_s1_def" />
 </bpmn:startEvent>
@@ -110,7 +110,7 @@
 <bpmn:incoming>rr_flow14</bpmn:incoming>
 <bpmn:outgoing>rr_flow17</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:serviceTask id="rr_t9" name="Record review; set next annual or semi-annual date">
+<bpmn:serviceTask id="rr_t9" name="Record review; set the next date by risk tier">
 <bpmn:incoming>rr_flow17</bpmn:incoming>
 <bpmn:outgoing>rr_flow18</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -166,7 +166,7 @@
 <bpmndi:BPMNShape id="rr_e_di" bpmnElement="rr_e"><dc:Bounds x="2562" y="931" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="973" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="rr_ann0_di" bpmnElement="rr_ann0"><dc:Bounds x="1925" y="407" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="rr_ann1_di" bpmnElement="rr_ann1"><dc:Bounds x="1125" y="767" width="190" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="rr_ann2_di" bpmnElement="rr_ann2"><dc:Bounds x="725" y="972" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rr_ann2_di" bpmnElement="rr_ann2"><dc:Bounds x="725" y="972" width="270" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="rr_flow0_di" bpmnElement="rr_flow0"><di:waypoint x="198" y="619" /><di:waypoint x="480" y="619" /><di:waypoint x="480" y="439" /><di:waypoint x="500" y="439" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="rr_flow1_di" bpmnElement="rr_flow1"><di:waypoint x="660" y="439" /><di:waypoint x="680" y="439" /><di:waypoint x="680" y="189" /><di:waypoint x="700" y="189" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="rr_flow2_di" bpmnElement="rr_flow2"><di:waypoint x="860" y="189" /><di:waypoint x="955" y="189" /></bpmndi:BPMNEdge>
