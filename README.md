@@ -8,6 +8,12 @@ This is **phase one** of a larger build: map every process correctly and complet
 
 ![Platform overview](docs/diagrams/00-platform-overview.png)
 
+## Integration architecture
+
+Every request enters through the platform APIs, every outbound instruction or filing passes the rules engine and a person's approval before the integration layer sends it, and AI reaches models only through its own gateway. The integration layer has one adapter per external system: clearing and depositories (NSCC, DTC, OCC, DTCC CTM), payment rails (Fedwire, FedACH, FedNow, RTP, SWIFT), regulators and tax (FinCEN BSA E-Filing, CAT, TRACE, MSRB RTRS, Electronic Blue Sheets, IRS IRIS, state unclaimed property), due diligence services, transfer agents and fund administrators, and advisor technology. The demo runs simulators that use the public message formats.
+
+![Integration architecture](docs/diagrams/integration-architecture.png)
+
 ## Design principles
 
 - **AI proposes; rules and people decide; the ledger records.** AI handles unstructured inputs and exceptions, such as document extraction, NIGO categorization, address matching, and break triage. Every decision passes a deterministic rules check or a human approval, and nothing AI produces posts to the ledger directly.
@@ -43,13 +49,15 @@ Each process is labeled by how far it has been validated:
 | Client offboarding | Validated |
 | Deceased client account | Validated |
 | Escheatment | In review |
+| Financial crimes and SAR filing | In review |
+| Regulatory and tax reporting | In review |
 
 - **Validated:** corrected against my operating experience.
 - **Partially validated:** key steps validated; the rest is reference design.
 - **In review:** reference design from industry practice, awaiting validation.
 - **Proposed enhancement:** a platform capability beyond standard practice.
 
-Still to be mapped: RIA and advisor transitions, financial crimes and SAR filing, product acceptance, regulatory reporting, and retirement account servicing.
+Still to be mapped: RIA and advisor transitions, product acceptance, and retirement account servicing.
 
 ## Repository contents
 
