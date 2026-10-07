@@ -19,8 +19,9 @@ Every request enters through the platform APIs, every outbound instruction or fi
 - **AI proposes; rules and people decide; the ledger records.** AI handles unstructured inputs and exceptions, such as document extraction, NIGO categorization, address matching, and break triage. Every decision passes a deterministic rules check or a human approval, and nothing AI produces posts to the ledger directly.
 - **One three-layer ledger.** Client accounts roll up to the RIA master account, and RIA masters roll up to the custodian general ledger.
 - **First line and second line stay separate.** Operations escalates; compliance and the sanctions team decide. Restriction codes can be removed only by the function that owns them.
-- **The RIA is the channel and the decision-maker.** Account changes, money movement, and asset transfers come through the RIA, which also owns account entitlements and client and product suitability. The custodian provides the platform and holds the assets; it enforces what the RIA sets and never makes a suitability judgment.
-- **Two account groups, no dual management.** A client has one or more pure RIA accounts managed by the RIA, and may have one designated self-directed account as an added benefit. The client trades and deposits there freely; outgoing money movement and transfers need an RIA grant. The RIA has view-only access and decides whether to bill it, and keeping client-directed trading in its own account keeps the RIA's fiduciary scope unambiguous.
+- **The RIA is the channel and makes the investment decisions.** Account changes, money movement, and asset transfers come through the RIA, which owns account entitlements and client and product suitability; owner-level changes, such as beneficiaries and registration, carry the client's signature. The custodian provides the platform and holds the assets. It makes no investment judgment and decides only what its own obligations require: options and margin approval, AML and sanctions, fraud holds, legal process, and which assets it will hold.
+- **Two account groups, no dual management.** A client has one or more pure RIA accounts managed by the RIA, and may have one designated self-directed account as an added benefit. The client trades and deposits there freely. An RIA grant turns on self-service outgoing money movement and transfers, and the client can always move assets out through a signed request or a receiving firm's ACATS transfer. The RIA has view-only access and decides whether to bill it, and keeping client-directed trading in its own account keeps the RIA's fiduciary scope unambiguous.
+- **Validated where experienced, researched where not.** Steps I performed are validated against my experience. Steps I didn't perform are built from current US regulation and industry practice and labeled as reference design, and my own positions were checked against the rules.
 - **Shared subprocesses instead of repeated steps.** Sanctions escalation and the transferability review are modeled once and called from onboarding, maintenance, transfers, and offboarding.
 - **Built to connect.** The design assumes adapters for clearing (NSCC, DTC, OCC), payment rails, KYC and screening services, regulators, transfer agents, and AI model providers.
 
@@ -47,14 +48,15 @@ Each process is labeled by how far it has been validated:
 | Advisor billing | In review |
 | Client reporting | In review |
 | Client offboarding | Validated |
-| Deceased client account | Validated |
+| Deceased client account | Partially validated |
 | Escheatment | In review |
-| Financial crimes and SAR filing | In review |
-| Regulatory and tax reporting | In review |
+| Financial crimes and SAR filing | Partially validated |
+| Regulatory reporting | Partially validated |
+| Tax reporting | Partially validated |
 
 - **Validated:** corrected against my operating experience.
-- **Partially validated:** key steps validated; the rest is reference design.
-- **In review:** reference design from industry practice, awaiting validation.
+- **Partially validated:** key steps validated; the rest is reference design built from regulation and industry practice.
+- **In review:** reference design built from regulation and industry practice, awaiting validation.
 - **Proposed enhancement:** a platform capability beyond standard practice.
 
 Still to be mapped: RIA and advisor transitions, product acceptance, and retirement account servicing.
@@ -75,7 +77,7 @@ Still to be mapped: RIA and advisor transitions, product acceptance, and retirem
 
 ## Notes
 
-- **Reference architecture.** Process content reflects industry practice and my operating experience in RIA custody operations. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
+- **Reference architecture.** Process content reflects my operating experience in RIA custody operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
 - **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude).
 - **Third-party software.** The viewer embeds [bpmn-js](https://bpmn.io), licensed under the bpmn.io license; see `docs/BPMN-JS-LICENSE.txt`. Its watermark must remain visible.
 
