@@ -10,8 +10,8 @@
 <bpmn:messageFlow id="ce_msg2" name="Verification request" sourceRef="ce_t5" targetRef="ce_svc" />
 <bpmn:messageFlow id="ce_msg3" name="Verification result" sourceRef="ce_svc" targetRef="ce_ie" />
 <bpmn:messageFlow id="ce_msg4" name="Activation notice" sourceRef="ce_t6" targetRef="ce_cli" />
-<bpmn:textAnnotation id="ce_ann0"><bpmn:text>Defaults: discretionary accounts, no client capabilities; self-directed and dual, trading only.</bpmn:text></bpmn:textAnnotation>
-<bpmn:textAnnotation id="ce_ann1"><bpmn:text>AI flags client activity that drifts from the account's pattern and recommends revocation; the RIA decides.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ce_ann0"><bpmn:text>Defaults: pure RIA accounts, no client capabilities. The self-directed account: client trading and incoming cash and assets; outgoing needs a grant.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ce_ann1"><bpmn:text>AI alerts the RIA to unusual client activity; the RIA decides whether to revoke.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="ce_process" name="Client entitlement management (platform enhancement)" isExecutable="false">
 <bpmn:laneSet id="ce_laneset">
@@ -60,11 +60,11 @@
 <bpmn:endEvent id="ce_er" name="Capability revoked">
 <bpmn:incoming>ce_flow3</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:businessRuleTask id="ce_t2" name="Policy ceilings: grantable for this management type and risk rating; no blocking restriction codes">
+<bpmn:businessRuleTask id="ce_t2" name="Account-type rules: no margin or shorting in retirement accounts; no blocking restriction codes">
 <bpmn:incoming>ce_flow4</bpmn:incoming>
 <bpmn:outgoing>ce_flow5</bpmn:outgoing>
 </bpmn:businessRuleTask>
-<bpmn:exclusiveGateway id="ce_g2" name="Within policy?">
+<bpmn:exclusiveGateway id="ce_g2" name="Allowed?">
 <bpmn:incoming>ce_flow5</bpmn:incoming>
 <bpmn:outgoing>ce_flow6</bpmn:outgoing>
 <bpmn:outgoing>ce_flow7</bpmn:outgoing>
@@ -150,7 +150,7 @@
 <bpmndi:BPMNShape id="ce_gm_di" bpmnElement="ce_gm" isMarkerVisible="true"><dc:Bounds x="2155" y="524" width="50" height="50" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ce_t6_di" bpmnElement="ce_t6" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2300" y="654" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ce_e_di" bpmnElement="ce_e"><dc:Bounds x="2562" y="681" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="723" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="ce_ann0_di" bpmnElement="ce_ann0"><dc:Bounds x="745" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ce_ann0_di" bpmnElement="ce_ann0"><dc:Bounds x="745" y="347" width="230" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ce_ann1_di" bpmnElement="ce_ann1"><dc:Bounds x="1925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="ce_flow0_di" bpmnElement="ce_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="549" /><di:waypoint x="300" y="549" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="ce_flow1_di" bpmnElement="ce_flow1"><di:waypoint x="460" y="549" /><di:waypoint x="555" y="549" /></bpmndi:BPMNEdge>

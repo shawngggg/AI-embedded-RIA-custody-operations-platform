@@ -5,14 +5,14 @@
 <bpmn:participant id="ao_req" name="RIA advisor (sole channel for applications, documents, and requests)" />
 <bpmn:participant id="ao_svc" name="Identity verification, PEP and adverse media services" />
 <bpmn:messageFlow id="ao_msg0" name="Application" sourceRef="ao_req" targetRef="ao_s" />
-<bpmn:messageFlow id="ao_msg1" name="Returned: RIA not active" sourceRef="ao_e0" targetRef="ao_req" />
+<bpmn:messageFlow id="ao_msg1" name="Returned: not eligible" sourceRef="ao_e0" targetRef="ao_req" />
 <bpmn:messageFlow id="ao_msg2" name="Correction request" sourceRef="ao_t3" targetRef="ao_req" />
 <bpmn:messageFlow id="ao_msg3" name="Corrections" sourceRef="ao_req" targetRef="ao_ie" />
 <bpmn:messageFlow id="ao_msg4" name="Decline notice" sourceRef="ao_ed" targetRef="ao_req" />
 <bpmn:messageFlow id="ao_msg5" name="Account details" sourceRef="ao_e" targetRef="ao_req" />
 <bpmn:messageFlow id="ao_msg6" name="Identity check" sourceRef="ao_b1" targetRef="ao_svc" />
 <bpmn:messageFlow id="ao_msg7" name="Screening request" sourceRef="ao_t5" targetRef="ao_svc" />
-<bpmn:textAnnotation id="ao_ann0"><bpmn:text>Path A: the custodian screens and risk-rates using only what the RIA provides, and never contacts the client.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ao_ann0"><bpmn:text>Path A: a pure RIA account under a reliance-eligible RIA, using only RIA-provided information. Path B: the client&#39;s self-directed account, or any account under an RIA that isn&#39;t reliance-eligible.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann1"><bpmn:text>Entity accounts add formation and registration documents, operating agreement, memorandum and articles of association.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann2"><bpmn:text>Identity that can't be verified follows the CIP failure procedure: request more documents, then decline.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
@@ -64,11 +64,11 @@
 <bpmn:outgoing>ao_flow0</bpmn:outgoing>
 <bpmn:messageEventDefinition id="ao_s_def" />
 </bpmn:startEvent>
-<bpmn:businessRuleTask id="ao_t1" name="Gate: RIA firm active">
+<bpmn:businessRuleTask id="ao_t1" name="Gate: RIA active; a self-directed account needs an active RIA-managed account, one per client">
 <bpmn:incoming>ao_flow0</bpmn:incoming>
 <bpmn:outgoing>ao_flow1</bpmn:outgoing>
 </bpmn:businessRuleTask>
-<bpmn:exclusiveGateway id="ao_g0" name="RIA active?">
+<bpmn:exclusiveGateway id="ao_g0" name="Eligible?">
 <bpmn:incoming>ao_flow1</bpmn:incoming>
 <bpmn:outgoing>ao_flow2</bpmn:outgoing>
 <bpmn:outgoing>ao_flow3</bpmn:outgoing>
@@ -96,7 +96,7 @@
 <bpmn:outgoing>ao_flow7</bpmn:outgoing>
 <bpmn:messageEventDefinition id="ao_ie_def" />
 </bpmn:intermediateCatchEvent>
-<bpmn:exclusiveGateway id="ao_g2" name="Management type?">
+<bpmn:exclusiveGateway id="ao_g2" name="Path A applies?">
 <bpmn:incoming>ao_flow8</bpmn:incoming>
 <bpmn:outgoing>ao_flow9</bpmn:outgoing>
 <bpmn:outgoing>ao_flow10</bpmn:outgoing>
@@ -204,8 +204,8 @@
 <bpmn:sequenceFlow id="ao_flow6" name="" sourceRef="ao_t3" targetRef="ao_ie" />
 <bpmn:sequenceFlow id="ao_flow7" name="Re-extract" sourceRef="ao_ie" targetRef="ao_t2" />
 <bpmn:sequenceFlow id="ao_flow8" name="Yes" sourceRef="ao_g1" targetRef="ao_g2" />
-<bpmn:sequenceFlow id="ao_flow9" name="Discretionary" sourceRef="ao_g2" targetRef="ao_a1" />
-<bpmn:sequenceFlow id="ao_flow10" name="Self-directed, dual" sourceRef="ao_g2" targetRef="ao_b1" />
+<bpmn:sequenceFlow id="ao_flow9" name="Yes" sourceRef="ao_g2" targetRef="ao_a1" />
+<bpmn:sequenceFlow id="ao_flow10" name="No" sourceRef="ao_g2" targetRef="ao_b1" />
 <bpmn:sequenceFlow id="ao_flow11" name="" sourceRef="ao_b1" targetRef="ao_b2" />
 <bpmn:sequenceFlow id="ao_flow12" name="" sourceRef="ao_b2" targetRef="ao_b3" />
 <bpmn:sequenceFlow id="ao_flow13" name="" sourceRef="ao_a1" targetRef="ao_gm" />
@@ -271,7 +271,7 @@
 <bpmndi:BPMNShape id="ao_t10_di" bpmnElement="ao_t10" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4500" y="914" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ca2_di" bpmnElement="ao_ca2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4700" y="914" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_e_di" bpmnElement="ao_e"><dc:Bounds x="4962" y="941" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4920" y="983" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="ao_ann0_di" bpmnElement="ao_ann0"><dc:Bounds x="1345" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ao_ann0_di" bpmnElement="ao_ann0"><dc:Bounds x="1345" y="347" width="260" height="96" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann1_di" bpmnElement="ao_ann1"><dc:Bounds x="305" y="347" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann2_di" bpmnElement="ao_ann2"><dc:Bounds x="1685" y="747" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="ao_flow0_di" bpmnElement="ao_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="529" /><di:waypoint x="300" y="529" /></bpmndi:BPMNEdge>

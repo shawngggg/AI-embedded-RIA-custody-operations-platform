@@ -151,7 +151,7 @@
 <bpmn:outgoing>am_flow24</bpmn:outgoing>
 <bpmn:outgoing>am_flow25</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:callActivity id="am_cadd" name="Re-run due diligence: CIP on new parties; path A or B decision" calledElement="ao_process">
+<bpmn:callActivity id="am_cadd" name="Re-run due diligence: CIP on new parties" calledElement="ao_process">
 <bpmn:incoming>am_flow24</bpmn:incoming>
 <bpmn:outgoing>am_flow26</bpmn:outgoing>
 </bpmn:callActivity>

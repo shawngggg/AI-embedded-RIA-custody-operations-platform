@@ -2,7 +2,7 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="tp_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="tp_collab">
 <bpmn:participant id="tp_main" name="Custody operations platform (synthetic reference implementation)" processRef="tp_process" />
-<bpmn:participant id="tp_adv" name="RIA advisor, or the client on self-directed and dual accounts" />
+<bpmn:participant id="tp_adv" name="RIA advisor, or the client in their self-directed account" />
 <bpmn:participant id="tp_mkt" name="Executing brokers and market infrastructure: NSCC/DTC, OCC, Fund/SERV, Fedwire Securities, CLS, fund administrators" />
 <bpmn:messageFlow id="tp_msg0" name="Block order or trade-away notice" sourceRef="tp_adv" targetRef="tp_s" />
 <bpmn:messageFlow id="tp_msg1" name="Rejection" sourceRef="tp_rej" targetRef="tp_adv" />
@@ -64,7 +64,7 @@
 <bpmn:incoming>tp_flow0</bpmn:incoming>
 <bpmn:outgoing>tp_flow1</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:businessRuleTask id="tp_t2" name="Pre-trade checks: order source allowed for management type, restrictions, buying power, approvals">
+<bpmn:businessRuleTask id="tp_t2" name="Pre-trade checks: order source, RIA permissions, retirement limits, buying power">
 <bpmn:incoming>tp_flow1</bpmn:incoming>
 <bpmn:incoming>tp_flow5</bpmn:incoming>
 <bpmn:outgoing>tp_flow2</bpmn:outgoing>

@@ -7,7 +7,7 @@
 <bpmn:messageFlow id="co_msg0" name="Termination notice" sourceRef="co_ria" targetRef="co_s1" />
 <bpmn:messageFlow id="co_msg1" name="TIF or transfer instructions" sourceRef="co_rcv" targetRef="co_ie1" />
 <bpmn:messageFlow id="co_msg2" name="Closure confirmation" sourceRef="co_e" targetRef="co_ria" />
-<bpmn:textAnnotation id="co_ann0"><bpmn:text>The client never initiates offboarding directly; the RIA notifies the custodian.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="co_ann0"><bpmn:text>The RIA notifies the custodian; the client never initiates offboarding. If no RIA-managed account will remain, the client&#39;s self-directed account is restricted and transferred out the same way.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="co_ann1"><bpmn:text>Undeliverable residuals and uncashed checks enter the escheatment process.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="co_process" name="Client offboarding (client leaves the RIA, or compliance exit)" isExecutable="false">
@@ -189,7 +189,7 @@
 <bpmndi:BPMNShape id="co_t9_di" bpmnElement="co_t9" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3500" y="854" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="co_t10_di" bpmnElement="co_t10" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3700" y="854" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="co_e_di" bpmnElement="co_e"><dc:Bounds x="3962" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3920" y="923" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="co_ann0_di" bpmnElement="co_ann0"><dc:Bounds x="925" y="347" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="co_ann0_di" bpmnElement="co_ann0"><dc:Bounds x="925" y="347" width="240" height="96" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="co_ann1_di" bpmnElement="co_ann1"><dc:Bounds x="3325" y="687" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="co_flow0_di" bpmnElement="co_flow0"><di:waypoint x="180" y="227" /><di:waypoint x="180" y="549" /><di:waypoint x="355" y="549" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="co_flow1_di" bpmnElement="co_flow1"><di:waypoint x="180" y="701" /><di:waypoint x="180" y="549" /><di:waypoint x="355" y="549" /></bpmndi:BPMNEdge>

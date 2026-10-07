@@ -84,7 +84,7 @@
 <bpmn:outgoing>rr_flow10</bpmn:outgoing>
 <bpmn:outgoing>rr_flow11</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:serviceTask id="rr_t8" name="Update profile; re-run path A or B if management type changed">
+<bpmn:serviceTask id="rr_t8" name="Update profile; re-run path A or B if the RIA&#39;s reliance status changed">
 <bpmn:incoming>rr_flow10</bpmn:incoming>
 <bpmn:outgoing>rr_flow12</bpmn:outgoing>
 </bpmn:serviceTask>
