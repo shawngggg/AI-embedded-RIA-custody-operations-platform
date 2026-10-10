@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onboarding Console</title>
+<meta name="description" content="Runs the RIA custody platform's Python onboarding module in the browser, along the firm onboarding and account opening process maps. Synthetic data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #eef1f4; --surface: #ffffff; --ink: #1f3864; --text: #1b2230; --muted: #566072;
+  --line: #d4dae2; --line-strong: #b9c1cc; --field: #ffffff; --focus: #2f5aa8;
+  --clear: #22704a; --refer: #9a5f0e; --escalate: #b3410e; --block: #9b1c1c; --error: #b3261e;
+  --clear-bg: #e5f2ea; --refer-bg: #f7eedd; --escalate-bg: #f8e6dc; --block-bg: #f6e1e1;
+  --lane-ops: #9a5f0e; --lane-ai: #6b46c1; --lane-rules: #1f3864; --lane-aml: #b3410e;
+  --lane-sanctions: #9b1c1c; --lane-ledger: #22704a;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  box-sizing: border-box; color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark;
+    --paper: #12171f; --surface: #1a212c; --ink: #9db8ea; --text: #e6eaf0; --muted: #a3adbd;
+    --line: #2c3544; --line-strong: #3d4859; --field: #141a23; --focus: #8fb0ee;
+    --clear: #6fcf97; --refer: #e3b25f; --escalate: #f08a5d; --block: #ef7c7c; --error: #ff8a80;
+    --clear-bg: #16301f; --refer-bg: #33280f; --escalate-bg: #3a2014; --block-bg: #3a1a1a;
+    --lane-ops: #e3b25f; --lane-ai: #b9a3f0; --lane-rules: #9db8ea; --lane-aml: #f08a5d;
+    --lane-sanctions: #ef7c7c; --lane-ledger: #6fcf97;
+  }
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --paper: #12171f; --surface: #1a212c; --ink: #9db8ea; --text: #e6eaf0; --muted: #a3adbd;
+  --line: #2c3544; --line-strong: #3d4859; --field: #141a23; --focus: #8fb0ee;
+  --clear: #6fcf97; --refer: #e3b25f; --escalate: #f08a5d; --block: #ef7c7c; --error: #ff8a80;
+  --clear-bg: #16301f; --refer-bg: #33280f; --escalate-bg: #3a2014; --block-bg: #3a1a1a;
+  --lane-ops: #e3b25f; --lane-ai: #b9a3f0; --lane-rules: #9db8ea; --lane-aml: #f08a5d;
+  --lane-sanctions: #ef7c7c; --lane-ledger: #6fcf97;
+}
+*, *::before, *::after { box-sizing: inherit; }
+body { margin: 0; background: var(--paper); color: var(--text); font: 400 16px/1.55 var(--sans); }
+a { color: var(--ink); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+header.site { padding: 40px 0 8px; }
+header.site .eyebrow { font-weight: 600; font-size: 0.85rem; color: var(--muted); letter-spacing: 0.02em; margin: 0 0 6px; }
+header.site h1 { font: 600 clamp(2rem, 4.4vw, 3.1rem)/1.05 var(--serif); color: var(--ink); margin: 0 0 12px; letter-spacing: -0.01em; }
+header.site p { margin: 0; max-width: 72ch; color: var(--muted); }
+header.site .fine { font-size: 0.88rem; margin-top: 10px; }
+
+nav.tabs { display: flex; gap: 4px; margin-top: 28px; border-bottom: 1px solid var(--line-strong); overflow-x: auto; }
+nav.tabs button { appearance: none; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  padding: 12px 16px; font: 600 0.95rem var(--sans); color: var(--muted); cursor: pointer; white-space: nowrap; border-radius: 6px 6px 0 0; }
+nav.tabs button:hover { color: var(--text); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+main { padding: 28px 0 64px; }
+.split { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 32px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; }
+.sticky { position: sticky; top: 16px; }
+fieldset { border: 0; margin: 0 0 8px; padding: 0; min-width: 0; }
+legend { font: 600 1.05rem var(--serif); color: var(--ink); padding: 0; margin: 0 0 12px; }
+.scenarios { display: grid; gap: 8px; }
+.scenario { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.scenario:hover { border-color: var(--line-strong); }
+.scenario:has(input:checked) { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
+.scenario input { margin-top: 4px; }
+.scenario .s-name { font-weight: 600; display: block; }
+.scenario .s-label { font-size: 0.86rem; color: var(--muted); display: block; }
+.field label { display: block; font-weight: 600; font-size: 0.9rem; margin: 18px 0 5px; }
+input[type="date"] { width: 100%; font: 400 0.98rem var(--sans); color: var(--text); background: var(--field);
+  border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 11px; min-height: 42px; }
+.hint { font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+button.primary, button.secondary { font: 600 0.95rem var(--sans); border-radius: 6px; padding: 11px 18px; cursor: pointer; min-height: 44px; }
+button.primary { background: var(--ink); color: var(--surface); border: 1px solid var(--ink); }
+button.primary:hover { filter: brightness(1.12); }
+button.primary:disabled { opacity: 0.5; cursor: wait; }
+button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); }
+button.secondary:hover { border-color: var(--ink); }
+button.small { padding: 6px 12px; min-height: 36px; font-size: 0.86rem; }
+
+.loading { display: flex; gap: 14px; align-items: center; }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.9s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.error { border-color: var(--error); color: var(--error); }
+
+.casefile .who { font: 600 1.35rem/1.25 var(--serif); color: var(--ink); margin: 0; }
+.casefile .meta { color: var(--muted); font-size: 0.88rem; margin: 2px 0 0; }
+.stamp { display: inline-block; margin: 16px 0 6px; padding: 6px 16px; border: 3px double currentColor; border-radius: 6px;
+  font: 800 1.35rem/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; transform: rotate(-2deg); }
+.stamp.fresh { animation: stampIn 380ms cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes stampIn { from { transform: rotate(-2deg) scale(1.4); opacity: 0; } to { transform: rotate(-2deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stamp.fresh { animation: none; } }
+.d-clear { color: var(--clear); } .d-refer { color: var(--refer); } .d-escalate { color: var(--escalate); } .d-block { color: var(--block); }
+.ruling { font: 400 1.08rem/1.5 var(--serif); margin: 6px 0 14px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  border: 1px solid var(--line-strong); }
+.pill.code { border-color: var(--block); color: var(--block); }
+.decide { margin: 14px 0 4px; padding: 14px 16px; border: 1px solid var(--line-strong); border-radius: 8px;
+  background: color-mix(in srgb, var(--escalate) 6%, var(--surface)); }
+.decide p { margin: 0 0 10px; font-weight: 600; }
+.decide .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+h3 { font: 600 1.08rem/1.3 var(--serif); color: var(--ink); margin: 26px 0 10px; }
+
+ol.steps { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--line); }
+ol.steps > li { position: relative; padding: 0 0 16px 18px; }
+ol.steps > li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--surface); border: 3px solid var(--lane, var(--ink)); }
+.lane { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--lane, var(--muted)); }
+.stepname { font-weight: 600; display: block; margin-top: 1px; }
+.outcome { display: block; color: var(--text); }
+.outcome::before { content: "→ "; color: var(--muted); }
+ol.steps ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+ol.steps ul li { margin: 2px 0; }
+.rid { font: 0.76rem var(--mono); color: var(--muted); }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 560px; }
+table.data th, table.data td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+table.data thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+table.data td.mono { font: 0.8rem var(--mono); white-space: nowrap; }
+details.json { margin-top: 22px; }
+details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+pre { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto;
+  font: 0.78rem/1.5 var(--mono); max-height: 420px; margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.empty { color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 10px; padding: 28px; text-align: center; }
+footer { color: var(--muted); font-size: 0.85rem; padding: 0 0 40px; }
+footer p { max-width: 90ch; }
+
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } .sticky { position: static; } }
+@media (max-width: 560px) { .wrap { padding: 0 16px; } .panel { padding: 18px; } }
+</style>
+</head>
+<body>
+<header class="site wrap">
+  <p class="eyebrow">RIA custody operations platform · onboarding module</p>
+  <h1>Onboarding console</h1>
+  <p>This page runs the platform's Python onboarding code in your browser, unchanged, through Pyodide. Each run follows the RIA firm onboarding and client account opening process maps. It stops where the map waits for a person, and you can make that person's decision to see the next branch.</p>
+  <p class="fine">Synthetic data. Rules and citations are a reference design, not legal advice. <a href="../">Process maps</a> · <a href="https://github.com/shawngggg/AI-embedded-RIA-custody-operations-platform/tree/main/onboarding" rel="noopener">Source code</a></p>
+  <nav class="tabs" role="tablist" aria-label="Scenario type">
+    <button role="tab" id="tab-firm" aria-selected="true" aria-controls="scenario-panel" data-kind="firm">RIA firms</button>
+    <button role="tab" id="tab-account" aria-selected="false" aria-controls="scenario-panel" data-kind="account">Client accounts</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="split">
+    <section class="panel sticky" id="scenario-panel" role="tabpanel" aria-labelledby="tab-firm">
+      <fieldset>
+        <legend id="scenario-legend">Scenario</legend>
+        <div class="scenarios" id="scenarios"><p class="hint">Loading scenarios…</p></div>
+      </fieldset>
+      <div class="field">
+        <label for="asof">Evaluation date</label>
+        <input type="date" id="asof" value="2026-10-10" min="2018-01-01" max="2030-12-31">
+        <p class="hint">Rules apply the versions in force on this date. Try 2026-02-12 for the entity account (before FinCEN's beneficial ownership relief), or 2028-01-01 for an account under Granite Peak (the SEC staff reliance relief ends).</p>
+      </div>
+      <div class="actions">
+        <button class="primary" id="run" disabled>Run</button>
+        <button class="secondary" id="reset" disabled>Clear decisions</button>
+      </div>
+      <details id="package" hidden style="margin-top:18px">
+        <summary>The application package the AI reads</summary>
+        <pre id="package-text"></pre>
+      </details>
+    </section>
+
+    <section id="result" aria-live="polite">
+      <div class="panel loading" id="boot">
+        <div class="spinner" aria-hidden="true"></div>
+        <div><strong id="boot-title">Loading Python in your browser</strong><div class="hint" id="boot-status">Downloading the runtime (about 10 MB, cached after the first visit)…</div></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="wrap">
+  <p><strong>What runs here.</strong> The page loads the same modules that are in the repository's <code>onboarding/</code> folder: the account data model and path decision, firm and account rules, restriction codes, the first-line flagged-list check, risk rating and EDD, transferability, and the AI extraction controls gate. The AI step in the package scenario uses a hand-written illustrative model response, labeled as such, because the page makes no API calls.</p>
+  <p>Part of the <a href="../">RIA custody operations platform</a> by <a href="https://www.linkedin.com/in/shawngh" rel="noopener">Shawn Ghodrati</a>. Python in the browser by <a href="https://pyodide.org" rel="noopener">Pyodide</a>.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js"></script>
+<script>
+const PYODIDE_INDEX = "https://cdn.jsdelivr.net/pyodide/v0.29.4/full/";
+const PY_FILES = ["models.py", "rules.py", "applications.py", "firm_rules.py", "account_rules.py",
+  "restrictions.py", "flagged_list.py", "risk.py", "transferability.py", "extraction.py",
+  "pipeline.py", "sample_data.py", "demo.py"];
+
+const LANE_VAR = {
+  "Custody operations": "--lane-ops", "AI assist services": "--lane-ai",
+  "Rules and controls engine": "--lane-rules", "AML compliance": "--lane-aml",
+  "Sanctions team": "--lane-sanctions", "Ledger and account services": "--lane-ledger",
+};
+const ROUTE_LABELS = { acats_in_kind: "ACATS in kind", loi: "LOI", liquidate: "Liquidate",
+  product_acceptance: "Product acceptance", review: "Review" };
+const STATUS = {
+  ACTIVE: ["Active", "clear", "The firm is onboarded: master and house accounts are open."],
+  OPEN: ["Open", "clear", "The account is open under the RIA's master account."],
+  PENDING_ITEMS: ["Items requested", "refer", "Not in good order. The run waits here for the RIA to send the missing items."],
+  PENDING_REVIEW: ["Compliance review", "refer", "Registration findings wait for a compliance review."],
+  PENDING_SANCTIONS: ["Sanctions review", "escalate", "A possible flagged-list match. Only the sanctions team can decide and release the hold."],
+  PENDING_EDD: ["EDD pending", "escalate", "High risk. Enhanced due diligence waits for AML compliance."],
+  RETURNED: ["Returned", "refer", "The application can't proceed and goes back to the RIA."],
+  DECLINED: ["Declined", "block", "The relationship is declined."],
+  BLOCKED: ["Blocked", "block", "Confirmed match. The account isn't opened; the sanctions team directs next steps."],
+};
+
+const state = { kind: "firm", keys: { firm: "granite_peak", account: "maria_chen" }, decisions: {} };
+let demo = null, catalog = null, lastResult = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function boot() {
+  try {
+    const py = await loadPyodide({ indexURL: PYODIDE_INDEX });
+    $("boot-status").textContent = "Loading the onboarding module…";
+    py.FS.mkdirTree("/onboarding");
+    for (const name of PY_FILES) {
+      const resp = await fetch("py/" + name);
+      if (!resp.ok) throw new Error("Could not load " + name);
+      py.FS.writeFile("/onboarding/" + name, await resp.text());
+    }
+    py.runPython("import sys\nsys.path.insert(0, '/onboarding')");
+    demo = py.pyimport("demo");
+    catalog = JSON.parse(py.runPython("import json, demo\njson.dumps(demo.catalog())"));
+    $("package-text").textContent = catalog.package_text;
+    $("run").disabled = false; $("reset").disabled = false;
+    renderScenarios();
+    run();
+  } catch (err) {
+    $("result").innerHTML = `<div class="panel error"><strong>The console couldn't start.</strong><p>${esc(err.message || err)}</p><p class="hint">It needs a recent browser with WebAssembly and access to cdn.jsdelivr.net. The same code runs from the command line: <code>python onboarding/demo.py</code>.</p></div>`;
+  }
+}
+
+function renderScenarios() {
+  const list = state.kind === "firm" ? catalog.firms : catalog.accounts;
+  $("scenario-legend").textContent = state.kind === "firm" ? "RIA firm applying" : "Client account application";
+  $("scenarios").innerHTML = list.map((s) => `
+    <label class="scenario">
+      <input type="radio" name="scenario" value="${esc(s.key)}" ${s.key === state.keys[state.kind] ? "checked" : ""}>
+      <span><span class="s-name">${esc(s.name)}</span>
+      <span class="s-label">${esc(s.label)}${s.firm ? ` · under ${esc(s.firm)}` : ""}</span></span>
+    </label>`).join("");
+  $("package").hidden = !(state.kind === "firm" && state.keys.firm === "red_butte_package");
+}
+
+function run() {
+  if (!demo) return;
+  const asOf = $("asof").value || catalog.as_of;
+  try {
+    const out = demo.run_json(state.kind, state.keys[state.kind], asOf, JSON.stringify(state.decisions));
+    lastResult = JSON.parse(out);
+    render(lastResult);
+  } catch (err) {
+    $("result").innerHTML = `<div class="panel error"><strong>That run failed.</strong><pre>${esc(err.message || err)}</pre></div>`;
+  }
+}
+
+function decisionPanel(r) {
+  const opts = {
+    PENDING_SANCTIONS: ["Sanctions team determination", [["sanctions", "false_positive", "False positive: release"], ["sanctions", "true_match", "True match: block"]]],
+    PENDING_EDD: ["AML compliance decision on EDD", [["edd", "approved", "Approve EDD"], ["edd", "declined", "Decline"]]],
+    PENDING_REVIEW: ["Compliance review of registration findings", [["compliance_signoff", true, "Sign off"]]],
+  }[r.status];
+  if (!opts) return "";
+  return `<div class="decide"><p>${esc(opts[0])}</p><div class="btns">${opts[1].map(([k, v, label]) =>
+    `<button class="secondary small" data-decide="${esc(k)}" data-value='${esc(JSON.stringify(v))}'>${esc(label)}</button>`).join("")}</div></div>`;
+}
+
+function table(headers, rows) {
+  if (!rows.length) return "";
+  return `<div class="scroll"><table class="data"><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((row) => `<tr>${row.map((c) => `<td${c && c.mono ? ' class="mono"' : ""}>${esc(c && c.mono ? c.mono : c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function render(r) {
+  const [label, tone, ruling] = STATUS[r.status] || [r.status, "refer", ""];
+  const codes = (r.restrictions || []).map((x) => `<span class="pill code" title="${esc(x.description)}">${esc(x.code)} · owner ${esc(x.owner.replace(/_/g, " "))}</span>`).join("");
+  const meta = [r.kind === "firm" ? "RIA firm" : "Client account", r.target_id, `evaluated ${r.evaluation_date}`,
+    r.path ? `Path ${r.path}` : null, `policy ${r.policy_version}`].filter(Boolean).join(" · ");
+  const steps = r.steps.map((s) => `
+    <li style="--lane: var(${LANE_VAR[s.lane] || "--ink"})">
+      <span class="lane">${esc(s.lane)}</span>
+      <span class="stepname">${esc(s.step)}</span>
+      <span class="outcome">${esc(s.outcome)}</span>
+      ${s.detail.length ? `<ul>${s.detail.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}
+      ${s.rule_ids.length ? `<span class="rid">${esc(s.rule_ids.join(" · "))}</span>` : ""}
+    </li>`).join("");
+  const findings = r.findings ? r.findings.decisions.map((d) => [{ mono: `${d.rule_id} v${d.rule_version}` }, d.reason, d.source, d.owner]) : [];
+  const factors = r.risk ? r.risk.factors.map((f) => [{ mono: f.factor_id }, f.description, "+" + f.points, f.mandatory_edd ? "Yes" : "", f.source]) : [];
+  const transfer = r.transfer ? r.transfer.dispositions.map((d) => [d.description, ROUTE_LABELS[d.route] || d.route, d.quantity_in_kind, d.quantity_to_liquidate, d.reason]) : [];
+  const ex = r.extraction;
+  const extraction = ex ? `
+    <h3>AI extraction and the controls gate</h3>
+    <p class="hint">Illustrative model output (hand-written, not a recorded API response). Every value needs a quote found in the documents, and the value must appear in its quote.</p>
+    ${table(["Accepted fact", "Value", "Quote from the documents"], ex.accepted.map((a) => [a.field, a.value, a.quote]))}
+    ${ex.rejected.length ? `<div style="margin-top:10px">${table(["Rejected", "Value", "Why"], ex.rejected.map((x) => [x.field, x.value, x.reason]))}</div>` : ""}` : "";
+  $("result").innerHTML = `
+    <div class="panel casefile">
+      <p class="who">${esc(r.subject)}</p>
+      <p class="meta">${esc(meta)}</p>
+      <div class="stamp fresh d-${tone}">${esc(label)}</div>
+      <p class="ruling">${esc(ruling)}</p>
+      ${codes ? `<div class="chips" aria-label="Active restriction codes">${codes}</div>` : ""}
+      ${r.requested_items.length ? `<p><strong>Requested from the RIA:</strong> ${esc(r.requested_items.join("; "))}</p>` : ""}
+      ${decisionPanel(r)}
+      <h3>Steps along the process map</h3>
+      <ol class="steps">${steps}</ol>
+      ${findings.length ? `<h3>Rule findings</h3>${table(["Rule", "Finding", "Source", "Owner"], findings)}` : ""}
+      ${factors.length ? `<h3>Risk factors (${esc(r.risk.tier)}, ${esc(r.risk.score)} points)</h3>${table(["Factor", "Description", "Points", "Mandatory EDD", "Source"], factors)}` : ""}
+      ${transfer.length ? `<h3>Transferability (release: ${esc(r.transfer.release)})</h3>${table(["Position", "Route", "In kind", "Sold", "Reason"], transfer)}` : ""}
+      ${extraction}
+      <details class="json"><summary>Audit record (JSON)</summary>
+        <div class="actions"><button class="secondary small" id="download">Download JSON</button></div>
+        <pre>${esc(JSON.stringify(r, null, 2))}</pre>
+      </details>
+    </div>`;
+  document.querySelectorAll("[data-decide]").forEach((b) => b.addEventListener("click", () => {
+    state.decisions[b.dataset.decide] = JSON.parse(b.dataset.value);
+    run();
+  }));
+  $("download").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${lastResult.target_id}-${lastResult.evaluation_date}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+}
+
+document.querySelectorAll("nav.tabs button").forEach((tab) => tab.addEventListener("click", () => {
+  document.querySelectorAll("nav.tabs button").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+  $("scenario-panel").setAttribute("aria-labelledby", tab.id);
+  state.kind = tab.dataset.kind; state.decisions = {};
+  if (catalog) { renderScenarios(); run(); }
+}));
+$("scenarios").addEventListener("change", (e) => {
+  if (e.target.name !== "scenario") return;
+  state.keys[state.kind] = e.target.value; state.decisions = {};
+  renderScenarios(); run();
+});
+$("run").addEventListener("click", run);
+$("asof").addEventListener("change", () => { state.decisions = {}; run(); });
+$("reset").addEventListener("click", () => { state.decisions = {}; run(); });
+boot();
+</script>
+</body>
+</html>
