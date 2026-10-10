@@ -4,7 +4,7 @@
 
 A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
 
-This is **phase one** of a larger build: map every process correctly and completely, then build the platform module by module, starting with onboarding.
+**Phase one**, mapping every process, is complete. **Phase two**, building the platform module by module, has started with onboarding.
 
 ![Platform overview](docs/diagrams/00-platform-overview.png)
 
@@ -66,6 +66,15 @@ Each process is labeled by how far it has been validated:
 
 Every process is now mapped: 11 are validated, 11 partially validated, 2 in review, and 1 is a proposed enhancement.
 
+## Onboarding module (in progress)
+
+`onboarding/models.py` holds the account data model and the first two decisions:
+
+- **Due-diligence path.** A pure RIA account takes Path A, where the custodian relies on the RIA for customer identification, only when the RIA is SEC-registered, has a reliance contract, and has certified within the last year. Every other account, including the self-directed account, takes Path B, where the custodian runs its own checks.
+- **Account opening.** An inactive RIA can't open accounts, and a client can add one self-directed account only alongside an open RIA-managed account.
+
+To run the tests from the repo root: `pip install pytest`, then `python -m pytest onboarding -v`.
+
 ## Repository contents
 
 | Path | Contents |
@@ -73,17 +82,18 @@ Every process is now mapped: 11 are validated, 11 partially validated, 2 in revi
 | `docs/index.html` | Interactive viewer (served by GitHub Pages) |
 | `docs/diagrams/` | PNG image of every process |
 | `bpmn/` | BPMN 2.0 XML files, editable in Camunda Modeler, bpmn.io, or Signavio |
+| `onboarding/` | Onboarding module code and its tests |
 
 ## Roadmap
 
 1. Map every process (done) and validate the two maps still in review.
-2. Build the onboarding module in Python, extending my [onboarding execution engine](https://github.com/shawngggg/onboarding-execution-engine) (policy-as-code KYC/AML rules).
+2. Build the onboarding module in Python, extending my [onboarding execution engine](https://github.com/shawngggg/onboarding-execution-engine) (policy-as-code KYC/AML rules). Milestone 1 of 8, the data model and due-diligence path decision, is done.
 3. Add the remaining modules, then a demo console.
 
 ## Notes
 
 - **Reference architecture.** Process content reflects my operating experience in RIA custody and brokerage operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
-- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude).
+- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude). In the onboarding module, I wrote Milestone 1 (`onboarding/models.py`); its specification and tests were written with AI assistance.
 - **Third-party software.** The viewer embeds [bpmn-js](https://bpmn.io), licensed under the bpmn.io license; see `docs/BPMN-JS-LICENSE.txt`. Its watermark must remain visible.
 
 ## Author
