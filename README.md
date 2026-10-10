@@ -2,7 +2,7 @@
 
 **Live viewer:** https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/
 
-A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform, covering the full account lifecycle from RIA firm onboarding through offboarding, deceased-client processing, and escheatment.
+A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
 
 This is **phase one** of a larger build: map every process correctly and completely, then build the platform module by module, starting with onboarding.
 
@@ -32,24 +32,29 @@ Each process is labeled by how far it has been validated:
 | Process | Status |
 |---|---|
 | Platform overview | Overview |
+| Integration architecture | Overview |
 | RIA firm onboarding | Validated |
 | Client account opening (paths A and B) | Validated |
+| Product acceptance | Partially validated |
 | Rolling review | Validated |
 | Account maintenance | Validated |
 | Client entitlement management | Proposed enhancement |
+| Retirement account servicing | Partially validated |
 | Sanctions escalation (shared) | Validated |
 | Transferability review (shared) | Validated |
 | Asset and money transfers | Partially validated |
-| Trade processing | In review |
-| Corporate actions | In review |
+| Trade processing | Partially validated |
+| Corporate actions | Partially validated |
 | Capital calls and distributions | In review |
-| Cash settlement | In review |
-| Position reconciliation | In review |
-| Advisor billing | In review |
-| Client reporting | In review |
+| Cash settlement | Validated |
+| Position reconciliation | Partially validated |
+| Advisor billing | Validated |
+| Client reporting | Validated |
 | Client offboarding | Validated |
 | Deceased client account | Partially validated |
-| Escheatment | In review |
+| RIA firm transitions (joining or leaving with a book) | Partially validated |
+| Advisor moves and RIA mergers | In review |
+| Escheatment | Validated |
 | Financial crimes and SAR filing | Partially validated |
 | Regulatory reporting | Partially validated |
 | Tax reporting | Partially validated |
@@ -59,7 +64,7 @@ Each process is labeled by how far it has been validated:
 - **In review:** reference design built from regulation and industry practice, awaiting validation.
 - **Proposed enhancement:** a platform capability beyond standard practice.
 
-Still to be mapped: RIA and advisor transitions, product acceptance, and retirement account servicing.
+Every process is now mapped: 11 are validated, 11 partially validated, 2 in review, and 1 is a proposed enhancement.
 
 ## Repository contents
 
@@ -71,13 +76,13 @@ Still to be mapped: RIA and advisor transitions, product acceptance, and retirem
 
 ## Roadmap
 
-1. Finish mapping and validating every process.
+1. Map every process (done) and validate the two maps still in review.
 2. Build the onboarding module in Python, extending my [onboarding execution engine](https://github.com/shawngggg/onboarding-execution-engine) (policy-as-code KYC/AML rules).
 3. Add the remaining modules, then a demo console.
 
 ## Notes
 
-- **Reference architecture.** Process content reflects my operating experience in RIA custody operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
+- **Reference architecture.** Process content reflects my operating experience in RIA custody and brokerage operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
 - **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude).
 - **Third-party software.** The viewer embeds [bpmn-js](https://bpmn.io), licensed under the bpmn.io license; see `docs/BPMN-JS-LICENSE.txt`. Its watermark must remain visible.
 
