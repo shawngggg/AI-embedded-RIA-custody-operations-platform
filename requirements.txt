@@ -1,0 +1,3 @@
+pytest>=8
+# Only needed for live AI extraction calls (extraction.py); tests and the console run without it
+anthropic>=1.13
