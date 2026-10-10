@@ -2,14 +2,14 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ca_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="ca_collab">
 <bpmn:participant id="ca_main" name="Custody operations platform (synthetic reference implementation)" processRef="ca_process" />
-<bpmn:participant id="ca_adv" name="RIA advisor" />
+<bpmn:participant id="ca_adv" name="RIA advisor (or the client for the self-directed account)" />
 <bpmn:participant id="ca_agt" name="DTC, announcement sources, paying and exchange agents" />
 <bpmn:messageFlow id="ca_msg0" name="Announcement" sourceRef="ca_agt" targetRef="ca_s" />
 <bpmn:messageFlow id="ca_msg1" name="Election request" sourceRef="ca_v1" targetRef="ca_adv" />
 <bpmn:messageFlow id="ca_msg2" name="Election" sourceRef="ca_adv" targetRef="ca_v2" />
 <bpmn:messageFlow id="ca_msg3" name="Election instruction" sourceRef="ca_v5" targetRef="ca_agt" />
 <bpmn:messageFlow id="ca_msg4" name="Payment or shares" sourceRef="ca_agt" targetRef="ca_c1" />
-<bpmn:textAnnotation id="ca_ann0"><bpmn:text>Golden copy: one validated version of each event, built from several announcement sources.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ca_ann0"><bpmn:text>Golden copy: one validated version of each event, built from several announcement sources. With T+1, the ex-date equals the record date for most cash dividends.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ca_ann1"><bpmn:text>Splits restate per-share basis; conversions and mergers carry basis to the new security.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="ca_process" name="Corporate actions (mandatory and voluntary)" isExecutable="false">
@@ -83,7 +83,7 @@
 <bpmn:outgoing>ca_flow17</bpmn:outgoing>
 <bpmn:outgoing>ca_flow18</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:sendTask id="ca_v1" name="Notify advisor: options, election deadline, default option">
+<bpmn:sendTask id="ca_v1" name="Notify the RIA, or the client for the self-directed account: options, deadline, default">
 <bpmn:incoming>ca_flow7</bpmn:incoming>
 <bpmn:outgoing>ca_flow8</bpmn:outgoing>
 </bpmn:sendTask>
@@ -123,7 +123,7 @@
 <bpmn:incoming>ca_flow17</bpmn:incoming>
 <bpmn:outgoing>ca_flow21</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:serviceTask id="ca_m4" name="Mandatory conversion or merger: exchange securities; carry over basis">
+<bpmn:serviceTask id="ca_m4" name="Merger, conversion, or symbol change: exchange or rename; basis per Form 8937">
 <bpmn:incoming>ca_flow18</bpmn:incoming>
 <bpmn:outgoing>ca_flow22</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -144,7 +144,7 @@
 <bpmn:outgoing>ca_flow25</bpmn:outgoing>
 <bpmn:messageEventDefinition id="ca_c1_def" />
 </bpmn:intermediateCatchEvent>
-<bpmn:businessRuleTask id="ca_t6" name="Reconcile received vs. expected entitlement">
+<bpmn:businessRuleTask id="ca_t6" name="Reconcile positions and cash against expected entitlements after the event">
 <bpmn:incoming>ca_flow25</bpmn:incoming>
 <bpmn:incoming>ca_flow31</bpmn:incoming>
 <bpmn:outgoing>ca_flow26</bpmn:outgoing>
@@ -187,7 +187,7 @@
 <bpmn:sequenceFlow id="ca_flow15" name="Cash dividend" sourceRef="ca_g2" targetRef="ca_m1" />
 <bpmn:sequenceFlow id="ca_flow16" name="Forward split" sourceRef="ca_g2" targetRef="ca_m2" />
 <bpmn:sequenceFlow id="ca_flow17" name="Reverse split" sourceRef="ca_g2" targetRef="ca_m3" />
-<bpmn:sequenceFlow id="ca_flow18" name="Conversion, merger" sourceRef="ca_g2" targetRef="ca_m4" />
+<bpmn:sequenceFlow id="ca_flow18" name="Merger, conversion, symbol change" sourceRef="ca_g2" targetRef="ca_m4" />
 <bpmn:sequenceFlow id="ca_flow19" name="" sourceRef="ca_m1" targetRef="ca_gm" />
 <bpmn:sequenceFlow id="ca_flow20" name="" sourceRef="ca_m2" targetRef="ca_gm" />
 <bpmn:sequenceFlow id="ca_flow21" name="" sourceRef="ca_m3" targetRef="ca_gm" />
@@ -237,7 +237,7 @@
 <bpmndi:BPMNShape id="ca_e_di" bpmnElement="ca_e"><dc:Bounds x="3562" y="751" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3520" y="793" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ca_t8_di" bpmnElement="ca_t8" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="3300" y="394" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ca_t9_di" bpmnElement="ca_t9" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="3500" y="194" width="160" height="90" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="ca_ann0_di" bpmnElement="ca_ann0"><dc:Bounds x="945" y="407" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ca_ann0_di" bpmnElement="ca_ann0"><dc:Bounds x="945" y="407" width="240" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ca_ann1_di" bpmnElement="ca_ann1"><dc:Bounds x="1525" y="577" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="ca_flow0_di" bpmnElement="ca_flow0"><di:waypoint x="198" y="1099" /><di:waypoint x="280" y="1099" /><di:waypoint x="280" y="439" /><di:waypoint x="300" y="439" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="ca_flow1_di" bpmnElement="ca_flow1"><di:waypoint x="460" y="439" /><di:waypoint x="480" y="439" /><di:waypoint x="480" y="609" /><di:waypoint x="500" y="609" /></bpmndi:BPMNEdge>

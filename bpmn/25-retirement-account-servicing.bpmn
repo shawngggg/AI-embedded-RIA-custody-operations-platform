@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ra_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="ra_collab">
+<bpmn:participant id="ra_main" name="Custody operations platform (synthetic reference implementation)" processRef="ra_process" />
+<bpmn:participant id="ra_ria" name="RIA advisor (submits client-signed forms), the client, or beneficiaries" />
+<bpmn:messageFlow id="ra_msg0" name="Contribution" sourceRef="ra_ria" targetRef="ra_as" />
+<bpmn:messageFlow id="ra_msg1" name="Excess notice" sourceRef="ra_at2" targetRef="ra_ria" />
+<bpmn:messageFlow id="ra_msg2" name="Signed distribution form" sourceRef="ra_ria" targetRef="ra_bs" />
+<bpmn:messageFlow id="ra_msg3" name="Signed rollover or transfer form" sourceRef="ra_ria" targetRef="ra_cs" />
+<bpmn:messageFlow id="ra_msg4" name="RMD statement" sourceRef="ra_dt2" targetRef="ra_ria" />
+<bpmn:messageFlow id="ra_msg5" name="Claim forms" sourceRef="ra_ria" targetRef="ra_es" />
+<bpmn:textAnnotation id="ra_ann0"><bpmn:text>2026 limits: $7,500, plus $1,100 at age 50 or older. Prior-year contributions are accepted until the April filing deadline.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ra_ann1"><bpmn:text>Requests come through the RIA on client-signed forms. Clients may also contact the custodian directly, and beneficiaries file death claims themselves because the RIA's authority ends at death.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ra_ann2"><bpmn:text>Trustee-to-trustee transfers aren't limited or reported. A 60-day IRA-to-IRA rollover is limited to one per 12 months, an RMD can't be rolled over, and late rollovers can use self-certification (Rev. Proc. 2020-46).</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ra_ann3"><bpmn:text>RMDs start at 73 (75 for people who turn 74 after 2032); Roth IRAs have no lifetime RMDs. A missed RMD carries a 25% excise tax, or 10% if corrected in time. Payments run through the distribution flow.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ra_ann4"><bpmn:text>Non-spouse beneficiaries follow the 10-year rule, with annual RMDs in years 1–9 if the owner had started them; eligible designated beneficiaries can stretch; estates follow the 5-year or the owner's life-expectancy rule. Shares split by December 31 of the year after death.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ra_ann5"><bpmn:text>Beneficiary designations change only on the owner's signed form; spousal consent rules vary by state.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="ra_process" name="Retirement account servicing" isExecutable="false">
+<bpmn:laneSet id="ra_laneset">
+<bpmn:lane id="ra_lane_ops" name="Custody operations (retirement servicing)">
+<bpmn:flowNodeRef>ra_at2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ae0</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_bs</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_bca</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_cs</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_cca</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ce1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_dt2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_es</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_et2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ra_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>ra_bt1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_dt3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_de</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_et1</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ra_lane_rules" name="Retirement rules engine (IRS limits, codes, withholding)">
+<bpmn:flowNodeRef>ra_at1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ag1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_bt2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ct1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_cg1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ds</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_dt1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_eg1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_et5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ee</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ra_lane_ledger" name="Ledger, tax reporting, and payments">
+<bpmn:flowNodeRef>ra_as</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_at3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ae1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_bt3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_be</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ct2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ct3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_ce2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_et3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ra_et4</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="ra_as" name="Contribution received">
+<bpmn:outgoing>ra_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ra_as_def" />
+</bpmn:startEvent>
+<bpmn:businessRuleTask id="ra_at1" name="Check the tax year, the annual limit, and Roth eligibility flags">
+<bpmn:incoming>ra_flow0</bpmn:incoming>
+<bpmn:outgoing>ra_flow1</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="ra_ag1" name="Excess?">
+<bpmn:incoming>ra_flow1</bpmn:incoming>
+<bpmn:outgoing>ra_flow2</bpmn:outgoing>
+<bpmn:outgoing>ra_flow3</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:sendTask id="ra_at2" name="Tell the RIA; remove the excess plus earnings by the tax deadline">
+<bpmn:incoming>ra_flow2</bpmn:incoming>
+<bpmn:outgoing>ra_flow4</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:endEvent id="ra_ae0" name="Excess corrected">
+<bpmn:incoming>ra_flow4</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:serviceTask id="ra_at3" name="Post and code for Form 5498 (traditional or Roth)">
+<bpmn:incoming>ra_flow3</bpmn:incoming>
+<bpmn:outgoing>ra_flow5</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ra_ae1" name="Contribution posted">
+<bpmn:incoming>ra_flow5</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ra_bs" name="Distribution request (RIA-submitted, client-signed)">
+<bpmn:outgoing>ra_flow6</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ra_bs_def" />
+</bpmn:startEvent>
+<bpmn:serviceTask id="ra_bt1" name="Extract the request and withholding elections (Form W-4R and state) (AI)">
+<bpmn:incoming>ra_flow6</bpmn:incoming>
+<bpmn:outgoing>ra_flow7</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="ra_bt2" name="Validate signatures, federal withholding (10% default), state withholding, 1099-R code">
+<bpmn:incoming>ra_flow7</bpmn:incoming>
+<bpmn:outgoing>ra_flow8</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:callActivity id="ra_bca" name="Pay out (transfers process)" calledElement="tr_process">
+<bpmn:incoming>ra_flow8</bpmn:incoming>
+<bpmn:outgoing>ra_flow9</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:serviceTask id="ra_bt3" name="Remit withheld taxes; record for Form 1099-R">
+<bpmn:incoming>ra_flow9</bpmn:incoming>
+<bpmn:outgoing>ra_flow10</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ra_be" name="Distribution paid">
+<bpmn:incoming>ra_flow10</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ra_cs" name="Rollover, transfer, or conversion request">
+<bpmn:outgoing>ra_flow11</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ra_cs_def" />
+</bpmn:startEvent>
+<bpmn:businessRuleTask id="ra_ct1" name="Check eligibility: matching account types, not an RMD, one indirect rollover a year, 60 days">
+<bpmn:incoming>ra_flow11</bpmn:incoming>
+<bpmn:outgoing>ra_flow12</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:exclusiveGateway id="ra_cg1" name="Type?">
+<bpmn:incoming>ra_flow12</bpmn:incoming>
+<bpmn:outgoing>ra_flow13</bpmn:outgoing>
+<bpmn:outgoing>ra_flow14</bpmn:outgoing>
+<bpmn:outgoing>ra_flow15</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:callActivity id="ra_cca" name="Trustee-to-trustee transfer, ACATS or not (transfers process)" calledElement="tr_process">
+<bpmn:incoming>ra_flow13</bpmn:incoming>
+<bpmn:outgoing>ra_flow16</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:endEvent id="ra_ce1" name="Transfer complete">
+<bpmn:incoming>ra_flow16</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:serviceTask id="ra_ct2" name="Deposit the rollover; code it as a rollover contribution (Form 5498 box 2)">
+<bpmn:incoming>ra_flow14</bpmn:incoming>
+<bpmn:outgoing>ra_flow17</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="ra_ct3" name="Convert to Roth: code the distribution and the conversion (Form 5498 box 3)">
+<bpmn:incoming>ra_flow15</bpmn:incoming>
+<bpmn:outgoing>ra_flow18</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ra_ce2" name="Rollover or conversion recorded">
+<bpmn:incoming>ra_flow17</bpmn:incoming>
+<bpmn:incoming>ra_flow18</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ra_ds" name="RMD year begins (January)">
+<bpmn:outgoing>ra_flow19</bpmn:outgoing>
+<bpmn:timerEventDefinition id="ra_ds_def" />
+</bpmn:startEvent>
+<bpmn:businessRuleTask id="ra_dt1" name="Find traditional IRA owners at RMD age; calculate RMDs; flag Form 5498 box 11">
+<bpmn:incoming>ra_flow19</bpmn:incoming>
+<bpmn:outgoing>ra_flow20</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:sendTask id="ra_dt2" name="Send the RMD statement or calculation offer by January 31; copy the RIA">
+<bpmn:incoming>ra_flow20</bpmn:incoming>
+<bpmn:outgoing>ra_flow21</bpmn:outgoing>
+</bpmn:sendTask>
+<bpmn:serviceTask id="ra_dt3" name="Track RMDs not yet taken; alert the RIA in the fourth quarter (AI)">
+<bpmn:incoming>ra_flow21</bpmn:incoming>
+<bpmn:outgoing>ra_flow22</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ra_de" name="RMDs tracked">
+<bpmn:incoming>ra_flow22</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ra_es" name="Beneficiary claim on an IRA (death already verified)">
+<bpmn:outgoing>ra_flow23</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ra_es_def" />
+</bpmn:startEvent>
+<bpmn:serviceTask id="ra_et1" name="Extract claim documents: death certificate, beneficiary applications, IDs (AI)">
+<bpmn:incoming>ra_flow23</bpmn:incoming>
+<bpmn:outgoing>ra_flow24</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:userTask id="ra_et2" name="Verify each beneficiary against the designation on file; split the shares">
+<bpmn:incoming>ra_flow24</bpmn:incoming>
+<bpmn:outgoing>ra_flow25</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:exclusiveGateway id="ra_eg1" name="Beneficiary?">
+<bpmn:incoming>ra_flow25</bpmn:incoming>
+<bpmn:outgoing>ra_flow26</bpmn:outgoing>
+<bpmn:outgoing>ra_flow27</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:serviceTask id="ra_et3" name="Spouse: treat as own, roll over, or open an inherited IRA">
+<bpmn:incoming>ra_flow26</bpmn:incoming>
+<bpmn:outgoing>ra_flow28</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="ra_et4" name="Open an inherited IRA (decedent FBO beneficiary); set the payout rule">
+<bpmn:incoming>ra_flow27</bpmn:incoming>
+<bpmn:outgoing>ra_flow29</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:businessRuleTask id="ra_et5" name="Flag any year-of-death RMD still due to the beneficiary">
+<bpmn:incoming>ra_flow28</bpmn:incoming>
+<bpmn:incoming>ra_flow29</bpmn:incoming>
+<bpmn:outgoing>ra_flow30</bpmn:outgoing>
+</bpmn:businessRuleTask>
+<bpmn:endEvent id="ra_ee" name="Inherited assets in place">
+<bpmn:incoming>ra_flow30</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="ra_flow0" name="" sourceRef="ra_as" targetRef="ra_at1" />
+<bpmn:sequenceFlow id="ra_flow1" name="" sourceRef="ra_at1" targetRef="ra_ag1" />
+<bpmn:sequenceFlow id="ra_flow2" name="Yes" sourceRef="ra_ag1" targetRef="ra_at2" />
+<bpmn:sequenceFlow id="ra_flow3" name="No" sourceRef="ra_ag1" targetRef="ra_at3" />
+<bpmn:sequenceFlow id="ra_flow4" name="" sourceRef="ra_at2" targetRef="ra_ae0" />
+<bpmn:sequenceFlow id="ra_flow5" name="" sourceRef="ra_at3" targetRef="ra_ae1" />
+<bpmn:sequenceFlow id="ra_flow6" name="" sourceRef="ra_bs" targetRef="ra_bt1" />
+<bpmn:sequenceFlow id="ra_flow7" name="" sourceRef="ra_bt1" targetRef="ra_bt2" />
+<bpmn:sequenceFlow id="ra_flow8" name="" sourceRef="ra_bt2" targetRef="ra_bca" />
+<bpmn:sequenceFlow id="ra_flow9" name="" sourceRef="ra_bca" targetRef="ra_bt3" />
+<bpmn:sequenceFlow id="ra_flow10" name="" sourceRef="ra_bt3" targetRef="ra_be" />
+<bpmn:sequenceFlow id="ra_flow11" name="" sourceRef="ra_cs" targetRef="ra_ct1" />
+<bpmn:sequenceFlow id="ra_flow12" name="" sourceRef="ra_ct1" targetRef="ra_cg1" />
+<bpmn:sequenceFlow id="ra_flow13" name="Transfer" sourceRef="ra_cg1" targetRef="ra_cca" />
+<bpmn:sequenceFlow id="ra_flow14" name="Rollover" sourceRef="ra_cg1" targetRef="ra_ct2" />
+<bpmn:sequenceFlow id="ra_flow15" name="Conversion" sourceRef="ra_cg1" targetRef="ra_ct3" />
+<bpmn:sequenceFlow id="ra_flow16" name="" sourceRef="ra_cca" targetRef="ra_ce1" />
+<bpmn:sequenceFlow id="ra_flow17" name="" sourceRef="ra_ct2" targetRef="ra_ce2" />
+<bpmn:sequenceFlow id="ra_flow18" name="" sourceRef="ra_ct3" targetRef="ra_ce2" />
+<bpmn:sequenceFlow id="ra_flow19" name="" sourceRef="ra_ds" targetRef="ra_dt1" />
+<bpmn:sequenceFlow id="ra_flow20" name="" sourceRef="ra_dt1" targetRef="ra_dt2" />
+<bpmn:sequenceFlow id="ra_flow21" name="" sourceRef="ra_dt2" targetRef="ra_dt3" />
+<bpmn:sequenceFlow id="ra_flow22" name="" sourceRef="ra_dt3" targetRef="ra_de" />
+<bpmn:sequenceFlow id="ra_flow23" name="" sourceRef="ra_es" targetRef="ra_et1" />
+<bpmn:sequenceFlow id="ra_flow24" name="" sourceRef="ra_et1" targetRef="ra_et2" />
+<bpmn:sequenceFlow id="ra_flow25" name="" sourceRef="ra_et2" targetRef="ra_eg1" />
+<bpmn:sequenceFlow id="ra_flow26" name="Spouse" sourceRef="ra_eg1" targetRef="ra_et3" />
+<bpmn:sequenceFlow id="ra_flow27" name="Other" sourceRef="ra_eg1" targetRef="ra_et4" />
+<bpmn:sequenceFlow id="ra_flow28" name="" sourceRef="ra_et3" targetRef="ra_et5" />
+<bpmn:sequenceFlow id="ra_flow29" name="" sourceRef="ra_et4" targetRef="ra_et5" />
+<bpmn:sequenceFlow id="ra_flow30" name="" sourceRef="ra_et5" targetRef="ra_ee" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="ra_diagram" name="Retirement account servicing">
+<bpmndi:BPMNPlane id="ra_plane" bpmnElement="ra_collab">
+<bpmndi:BPMNShape id="ra_main_di" bpmnElement="ra_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="5900" height="780" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_lane_ops_di" bpmnElement="ra_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="5870" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_lane_ai_di" bpmnElement="ra_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="314" width="5870" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_lane_rules_di" bpmnElement="ra_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="484" width="5870" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_lane_ledger_di" bpmnElement="ra_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="674" width="5870" height="230" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ria_di" bpmnElement="ra_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="5900" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_as_di" bpmnElement="ra_as"><dc:Bounds x="162" y="771" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="813" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_at1_di" bpmnElement="ra_at1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="300" y="534" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ag1_di" bpmnElement="ra_ag1" isMarkerVisible="true"><dc:Bounds x="555" y="554" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="611" y="565" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_at2_di" bpmnElement="ra_at2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="700" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ae0_di" bpmnElement="ra_ae0"><dc:Bounds x="962" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="920" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_at3_di" bpmnElement="ra_at3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="700" y="744" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ae1_di" bpmnElement="ra_ae1"><dc:Bounds x="962" y="771" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="920" y="813" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_bs_di" bpmnElement="ra_bs"><dc:Bounds x="1162" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1120" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_bt1_di" bpmnElement="ra_bt1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1300" y="354" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_bt2_di" bpmnElement="ra_bt2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1500" y="534" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_bca_di" bpmnElement="ra_bca" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1700" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_bt3_di" bpmnElement="ra_bt3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="1900" y="744" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_be_di" bpmnElement="ra_be"><dc:Bounds x="2162" y="771" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2120" y="813" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_cs_di" bpmnElement="ra_cs"><dc:Bounds x="2362" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2320" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ct1_di" bpmnElement="ra_ct1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2500" y="534" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_cg1_di" bpmnElement="ra_cg1" isMarkerVisible="true"><dc:Bounds x="2755" y="554" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2643" y="532" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_cca_di" bpmnElement="ra_cca" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="2900" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ce1_di" bpmnElement="ra_ce1"><dc:Bounds x="3162" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3120" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ct2_di" bpmnElement="ra_ct2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2900" y="689" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ct3_di" bpmnElement="ra_ct3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3100" y="804" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ce2_di" bpmnElement="ra_ce2"><dc:Bounds x="3362" y="771" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3404" y="775" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ds_di" bpmnElement="ra_ds"><dc:Bounds x="3562" y="561" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3520" y="603" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_dt1_di" bpmnElement="ra_dt1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3700" y="534" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_dt2_di" bpmnElement="ra_dt2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3900" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_dt3_di" bpmnElement="ra_dt3" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="4100" y="354" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_de_di" bpmnElement="ra_de"><dc:Bounds x="4362" y="381" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4320" y="423" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_es_di" bpmnElement="ra_es"><dc:Bounds x="4562" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4520" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_et1_di" bpmnElement="ra_et1" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="4700" y="354" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_et2_di" bpmnElement="ra_et2" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="4900" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_eg1_di" bpmnElement="ra_eg1" isMarkerVisible="true"><dc:Bounds x="5155" y="554" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="5043" y="532" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_et3_di" bpmnElement="ra_et3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="5300" y="689" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_et4_di" bpmnElement="ra_et4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="5300" y="804" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_et5_di" bpmnElement="ra_et5" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="5500" y="534" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ee_di" bpmnElement="ra_ee"><dc:Bounds x="5762" y="561" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="5720" y="603" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann0_di" bpmnElement="ra_ann0"><dc:Bounds x="800" y="367" width="360" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann1_di" bpmnElement="ra_ann1"><dc:Bounds x="1900" y="177" width="360" height="84" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann2_di" bpmnElement="ra_ann2"><dc:Bounds x="3000" y="364" width="560" height="70" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann3_di" bpmnElement="ra_ann3"><dc:Bounds x="3720" y="754" width="520" height="70" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann4_di" bpmnElement="ra_ann4"><dc:Bounds x="5230" y="177" width="500" height="84" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ra_ann5_di" bpmnElement="ra_ann5"><dc:Bounds x="5260" y="374" width="440" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="ra_flow0_di" bpmnElement="ra_flow0"><di:waypoint x="198" y="789" /><di:waypoint x="280" y="789" /><di:waypoint x="280" y="579" /><di:waypoint x="300" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow1_di" bpmnElement="ra_flow1"><di:waypoint x="460" y="579" /><di:waypoint x="555" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow2_di" bpmnElement="ra_flow2"><di:waypoint x="580" y="554" /><di:waypoint x="580" y="219" /><di:waypoint x="700" y="219" /><bpmndi:BPMNLabel><dc:Bounds x="586" y="199" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow3_di" bpmnElement="ra_flow3"><di:waypoint x="580" y="604" /><di:waypoint x="580" y="789" /><di:waypoint x="700" y="789" /><bpmndi:BPMNLabel><dc:Bounds x="586" y="769" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow4_di" bpmnElement="ra_flow4"><di:waypoint x="860" y="219" /><di:waypoint x="962" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow5_di" bpmnElement="ra_flow5"><di:waypoint x="860" y="789" /><di:waypoint x="962" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow6_di" bpmnElement="ra_flow6"><di:waypoint x="1198" y="219" /><di:waypoint x="1280" y="219" /><di:waypoint x="1280" y="399" /><di:waypoint x="1300" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow7_di" bpmnElement="ra_flow7"><di:waypoint x="1460" y="399" /><di:waypoint x="1480" y="399" /><di:waypoint x="1480" y="579" /><di:waypoint x="1500" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow8_di" bpmnElement="ra_flow8"><di:waypoint x="1660" y="579" /><di:waypoint x="1680" y="579" /><di:waypoint x="1680" y="219" /><di:waypoint x="1700" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow9_di" bpmnElement="ra_flow9"><di:waypoint x="1860" y="219" /><di:waypoint x="1880" y="219" /><di:waypoint x="1880" y="789" /><di:waypoint x="1900" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow10_di" bpmnElement="ra_flow10"><di:waypoint x="2060" y="789" /><di:waypoint x="2162" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow11_di" bpmnElement="ra_flow11"><di:waypoint x="2398" y="219" /><di:waypoint x="2480" y="219" /><di:waypoint x="2480" y="579" /><di:waypoint x="2500" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow12_di" bpmnElement="ra_flow12"><di:waypoint x="2660" y="579" /><di:waypoint x="2755" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow13_di" bpmnElement="ra_flow13"><di:waypoint x="2780" y="554" /><di:waypoint x="2780" y="219" /><di:waypoint x="2900" y="219" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="199" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow14_di" bpmnElement="ra_flow14"><di:waypoint x="2805" y="579" /><di:waypoint x="2880" y="579" /><di:waypoint x="2880" y="734" /><di:waypoint x="2900" y="734" /><bpmndi:BPMNLabel><dc:Bounds x="2811" y="559" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow15_di" bpmnElement="ra_flow15"><di:waypoint x="2780" y="604" /><di:waypoint x="2780" y="849" /><di:waypoint x="3100" y="849" /><bpmndi:BPMNLabel><dc:Bounds x="2786" y="829" width="70" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow16_di" bpmnElement="ra_flow16"><di:waypoint x="3060" y="219" /><di:waypoint x="3162" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow17_di" bpmnElement="ra_flow17"><di:waypoint x="3060" y="734" /><di:waypoint x="3342" y="734" /><di:waypoint x="3342" y="789" /><di:waypoint x="3362" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow18_di" bpmnElement="ra_flow18"><di:waypoint x="3260" y="849" /><di:waypoint x="3342" y="849" /><di:waypoint x="3342" y="789" /><di:waypoint x="3362" y="789" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow19_di" bpmnElement="ra_flow19"><di:waypoint x="3598" y="579" /><di:waypoint x="3700" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow20_di" bpmnElement="ra_flow20"><di:waypoint x="3860" y="579" /><di:waypoint x="3880" y="579" /><di:waypoint x="3880" y="219" /><di:waypoint x="3900" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow21_di" bpmnElement="ra_flow21"><di:waypoint x="4060" y="219" /><di:waypoint x="4080" y="219" /><di:waypoint x="4080" y="399" /><di:waypoint x="4100" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow22_di" bpmnElement="ra_flow22"><di:waypoint x="4260" y="399" /><di:waypoint x="4362" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow23_di" bpmnElement="ra_flow23"><di:waypoint x="4598" y="219" /><di:waypoint x="4680" y="219" /><di:waypoint x="4680" y="399" /><di:waypoint x="4700" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow24_di" bpmnElement="ra_flow24"><di:waypoint x="4860" y="399" /><di:waypoint x="4880" y="399" /><di:waypoint x="4880" y="219" /><di:waypoint x="4900" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow25_di" bpmnElement="ra_flow25"><di:waypoint x="5060" y="219" /><di:waypoint x="5180" y="219" /><di:waypoint x="5180" y="554" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow26_di" bpmnElement="ra_flow26"><di:waypoint x="5205" y="579" /><di:waypoint x="5280" y="579" /><di:waypoint x="5280" y="734" /><di:waypoint x="5300" y="734" /><bpmndi:BPMNLabel><dc:Bounds x="5211" y="559" width="42" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow27_di" bpmnElement="ra_flow27"><di:waypoint x="5180" y="604" /><di:waypoint x="5180" y="849" /><di:waypoint x="5300" y="849" /><bpmndi:BPMNLabel><dc:Bounds x="5186" y="829" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow28_di" bpmnElement="ra_flow28"><di:waypoint x="5460" y="734" /><di:waypoint x="5480" y="734" /><di:waypoint x="5480" y="579" /><di:waypoint x="5500" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow29_di" bpmnElement="ra_flow29"><di:waypoint x="5460" y="849" /><di:waypoint x="5480" y="849" /><di:waypoint x="5480" y="579" /><di:waypoint x="5500" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_flow30_di" bpmnElement="ra_flow30"><di:waypoint x="5660" y="579" /><di:waypoint x="5762" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg0_di" bpmnElement="ra_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="771" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="84" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg1_di" bpmnElement="ra_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="780" y="174" /><di:waypoint x="780" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="787" y="66" width="91" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg2_di" bpmnElement="ra_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="60" /><di:waypoint x="1180" y="201" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="66" width="168" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg3_di" bpmnElement="ra_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2380" y="60" /><di:waypoint x="2380" y="201" /><bpmndi:BPMNLabel><dc:Bounds x="2387" y="66" width="224" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg4_di" bpmnElement="ra_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3980" y="174" /><di:waypoint x="3980" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="3987" y="66" width="91" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ra_msg5_di" bpmnElement="ra_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4580" y="60" /><di:waypoint x="4580" y="201" /><bpmndi:BPMNLabel><dc:Bounds x="4587" y="66" width="77" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane>
+</bpmndi:BPMNDiagram>
+</bpmn:definitions>

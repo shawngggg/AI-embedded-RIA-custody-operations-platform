@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="ft_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
+<bpmn:collaboration id="ft_collab">
+<bpmn:participant id="ft_main" name="Custody operations platform (synthetic reference implementation)" processRef="ft_process" />
+<bpmn:participant id="ft_ria" name="RIA firm and its clients (clients sign applications, LPOAs, and transfer forms)" />
+<bpmn:participant id="ft_ext" name="Other custodian (NSCC ACATS), transfer agents, and fund sponsors" />
+<bpmn:messageFlow id="ft_msg0" name="Transition request" sourceRef="ft_ria" targetRef="ft_js" />
+<bpmn:messageFlow id="ft_msg1" name="Client-signed applications, LPOAs, transfer forms" sourceRef="ft_ria" targetRef="ft_jca2" />
+<bpmn:messageFlow id="ft_msg2" name="Cost-basis statements" sourceRef="ft_ext" targetRef="ft_jie" />
+<bpmn:messageFlow id="ft_msg3" name="Termination notice" sourceRef="ft_ria" targetRef="ft_ls" />
+<bpmn:messageFlow id="ft_msg4" name="Transfer forms (ACATS)" sourceRef="ft_ext" targetRef="ft_lie" />
+<bpmn:messageFlow id="ft_msg5" name="Residual credits" sourceRef="ft_lt4" targetRef="ft_ext" />
+<bpmn:textAnnotation id="ft_ann0"><bpmn:text>Clients authorize the move themselves with new applications, LPOAs, and transfer forms; negative consent isn't available. The RIA tells clients the new custodian's name and address.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ft_ann1"><bpmn:text>Large books move in planned batches over weeks to months; accounts are opened and linked before the transfer forms go in.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ft_ann2"><bpmn:text>Advisor moves between RIAs and RIA mergers have their own map.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ft_ann3"><bpmn:text>When a transfer validates, the account freezes and open orders cancel (FINRA Rule 11870), so the final fee comes out first. Residual credits follow for at least 6 months.</bpmn:text></bpmn:textAnnotation>
+</bpmn:collaboration>
+<bpmn:process id="ft_process" name="RIA firm transitions" isExecutable="false">
+<bpmn:laneSet id="ft_laneset">
+<bpmn:lane id="ft_lane_ops" name="Custody operations (transitions team)">
+<bpmn:flowNodeRef>ft_js</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jca1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jt1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jca2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jca3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jca4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jt5</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_ls</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lt1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lca1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lca2</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ft_lane_ai" name="AI assist services">
+<bpmn:flowNodeRef>ft_jt3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jt4</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ft_lane_rules" name="Rules and controls engine">
+<bpmn:flowNodeRef>ft_jg1</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lg1</bpmn:flowNodeRef>
+</bpmn:lane>
+<bpmn:lane id="ft_lane_ledger" name="Ledger, billing, and account services">
+<bpmn:flowNodeRef>ft_jt2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_jt6</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_je</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lt2</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lie</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lt3</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_lt4</bpmn:flowNodeRef>
+<bpmn:flowNodeRef>ft_le</bpmn:flowNodeRef>
+</bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="ft_js" name="RIA joins with its book">
+<bpmn:outgoing>ft_flow0</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ft_js_def" />
+</bpmn:startEvent>
+<bpmn:callActivity id="ft_jca1" name="RIA firm onboarding, if the firm is new" calledElement="rf_process">
+<bpmn:incoming>ft_flow0</bpmn:incoming>
+<bpmn:outgoing>ft_flow1</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:userTask id="ft_jt1" name="Plan the move: account list, target date, transfer batches, fee schedules">
+<bpmn:incoming>ft_flow1</bpmn:incoming>
+<bpmn:outgoing>ft_flow2</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:callActivity id="ft_jca2" name="Open each client account (account opening)" calledElement="ao_process">
+<bpmn:incoming>ft_flow2</bpmn:incoming>
+<bpmn:outgoing>ft_flow3</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:serviceTask id="ft_jt2" name="Link accounts to the RIA master and rep codes; set fee schedules">
+<bpmn:incoming>ft_flow3</bpmn:incoming>
+<bpmn:outgoing>ft_flow4</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="ft_jt3" name="Read prior-custodian statements; flag likely ACATS rejects and non-transferable assets (AI)">
+<bpmn:incoming>ft_flow4</bpmn:incoming>
+<bpmn:outgoing>ft_flow5</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:callActivity id="ft_jca3" name="Transferability review of incoming assets" calledElement="xr_process">
+<bpmn:incoming>ft_flow5</bpmn:incoming>
+<bpmn:outgoing>ft_flow6</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:callActivity id="ft_jca4" name="Bulk incoming transfers in batches (transfers process)" calledElement="tr_process">
+<bpmn:incoming>ft_flow6</bpmn:incoming>
+<bpmn:outgoing>ft_flow7</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:intermediateCatchEvent id="ft_jie" name="Cost-basis statements received (due within 15 days of settlement)">
+<bpmn:incoming>ft_flow7</bpmn:incoming>
+<bpmn:outgoing>ft_flow8</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ft_jie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:serviceTask id="ft_jt4" name="Reconcile positions and cost basis against prior statements; flag breaks (AI)">
+<bpmn:incoming>ft_flow8</bpmn:incoming>
+<bpmn:incoming>ft_flow11</bpmn:incoming>
+<bpmn:outgoing>ft_flow9</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:exclusiveGateway id="ft_jg1" name="Breaks?">
+<bpmn:incoming>ft_flow9</bpmn:incoming>
+<bpmn:outgoing>ft_flow10</bpmn:outgoing>
+<bpmn:outgoing>ft_flow12</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:userTask id="ft_jt5" name="Resolve breaks with the prior custodian or transfer agent">
+<bpmn:incoming>ft_flow10</bpmn:incoming>
+<bpmn:outgoing>ft_flow11</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:serviceTask id="ft_jt6" name="Start billing from each account's funding date (pro-rated first period)">
+<bpmn:incoming>ft_flow12</bpmn:incoming>
+<bpmn:outgoing>ft_flow13</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ft_je" name="Book transferred">
+<bpmn:incoming>ft_flow13</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:startEvent id="ft_ls" name="RIA gives notice it is leaving">
+<bpmn:outgoing>ft_flow14</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ft_ls_def" />
+</bpmn:startEvent>
+<bpmn:userTask id="ft_lt1" name="Confirm the plan with the RIA: receiving custodian, date, accounts">
+<bpmn:incoming>ft_flow14</bpmn:incoming>
+<bpmn:outgoing>ft_flow15</bpmn:outgoing>
+</bpmn:userTask>
+<bpmn:serviceTask id="ft_lt2" name="Deduct final pro-rated fees before transfers validate">
+<bpmn:incoming>ft_flow15</bpmn:incoming>
+<bpmn:outgoing>ft_flow16</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:intermediateCatchEvent id="ft_lie" name="Client-signed transfer forms arrive">
+<bpmn:incoming>ft_flow16</bpmn:incoming>
+<bpmn:outgoing>ft_flow17</bpmn:outgoing>
+<bpmn:messageEventDefinition id="ft_lie_def" />
+</bpmn:intermediateCatchEvent>
+<bpmn:callActivity id="ft_lca1" name="Outgoing transferability review and transfers (transfers process)" calledElement="tr_process">
+<bpmn:incoming>ft_flow17</bpmn:incoming>
+<bpmn:outgoing>ft_flow18</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:exclusiveGateway id="ft_lg1" name="Accounts left after the deadline?">
+<bpmn:incoming>ft_flow18</bpmn:incoming>
+<bpmn:outgoing>ft_flow19</bpmn:outgoing>
+<bpmn:outgoing>ft_flow20</bpmn:outgoing>
+</bpmn:exclusiveGateway>
+<bpmn:callActivity id="ft_lca2" name="Client offboarding: pick an RIA on the platform or transfer out" calledElement="co_process">
+<bpmn:incoming>ft_flow19</bpmn:incoming>
+<bpmn:outgoing>ft_flow21</bpmn:outgoing>
+</bpmn:callActivity>
+<bpmn:serviceTask id="ft_lt3" name="End the RIA's authority and fee deduction; deactivate its users and master">
+<bpmn:incoming>ft_flow20</bpmn:incoming>
+<bpmn:incoming>ft_flow21</bpmn:incoming>
+<bpmn:outgoing>ft_flow22</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:serviceTask id="ft_lt4" name="Sweep residual credits to receiving firms for at least 6 months">
+<bpmn:incoming>ft_flow22</bpmn:incoming>
+<bpmn:outgoing>ft_flow23</bpmn:outgoing>
+</bpmn:serviceTask>
+<bpmn:endEvent id="ft_le" name="Firm offboarded">
+<bpmn:incoming>ft_flow23</bpmn:incoming>
+</bpmn:endEvent>
+<bpmn:sequenceFlow id="ft_flow0" name="" sourceRef="ft_js" targetRef="ft_jca1" />
+<bpmn:sequenceFlow id="ft_flow1" name="" sourceRef="ft_jca1" targetRef="ft_jt1" />
+<bpmn:sequenceFlow id="ft_flow2" name="" sourceRef="ft_jt1" targetRef="ft_jca2" />
+<bpmn:sequenceFlow id="ft_flow3" name="" sourceRef="ft_jca2" targetRef="ft_jt2" />
+<bpmn:sequenceFlow id="ft_flow4" name="" sourceRef="ft_jt2" targetRef="ft_jt3" />
+<bpmn:sequenceFlow id="ft_flow5" name="" sourceRef="ft_jt3" targetRef="ft_jca3" />
+<bpmn:sequenceFlow id="ft_flow6" name="" sourceRef="ft_jca3" targetRef="ft_jca4" />
+<bpmn:sequenceFlow id="ft_flow7" name="" sourceRef="ft_jca4" targetRef="ft_jie" />
+<bpmn:sequenceFlow id="ft_flow8" name="" sourceRef="ft_jie" targetRef="ft_jt4" />
+<bpmn:sequenceFlow id="ft_flow9" name="" sourceRef="ft_jt4" targetRef="ft_jg1" />
+<bpmn:sequenceFlow id="ft_flow10" name="Yes" sourceRef="ft_jg1" targetRef="ft_jt5" />
+<bpmn:sequenceFlow id="ft_flow11" name="Re-check" sourceRef="ft_jt5" targetRef="ft_jt4" />
+<bpmn:sequenceFlow id="ft_flow12" name="No" sourceRef="ft_jg1" targetRef="ft_jt6" />
+<bpmn:sequenceFlow id="ft_flow13" name="" sourceRef="ft_jt6" targetRef="ft_je" />
+<bpmn:sequenceFlow id="ft_flow14" name="" sourceRef="ft_ls" targetRef="ft_lt1" />
+<bpmn:sequenceFlow id="ft_flow15" name="" sourceRef="ft_lt1" targetRef="ft_lt2" />
+<bpmn:sequenceFlow id="ft_flow16" name="" sourceRef="ft_lt2" targetRef="ft_lie" />
+<bpmn:sequenceFlow id="ft_flow17" name="" sourceRef="ft_lie" targetRef="ft_lca1" />
+<bpmn:sequenceFlow id="ft_flow18" name="" sourceRef="ft_lca1" targetRef="ft_lg1" />
+<bpmn:sequenceFlow id="ft_flow19" name="Yes" sourceRef="ft_lg1" targetRef="ft_lca2" />
+<bpmn:sequenceFlow id="ft_flow20" name="No" sourceRef="ft_lg1" targetRef="ft_lt3" />
+<bpmn:sequenceFlow id="ft_flow21" name="" sourceRef="ft_lca2" targetRef="ft_lt3" />
+<bpmn:sequenceFlow id="ft_flow22" name="" sourceRef="ft_lt3" targetRef="ft_lt4" />
+<bpmn:sequenceFlow id="ft_flow23" name="" sourceRef="ft_lt4" targetRef="ft_le" />
+</bpmn:process>
+<bpmndi:BPMNDiagram id="ft_diagram" name="RIA firm transitions">
+<bpmndi:BPMNPlane id="ft_plane" bpmnElement="ft_collab">
+<bpmndi:BPMNShape id="ft_main_di" bpmnElement="ft_main" isHorizontal="true"><dc:Bounds x="0" y="124" width="4700" height="750" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lane_ops_di" bpmnElement="ft_lane_ops" isHorizontal="true"><dc:Bounds x="30" y="124" width="4670" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lane_ai_di" bpmnElement="ft_lane_ai" isHorizontal="true"><dc:Bounds x="30" y="314" width="4670" height="170" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lane_rules_di" bpmnElement="ft_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="484" width="4670" height="190" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lane_ledger_di" bpmnElement="ft_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="674" width="4670" height="200" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ria_di" bpmnElement="ft_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4700" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ext_di" bpmnElement="ft_ext" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="938" width="4700" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_js_di" bpmnElement="ft_js"><dc:Bounds x="162" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jca1_di" bpmnElement="ft_jca1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="300" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt1_di" bpmnElement="ft_jt1" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="500" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jca2_di" bpmnElement="ft_jca2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="700" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt2_di" bpmnElement="ft_jt2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="900" y="729" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt3_di" bpmnElement="ft_jt3" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1100" y="354" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jca3_di" bpmnElement="ft_jca3" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1300" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jca4_di" bpmnElement="ft_jca4" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="1500" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jie_di" bpmnElement="ft_jie"><dc:Bounds x="1762" y="756" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="1655" y="796" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt4_di" bpmnElement="ft_jt4" bioc:stroke="#534AB7" bioc:fill="#EEEDFE" color:background-color="#EEEDFE" color:border-color="#534AB7"><dc:Bounds x="1900" y="354" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jg1_di" bpmnElement="ft_jg1" isMarkerVisible="true"><dc:Bounds x="2155" y="554" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="2115" y="608" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt5_di" bpmnElement="ft_jt5" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2100" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_jt6_di" bpmnElement="ft_jt6" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2300" y="729" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_je_di" bpmnElement="ft_je"><dc:Bounds x="2562" y="756" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2520" y="798" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ls_di" bpmnElement="ft_ls"><dc:Bounds x="2762" y="201" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2720" y="243" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lt1_di" bpmnElement="ft_lt1" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="2900" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lt2_di" bpmnElement="ft_lt2" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="3100" y="729" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lie_di" bpmnElement="ft_lie"><dc:Bounds x="3362" y="756" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="3320" y="712" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lca1_di" bpmnElement="ft_lca1" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3500" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lg1_di" bpmnElement="ft_lg1" isMarkerVisible="true"><dc:Bounds x="3755" y="554" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="3643" y="532" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lca2_di" bpmnElement="ft_lca2" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="3900" y="174" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lt3_di" bpmnElement="ft_lt3" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4100" y="729" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_lt4_di" bpmnElement="ft_lt4" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4300" y="729" width="160" height="90" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_le_di" bpmnElement="ft_le"><dc:Bounds x="4562" y="756" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4520" y="798" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ann0_di" bpmnElement="ft_ann0"><dc:Bounds x="1135" y="547" width="560" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ann1_di" bpmnElement="ft_ann1"><dc:Bounds x="300" y="367" width="360" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ann2_di" bpmnElement="ft_ann2"><dc:Bounds x="450" y="554" width="260" height="50" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ft_ann3_di" bpmnElement="ft_ann3"><dc:Bounds x="3110" y="541" width="340" height="76" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="ft_flow0_di" bpmnElement="ft_flow0"><di:waypoint x="198" y="219" /><di:waypoint x="300" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow1_di" bpmnElement="ft_flow1"><di:waypoint x="460" y="219" /><di:waypoint x="500" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow2_di" bpmnElement="ft_flow2"><di:waypoint x="660" y="219" /><di:waypoint x="700" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow3_di" bpmnElement="ft_flow3"><di:waypoint x="860" y="219" /><di:waypoint x="880" y="219" /><di:waypoint x="880" y="774" /><di:waypoint x="900" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow4_di" bpmnElement="ft_flow4"><di:waypoint x="1060" y="774" /><di:waypoint x="1080" y="774" /><di:waypoint x="1080" y="399" /><di:waypoint x="1100" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow5_di" bpmnElement="ft_flow5"><di:waypoint x="1260" y="399" /><di:waypoint x="1280" y="399" /><di:waypoint x="1280" y="219" /><di:waypoint x="1300" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow6_di" bpmnElement="ft_flow6"><di:waypoint x="1460" y="219" /><di:waypoint x="1500" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow7_di" bpmnElement="ft_flow7"><di:waypoint x="1660" y="219" /><di:waypoint x="1742" y="219" /><di:waypoint x="1742" y="774" /><di:waypoint x="1762" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow8_di" bpmnElement="ft_flow8"><di:waypoint x="1798" y="774" /><di:waypoint x="1880" y="774" /><di:waypoint x="1880" y="399" /><di:waypoint x="1900" y="399" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow9_di" bpmnElement="ft_flow9"><di:waypoint x="2060" y="399" /><di:waypoint x="2135" y="399" /><di:waypoint x="2135" y="579" /><di:waypoint x="2155" y="579" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow10_di" bpmnElement="ft_flow10"><di:waypoint x="2180" y="554" /><di:waypoint x="2180" y="264" /><bpmndi:BPMNLabel><dc:Bounds x="2186" y="409" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow11_di" bpmnElement="ft_flow11"><di:waypoint x="2100" y="219" /><di:waypoint x="1980" y="219" /><di:waypoint x="1980" y="354" /><bpmndi:BPMNLabel><dc:Bounds x="1990" y="250" width="56" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow12_di" bpmnElement="ft_flow12"><di:waypoint x="2205" y="579" /><di:waypoint x="2280" y="579" /><di:waypoint x="2280" y="774" /><di:waypoint x="2300" y="774" /><bpmndi:BPMNLabel><dc:Bounds x="2211" y="559" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow13_di" bpmnElement="ft_flow13"><di:waypoint x="2460" y="774" /><di:waypoint x="2562" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow14_di" bpmnElement="ft_flow14"><di:waypoint x="2798" y="219" /><di:waypoint x="2900" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow15_di" bpmnElement="ft_flow15"><di:waypoint x="3060" y="219" /><di:waypoint x="3080" y="219" /><di:waypoint x="3080" y="774" /><di:waypoint x="3100" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow16_di" bpmnElement="ft_flow16"><di:waypoint x="3260" y="774" /><di:waypoint x="3362" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow17_di" bpmnElement="ft_flow17"><di:waypoint x="3398" y="774" /><di:waypoint x="3480" y="774" /><di:waypoint x="3480" y="219" /><di:waypoint x="3500" y="219" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow18_di" bpmnElement="ft_flow18"><di:waypoint x="3660" y="219" /><di:waypoint x="3780" y="219" /><di:waypoint x="3780" y="554" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow19_di" bpmnElement="ft_flow19"><di:waypoint x="3805" y="579" /><di:waypoint x="3880" y="579" /><di:waypoint x="3880" y="219" /><di:waypoint x="3900" y="219" /><bpmndi:BPMNLabel><dc:Bounds x="3811" y="559" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow20_di" bpmnElement="ft_flow20"><di:waypoint x="3780" y="604" /><di:waypoint x="3780" y="774" /><di:waypoint x="4100" y="774" /><bpmndi:BPMNLabel><dc:Bounds x="3786" y="754" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow21_di" bpmnElement="ft_flow21"><di:waypoint x="4060" y="219" /><di:waypoint x="4180" y="219" /><di:waypoint x="4180" y="729" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow22_di" bpmnElement="ft_flow22"><di:waypoint x="4260" y="774" /><di:waypoint x="4300" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_flow23_di" bpmnElement="ft_flow23"><di:waypoint x="4460" y="774" /><di:waypoint x="4562" y="774" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg0_di" bpmnElement="ft_msg0" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="180" y="60" /><di:waypoint x="180" y="201" /><bpmndi:BPMNLabel><dc:Bounds x="187" y="66" width="126" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg1_di" bpmnElement="ft_msg1" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="810" y="60" /><di:waypoint x="810" y="174" /><bpmndi:BPMNLabel><dc:Bounds x="817" y="66" width="343" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg2_di" bpmnElement="ft_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="938" /><di:waypoint x="1780" y="792" /><bpmndi:BPMNLabel><dc:Bounds x="1787" y="902" width="147" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg3_di" bpmnElement="ft_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="2780" y="60" /><di:waypoint x="2780" y="201" /><bpmndi:BPMNLabel><dc:Bounds x="2787" y="66" width="126" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg4_di" bpmnElement="ft_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3380" y="938" /><di:waypoint x="3380" y="792" /><bpmndi:BPMNLabel><dc:Bounds x="3387" y="902" width="154" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="ft_msg5_di" bpmnElement="ft_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4380" y="819" /><di:waypoint x="4380" y="938" /><bpmndi:BPMNLabel><dc:Bounds x="4387" y="902" width="112" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane>
+</bpmndi:BPMNDiagram>
+</bpmn:definitions>

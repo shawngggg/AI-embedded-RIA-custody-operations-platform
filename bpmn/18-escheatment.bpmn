@@ -4,7 +4,7 @@
 <bpmn:participant id="es_main" name="Custody operations platform (synthetic reference implementation)" processRef="es_process" />
 <bpmn:participant id="es_adv" name="RIA advisor" />
 <bpmn:participant id="es_own" name="End client (owner)" />
-<bpmn:participant id="es_srch" name="Address search provider" />
+<bpmn:participant id="es_srch" name="Search vendor (Rule 17Ad-17 lost-securityholder searches)" />
 <bpmn:participant id="es_state" name="State unclaimed property administrators" />
 <bpmn:messageFlow id="es_msg0" name="Search request" sourceRef="es_t4" targetRef="es_srch" />
 <bpmn:messageFlow id="es_msg1" name="Candidate addresses" sourceRef="es_srch" targetRef="es_ie" />
@@ -14,13 +14,13 @@
 <bpmn:messageFlow id="es_msg5" name="Cash remittance" sourceRef="es_t12" targetRef="es_state" />
 <bpmn:messageFlow id="es_msg6" name="Securities delivery" sourceRef="es_t13" targetRef="es_state" />
 <bpmn:messageFlow id="es_msg7" name="Holder report" sourceRef="es_t14" targetRef="es_state" />
-<bpmn:textAnnotation id="es_ann0"><bpmn:text>Dormancy periods, due-diligence windows, and report deadlines vary by state; they are configured as effective-dated rules.</bpmn:text></bpmn:textAnnotation>
-<bpmn:textAnnotation id="es_ann1"><bpmn:text>Owners later claim escheated property from the state; the custodian keeps records to support the claim.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="es_ann0"><bpmn:text>Dormancy periods, due-diligence windows, and report deadlines vary by state and are configured as effective-dated rules. Some states require negative reports; California takes a notice report before remittance. Uncashed checks get a written notice within 7 months.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="es_ann1"><bpmn:text>Owners later claim escheated property from the state; the custodian keeps records to support the claim. Retirement accounts go to the retirement team (an escheated IRA is a distribution with withholding and a Form 1099-R).</bpmn:text></bpmn:textAnnotation>
 <bpmn:association id="es_ann1_assoc" sourceRef="es_t15" targetRef="es_ann1" />
-</bpmn:collaboration>
+<bpmn:messageFlow id="es_msg8" name="Lost-contact report" sourceRef="es_adv" targetRef="es_t1" /><bpmn:textAnnotation id="es_ann2"><bpmn:text>RIA-confirmed contact counts as owner contact and resets dormancy; log the date and how the RIA reached the client. Most states treat an agent's contact as the owner's.</bpmn:text></bpmn:textAnnotation></bpmn:collaboration>
 <bpmn:process id="es_process" name="Escheatment and unclaimed property" isExecutable="false">
 <bpmn:laneSet id="es_laneset">
-<bpmn:lane id="es_lane_ops" name="Operations analyst">
+<bpmn:lane id="es_lane_ops" name="Custody operations (escheatment team)">
 <bpmn:flowNodeRef>es_t6</bpmn:flowNodeRef>
 <bpmn:flowNodeRef>es_el</bpmn:flowNodeRef>
 <bpmn:flowNodeRef>es_t7</bpmn:flowNodeRef>
@@ -46,7 +46,7 @@
 <bpmn:flowNodeRef>es_g4</bpmn:flowNodeRef>
 <bpmn:flowNodeRef>es_t14</bpmn:flowNodeRef>
 </bpmn:lane>
-<bpmn:lane id="es_lane_comp" name="Compliance and supervision">
+<bpmn:lane id="es_lane_comp" name="Escheatment function lead (sign-off)">
 <bpmn:flowNodeRef>es_t10</bpmn:flowNodeRef>
 </bpmn:lane>
 <bpmn:lane id="es_lane_ledger" name="Ledger and settlement engine">
@@ -65,7 +65,7 @@
 <bpmn:outgoing>es_flow0</bpmn:outgoing>
 <bpmn:timerEventDefinition id="es_s_def" />
 </bpmn:startEvent>
-<bpmn:serviceTask id="es_t1" name="Collect triggers: returned mail, uncashed checks, last owner-generated contact">
+<bpmn:serviceTask id="es_t1" name="Collect triggers: returned mail, uncashed checks, RIA lost-contact reports, last owner contact">
 <bpmn:incoming>es_flow0</bpmn:incoming>
 <bpmn:outgoing>es_flow1</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -86,7 +86,7 @@
 <bpmn:endEvent id="es_e0" name="Active: no action">
 <bpmn:incoming>es_flow4</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:sendTask id="es_t4" name="Run lost-securityholder database search (Rule 17Ad-17 where applicable)">
+<bpmn:sendTask id="es_t4" name="Send lost owners to the search vendor (Rule 17Ad-17: two searches)">
 <bpmn:incoming>es_flow5</bpmn:incoming>
 <bpmn:outgoing>es_flow7</bpmn:outgoing>
 </bpmn:sendTask>
@@ -104,7 +104,7 @@
 <bpmn:outgoing>es_flow10</bpmn:outgoing>
 <bpmn:outgoing>es_flow12</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:userTask id="es_t6" name="Verify and update address; reset dormancy clock">
+<bpmn:userTask id="es_t6" name="Verify and update the address; clears lost status (only owner contact resets dormancy)">
 <bpmn:incoming>es_flow10</bpmn:incoming>
 <bpmn:outgoing>es_flow11</bpmn:outgoing>
 </bpmn:userTask>
@@ -116,15 +116,15 @@
 <bpmn:incoming>es_flow12</bpmn:incoming>
 <bpmn:outgoing>es_flow13</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:sendTask id="es_t7" name="Ask advisor to contact the client">
+<bpmn:sendTask id="es_t7" name="Ask the RIA to reach the client">
 <bpmn:incoming>es_flow13</bpmn:incoming>
 <bpmn:outgoing>es_flow14</bpmn:outgoing>
 </bpmn:sendTask>
-<bpmn:businessRuleTask id="es_t8" name="Determine escheat state (owner's last known address, else holder's state)">
+<bpmn:businessRuleTask id="es_t8" name="Escheat state: owner&#39;s last known address, else the custodian&#39;s state of incorporation">
 <bpmn:incoming>es_flow14</bpmn:incoming>
 <bpmn:outgoing>es_flow15</bpmn:outgoing>
 </bpmn:businessRuleTask>
-<bpmn:sendTask id="es_t9" name="Send due-diligence letter to owner">
+<bpmn:sendTask id="es_t9" name="Send the due-diligence letter 60–180 days before the report">
 <bpmn:incoming>es_flow15</bpmn:incoming>
 <bpmn:outgoing>es_flow16</bpmn:outgoing>
 </bpmn:sendTask>
@@ -133,7 +133,7 @@
 <bpmn:outgoing>es_flow17</bpmn:outgoing>
 <bpmn:outgoing>es_flow18</bpmn:outgoing>
 </bpmn:eventBasedGateway>
-<bpmn:intermediateCatchEvent id="es_cr" name="Owner responds">
+<bpmn:intermediateCatchEvent id="es_cr" name="Owner responds, directly or through the RIA">
 <bpmn:incoming>es_flow17</bpmn:incoming>
 <bpmn:outgoing>es_flow19</bpmn:outgoing>
 <bpmn:messageEventDefinition id="es_cr_def" />
@@ -150,11 +150,11 @@
 <bpmn:endEvent id="es_er" name="Owner retained">
 <bpmn:incoming>es_flow20</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:userTask id="es_t10" name="Approve escheat list and holder report">
+<bpmn:userTask id="es_t10" name="Approve the escheat list and holder reports">
 <bpmn:incoming>es_flow21</bpmn:incoming>
 <bpmn:outgoing>es_flow22</bpmn:outgoing>
 </bpmn:userTask>
-<bpmn:serviceTask id="es_t11" name="Freeze account; move property to escheat-pending suspense (three layers)">
+<bpmn:serviceTask id="es_t11" name="Apply the escheatment restriction code; nothing else moves">
 <bpmn:incoming>es_flow22</bpmn:incoming>
 <bpmn:outgoing>es_flow23</bpmn:outgoing>
 </bpmn:serviceTask>
@@ -167,7 +167,7 @@
 <bpmn:incoming>es_flow24</bpmn:incoming>
 <bpmn:outgoing>es_flow26</bpmn:outgoing>
 </bpmn:sendTask>
-<bpmn:sendTask id="es_t13" name="Deliver securities to the state's custodian">
+<bpmn:sendTask id="es_t13" name="Deliver securities in kind or liquidate first, per each state&#39;s rules and the asset">
 <bpmn:incoming>es_flow25</bpmn:incoming>
 <bpmn:outgoing>es_flow27</bpmn:outgoing>
 </bpmn:sendTask>
@@ -261,9 +261,9 @@
 <bpmndi:BPMNShape id="es_t14_di" bpmnElement="es_t14" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="4500" y="504" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="es_t15_di" bpmnElement="es_t15" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4700" y="824" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="es_e_di" bpmnElement="es_e"><dc:Bounds x="4962" y="851" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4920" y="893" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="es_ann0_di" bpmnElement="es_ann0"><dc:Bounds x="1725" y="687" width="190" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="es_ann1_di" bpmnElement="es_ann1"><dc:Bounds x="4725" y="687" width="190" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNEdge id="es_ann1_assoc_di" bpmnElement="es_ann1_assoc"><di:waypoint x="4780" y="824" /><di:waypoint x="4820" y="751" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="es_ann0_di" bpmnElement="es_ann0"><dc:Bounds x="1725" y="687" width="300" height="100" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="es_ann1_di" bpmnElement="es_ann1"><dc:Bounds x="4725" y="687" width="270" height="100" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="es_ann1_assoc_di" bpmnElement="es_ann1_assoc"><di:waypoint x="4780" y="824" /><di:waypoint x="4800" y="787" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="es_flow0_di" bpmnElement="es_flow0"><di:waypoint x="198" y="549" /><di:waypoint x="280" y="549" /><di:waypoint x="280" y="924" /><di:waypoint x="300" y="924" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="es_flow1_di" bpmnElement="es_flow1"><di:waypoint x="460" y="924" /><di:waypoint x="480" y="924" /><di:waypoint x="480" y="379" /><di:waypoint x="500" y="379" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="es_flow2_di" bpmnElement="es_flow2"><di:waypoint x="660" y="379" /><di:waypoint x="680" y="379" /><di:waypoint x="680" y="549" /><di:waypoint x="700" y="549" /></bpmndi:BPMNEdge>
@@ -303,5 +303,5 @@
 <bpmndi:BPMNEdge id="es_msg5_di" bpmnElement="es_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="3980" y="914" /><di:waypoint x="3980" y="1108" /><bpmndi:BPMNLabel><dc:Bounds x="3987" y="1072" width="96" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="es_msg6_di" bpmnElement="es_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4180" y="1024" /><di:waypoint x="4180" y="1108" /><bpmndi:BPMNLabel><dc:Bounds x="4187" y="1072" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="es_msg7_di" bpmnElement="es_msg7" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4580" y="594" /><di:waypoint x="4580" y="624" /><di:waypoint x="4500" y="624" /><di:waypoint x="4500" y="1108" /><bpmndi:BPMNLabel><dc:Bounds x="4507" y="1072" width="83" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+<bpmndi:BPMNEdge id="es_msg8_di" bpmnElement="es_msg8" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="380" y="60" /><di:waypoint x="380" y="879" /><bpmndi:BPMNLabel><dc:Bounds x="387" y="66" width="110" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge><bpmndi:BPMNShape id="es_ann2_di" bpmnElement="es_ann2"><dc:Bounds x="2695" y="160" width="275" height="84" /></bpmndi:BPMNShape></bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </bpmn:definitions>

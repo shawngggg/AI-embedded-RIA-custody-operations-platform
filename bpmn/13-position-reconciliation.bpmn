@@ -4,7 +4,7 @@
 <bpmn:participant id="pr_main" name="Custody operations platform (synthetic reference implementation)" processRef="pr_process" />
 <bpmn:participant id="pr_ext" name="Depository, transfer agents, fund administrators" />
 <bpmn:messageFlow id="pr_msg0" name="Position files" sourceRef="pr_ext" targetRef="pr_t1" />
-<bpmn:textAnnotation id="pr_ann0"><bpmn:text>Stale in-transit items from the transfers module show up here as expected breaks.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="pr_ann0"><bpmn:text>Stale in-transit items from the transfers module show up here as expected breaks. Quarterly counts follow Rule 17a-13; short differences unresolved after 7 business days draw net capital charges.</bpmn:text></bpmn:textAnnotation>
 <bpmn:association id="pr_ann0_assoc" sourceRef="pr_t2" targetRef="pr_ann0" />
 </bpmn:collaboration>
 <bpmn:process id="pr_process" name="Position reconciliation" isExecutable="false">
@@ -89,7 +89,7 @@
 <bpmn:incoming>pr_flow12</bpmn:incoming>
 <bpmn:outgoing>pr_flow15</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:sendTask id="pr_esc" name="Escalate aged break to supervisor">
+<bpmn:sendTask id="pr_esc" name="Escalate to a supervisor by age and dollar value">
 <bpmn:incoming>pr_flow13</bpmn:incoming>
 <bpmn:outgoing>pr_flow14</bpmn:outgoing>
 </bpmn:sendTask>
@@ -103,7 +103,7 @@
 <bpmn:endEvent id="pr_e" name="Books proven">
 <bpmn:incoming>pr_flow17</bpmn:incoming>
 </bpmn:endEvent>
-<bpmn:boundaryEvent id="pr_bt" name="Break aged past threshold" attachedToRef="pr_t8" cancelActivity="false">
+<bpmn:boundaryEvent id="pr_bt" name="Break past its age or dollar threshold" attachedToRef="pr_t8" cancelActivity="false">
 <bpmn:outgoing>pr_flow13</bpmn:outgoing>
 <bpmn:timerEventDefinition id="pr_bt_def" />
 </bpmn:boundaryEvent>
@@ -151,8 +151,8 @@
 <bpmndi:BPMNShape id="pr_t10_di" bpmnElement="pr_t10" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="2500" y="640" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="pr_e_di" bpmnElement="pr_e"><dc:Bounds x="2762" y="667" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2720" y="709" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="pr_bt_di" bpmnElement="pr_bt"><dc:Bounds x="2010" y="202" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="2048" y="234" width="110" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="pr_ann0_di" bpmnElement="pr_ann0"><dc:Bounds x="345" y="473" width="190" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNEdge id="pr_ann0_assoc_di" bpmnElement="pr_ann0_assoc"><di:waypoint x="580" y="640" /><di:waypoint x="440" y="537" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="pr_ann0_di" bpmnElement="pr_ann0"><dc:Bounds x="345" y="473" width="250" height="100" /></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="pr_ann0_assoc_di" bpmnElement="pr_ann0_assoc"><di:waypoint x="580" y="640" /><di:waypoint x="500" y="573" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="pr_flow0_di" bpmnElement="pr_flow0"><di:waypoint x="198" y="685" /><di:waypoint x="300" y="685" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="pr_flow1_di" bpmnElement="pr_flow1"><di:waypoint x="460" y="685" /><di:waypoint x="500" y="685" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="pr_flow2_di" bpmnElement="pr_flow2"><di:waypoint x="660" y="685" /><di:waypoint x="680" y="685" /><di:waypoint x="680" y="505" /><di:waypoint x="700" y="505" /></bpmndi:BPMNEdge>
