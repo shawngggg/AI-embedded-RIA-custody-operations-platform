@@ -1,6 +1,7 @@
 # RIA Custody Operations Platform: Process Architecture
 
 **Live viewer:** https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/
+
 **Product requirements:** [PRD.md](PRD.md), covering users, the MVP, architecture, releases, and success metrics
 
 A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
