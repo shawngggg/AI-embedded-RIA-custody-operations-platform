@@ -2,3 +2,10 @@ __pycache__/
 .pytest_cache/
 *.pyc
 audit_log.jsonl
+
+# MVP app: local database and frontend build output
+/data/
+*.db
+web/node_modules/
+web/dist/
+.env
