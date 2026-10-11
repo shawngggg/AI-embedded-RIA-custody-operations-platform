@@ -2,16 +2,17 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" id="am_defs" targetNamespace="https://github.com/shawngggg/ria-custody-platform">
 <bpmn:collaboration id="am_collab">
 <bpmn:participant id="am_main" name="Custody operations platform (synthetic reference implementation)" processRef="am_process" />
-<bpmn:participant id="am_ria" name="RIA advisor (submits account changes; the client signs owner-level forms)" />
-<bpmn:participant id="am_cli" name="Client (signs owner-level forms; receives notices)" />
+<bpmn:participant id="am_ria" name="RIA advisor (submits changes on pure RIA accounts; the client signs owner-level forms)" />
+<bpmn:participant id="am_cli" name="Client (submits changes on the self-directed account; signs owner-level forms; receives notices)" />
 <bpmn:messageFlow id="am_msg0" name="Change request" sourceRef="am_ria" targetRef="am_s" />
 <bpmn:messageFlow id="am_msg1" name="Rejection or redirect" sourceRef="am_e0" targetRef="am_ria" />
 <bpmn:messageFlow id="am_msg2" name="Return for correction" sourceRef="am_t3" targetRef="am_ria" />
 <bpmn:messageFlow id="am_msg3" name="Corrected request" sourceRef="am_ria" targetRef="am_ie" />
 <bpmn:messageFlow id="am_msg4" name="Authenticity check" sourceRef="am_t5" targetRef="am_ria" />
 <bpmn:messageFlow id="am_msg5" name="Change confirmation" sourceRef="am_t8" targetRef="am_cli" />
-<bpmn:textAnnotation id="am_ann0"><bpmn:text>Owner-level changes need the client&#39;s signature: beneficiaries, title or registration, powers of attorney, standing letters of authorization. The RIA submits them. A client can still contact the custodian directly, for example to revoke the RIA&#39;s authority.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="am_ann0"><bpmn:text>Owner-level changes need the client&#39;s signature: beneficiaries, title or registration, powers of attorney, standing letters of authorization. The RIA submits changes on pure RIA accounts; the client submits changes on the self-directed account. A client can always contact the custodian, for example to revoke the RIA&#39;s authority.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="am_ann1"><bpmn:text>No cooling periods: RIA-confirmed changes take effect directly; new bank instructions activate only after verification.</bpmn:text></bpmn:textAnnotation>
+<bpmn:messageFlow id="am_msg6" name="Change request" sourceRef="am_cli" targetRef="am_s" />
 </bpmn:collaboration>
 <bpmn:process id="am_process" name="Account maintenance (RIA-only channel)" isExecutable="false">
 <bpmn:laneSet id="am_laneset">
@@ -54,20 +55,20 @@
 <bpmn:flowNodeRef>am_e</bpmn:flowNodeRef>
 </bpmn:lane>
 </bpmn:laneSet>
-<bpmn:startEvent id="am_s" name="Change request received">
+<bpmn:startEvent id="am_s" name="Change request received from the RIA or the client">
 <bpmn:outgoing>am_flow0</bpmn:outgoing>
 <bpmn:messageEventDefinition id="am_s_def" />
 </bpmn:startEvent>
-<bpmn:businessRuleTask id="am_t0" name="Channel check: submitted by an authorized RIA user">
+<bpmn:businessRuleTask id="am_t0" name="Channel check: the RIA for pure RIA accounts; the client for the self-directed account">
 <bpmn:incoming>am_flow0</bpmn:incoming>
 <bpmn:outgoing>am_flow1</bpmn:outgoing>
 </bpmn:businessRuleTask>
-<bpmn:exclusiveGateway id="am_g0" name="Authorized RIA user?">
+<bpmn:exclusiveGateway id="am_g0" name="Right channel?">
 <bpmn:incoming>am_flow1</bpmn:incoming>
 <bpmn:outgoing>am_flow2</bpmn:outgoing>
 <bpmn:outgoing>am_flow3</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:endEvent id="am_e0" name="Redirected to the RIA">
+<bpmn:endEvent id="am_e0" name="Redirected to the right channel">
 <bpmn:incoming>am_flow2</bpmn:incoming>
 <bpmn:messageEventDefinition id="am_e0_def" />
 </bpmn:endEvent>
@@ -76,7 +77,7 @@
 <bpmn:incoming>am_flow8</bpmn:incoming>
 <bpmn:outgoing>am_flow4</bpmn:outgoing>
 </bpmn:serviceTask>
-<bpmn:businessRuleTask id="am_t2" name="Authority check: within the RIA's LPOA, or a client-signed form required">
+<bpmn:businessRuleTask id="am_t2" name="Authority check: the RIA&#39;s LPOA or the client&#39;s own account; client-signed form where required">
 <bpmn:incoming>am_flow4</bpmn:incoming>
 <bpmn:outgoing>am_flow5</bpmn:outgoing>
 </bpmn:businessRuleTask>
@@ -85,7 +86,7 @@
 <bpmn:outgoing>am_flow6</bpmn:outgoing>
 <bpmn:outgoing>am_flow9</bpmn:outgoing>
 </bpmn:exclusiveGateway>
-<bpmn:sendTask id="am_t3" name="Return to the RIA: missing signature, document, or medallion">
+<bpmn:sendTask id="am_t3" name="Return to the submitter: missing signature, document, or medallion">
 <bpmn:incoming>am_flow6</bpmn:incoming>
 <bpmn:outgoing>am_flow7</bpmn:outgoing>
 </bpmn:sendTask>
@@ -215,8 +216,8 @@
 <bpmndi:BPMNShape id="am_lane_rules_di" bpmnElement="am_lane_rules" isHorizontal="true"><dc:Bounds x="30" y="464" width="4670" height="170" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_lane_comp_di" bpmnElement="am_lane_comp" isHorizontal="true"><dc:Bounds x="30" y="634" width="4670" height="170" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_lane_ledger_di" bpmnElement="am_lane_ledger" isHorizontal="true"><dc:Bounds x="30" y="804" width="4670" height="190" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="am_ria_di" bpmnElement="am_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="80" y="0" width="3200" height="60" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="am_cli_di" bpmnElement="am_cli" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="3280" y="0" width="1400" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="am_ria_di" bpmnElement="am_ria" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="0" width="4700" height="60" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="am_cli_di" bpmnElement="am_cli" isHorizontal="true" bioc:stroke="#5B6578" bioc:fill="#F3F5F9" color:background-color="#F3F5F9" color:border-color="#5B6578"><dc:Bounds x="0" y="1058" width="4700" height="60" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_s_di" bpmnElement="am_s"><dc:Bounds x="162" y="191" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="120" y="233" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_t0_di" bpmnElement="am_t0" bioc:stroke="#1F3864" bioc:fill="#E6EDF7" color:background-color="#E6EDF7" color:border-color="#1F3864"><dc:Bounds x="300" y="504" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_g0_di" bpmnElement="am_g0" isMarkerVisible="true"><dc:Bounds x="555" y="524" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="515" y="580" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
@@ -245,7 +246,7 @@
 <bpmndi:BPMNShape id="am_t8_di" bpmnElement="am_t8" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4100" y="854" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_t9_di" bpmnElement="am_t9" bioc:stroke="#0F6E56" bioc:fill="#E1F5EE" color:background-color="#E1F5EE" color:border-color="#0F6E56"><dc:Bounds x="4300" y="854" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_e_di" bpmnElement="am_e"><dc:Bounds x="4562" y="881" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4520" y="923" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="am_ann0_di" bpmnElement="am_ann0"><dc:Bounds x="1305" y="347" width="290" height="112" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="am_ann0_di" bpmnElement="am_ann0"><dc:Bounds x="1305" y="340" width="340" height="120" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="am_ann1_di" bpmnElement="am_ann1"><dc:Bounds x="3465" y="687" width="190" height="64" /></bpmndi:BPMNShape>
 <bpmndi:BPMNEdge id="am_flow0_di" bpmnElement="am_flow0"><di:waypoint x="198" y="209" /><di:waypoint x="280" y="209" /><di:waypoint x="280" y="549" /><di:waypoint x="300" y="549" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="am_flow1_di" bpmnElement="am_flow1"><di:waypoint x="460" y="549" /><di:waypoint x="555" y="549" /></bpmndi:BPMNEdge>
@@ -283,6 +284,7 @@
 <bpmndi:BPMNEdge id="am_msg2_di" bpmnElement="am_msg2" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1180" y="164" /><di:waypoint x="1180" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1187" y="66" width="130" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="am_msg3_di" bpmnElement="am_msg3" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1380" y="60" /><di:waypoint x="1380" y="191" /><bpmndi:BPMNLabel><dc:Bounds x="1387" y="66" width="109" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="am_msg4_di" bpmnElement="am_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="674" /><di:waypoint x="1780" y="644" /><di:waypoint x="1880" y="644" /><di:waypoint x="1880" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1887" y="66" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
-<bpmndi:BPMNEdge id="am_msg5_di" bpmnElement="am_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4180" y="854" /><di:waypoint x="4180" y="814" /><di:waypoint x="4300" y="814" /><di:waypoint x="4300" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="4307" y="66" width="122" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="am_msg5_di" bpmnElement="am_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4180" y="944" /><di:waypoint x="4180" y="1058" /><bpmndi:BPMNLabel><dc:Bounds x="4187" y="1022" width="133" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="am_msg6_di" bpmnElement="am_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="100" y="1058" /><di:waypoint x="100" y="209" /><di:waypoint x="162" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="107" y="1022" width="98" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </bpmn:definitions>
