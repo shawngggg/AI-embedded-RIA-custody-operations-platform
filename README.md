@@ -1,6 +1,7 @@
 # RIA Custody Operations Platform: Process Architecture
 
 **Live viewer:** https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/
+**Product requirements:** [PRD.md](PRD.md), covering users, the MVP, architecture, releases, and success metrics
 
 A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
 
@@ -102,6 +103,7 @@ python onboarding/demo.py           # every scenario, printed step by step
 
 | Path | Contents |
 |---|---|
+| `PRD.md` | Product requirements document, with its diagrams in `docs/prd/` |
 | `docs/index.html` | Interactive viewer (served by GitHub Pages) |
 | `docs/diagrams/` | PNG image of every process |
 | `bpmn/` | BPMN 2.0 XML files, editable in Camunda Modeler, bpmn.io, or Signavio |
@@ -118,7 +120,7 @@ python onboarding/demo.py           # every scenario, printed step by step
 ## Notes
 
 - **Reference architecture.** Process content reflects my operating experience in RIA custody and brokerage operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
-- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude). In the onboarding module, I wrote Milestone 1 (`onboarding/models.py`); its specification and tests were written with AI assistance. Milestones 2 to 8 were written by Claude (Anthropic's AI model) to the requirements in my process maps. The rule content is a reference design built from those maps and current regulation, not legal advice.
+- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude). In the onboarding module, I wrote Milestone 1 (`onboarding/models.py`); its specification and tests were written with AI assistance. Milestones 2 to 8 were written by Claude (Anthropic's AI model) to the requirements in my process maps. The rule content is a reference design built from those maps and current regulation, not legal advice. The PRD was written with AI assistance (Claude) from my product decisions and review.
 - **Third-party software.** The viewer embeds [bpmn-js](https://bpmn.io), licensed under the bpmn.io license; see `docs/BPMN-JS-LICENSE.txt`. Its watermark must remain visible. The onboarding console loads [Pyodide](https://pyodide.org) (Mozilla Public License 2.0) from jsDelivr.
 
 ## Author
