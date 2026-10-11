@@ -397,7 +397,8 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                 [d.reason for d in outstanding], [d.rule_id for d in outstanding])
         res.requested_items = ev.required_documents
         res.add(OPS, "Request corrections from the RIA",
-                "Sent; every regulatory requirement is met, so the account can open restricted from trading",
+                "Sent; every regulatory requirement is met, so the account can open restricted from trading "
+                "and fee deduction",
                 res.requested_items)
     else:
         res.add(AI, extract, "In good order")

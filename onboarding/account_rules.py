@@ -14,9 +14,12 @@ uses RIA-provided information only, so the Path B rules don't apply.
 
 Regulatory and non-regulatory findings (Shawn's direction, Oct. 11, 2026): an
 account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with
-non-regulatory items still outstanding, restricted from trading until they
-arrive. Which items are non-regulatory is a reference design, listed in
-NON_REGULATORY below with the reason for each.
+non-regulatory items still outstanding, restricted from trading and fee
+deduction until they arrive. Only the fee authorization and the tax form can
+wait (NON_REGULATORY below). The client's signature and the LPOA hold the
+account: without the signature the custodian can't process the client's
+information, and without the LPOA the RIA can't act on the account or see the
+client's information.
 
 The beneficial ownership rule has two dated versions. Until Feb. 13, 2026 the
 owners were identified and verified at every new account. FinCEN's exceptive
@@ -64,11 +67,9 @@ def beneficial_owners_needed_v2(ctx: AccountContext, as_of: date) -> bool:
 
 
 # Missing one of these doesn't stop an account opening when every regulatory requirement is met: the account
-# opens restricted from trading (code DOCS) until the item arrives. Reference design, for validation:
+# opens restricted from trading and fee deduction (code DOCS) until the item arrives. Confirmed by Shawn,
+# Oct. 11, 2026. ACC-001 (client signature) and ACC-002 (LPOA) are not here: a missing one holds the account.
 NON_REGULATORY = {
-    "ACC-001": "The client's signature on the account agreement is contractual; no KYC, CIP, or AML rule requires it",
-    "ACC-002": "The LPOA is the RIA's trading authority; without it the RIA can't trade, so a trading "
-               "restriction covers it",
     "ACC-003": "Fee deduction authority is the adviser's obligation under the custody rule; the custodian "
                "deducts no fees until it arrives",
     "ACC-004": "The tax certification is an IRS requirement, not KYC or AML; until it arrives the custodian "

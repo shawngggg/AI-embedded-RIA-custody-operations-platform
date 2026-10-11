@@ -100,7 +100,7 @@ To run it from the repo root:
 
 ```
 pip install -r requirements.txt
-python -m pytest onboarding -v      # 206 tests
+python -m pytest onboarding -v      # 208 tests
 python onboarding/demo.py           # every scenario, printed step by step
 ```
 
@@ -119,7 +119,7 @@ What each role can do:
 - **Client:** make changes on their own self-directed account.
 - **Platform administrator:** add team members, assign roles, and record the RIA service team's FINRA registrations. A grant of a decision role or a registration change waits for a second administrator. An RIA administrator manages its own firm's users.
 
-An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even with non-regulatory items outstanding (the LPOA, fee authorization, signed agreement, or tax form), restricted from trading until they arrive. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, and automated pre-checks read it for the client's name, tax ID, the right tax form, and a signature line; anything they can't confirm waits for a person. Every case replays through the engine from its stored application and approved decisions, so its result, restriction codes, and audit trail always match the current rules. Restriction codes come off only through their owning function. The operations dashboard reports the straight-through rate, the NIGO rate, queue depth, SLA breaches, and time in each waiting state. The audit log is append-only and exports to JSON.
+An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even with non-regulatory items outstanding (the fee authorization or tax form), restricted from trading and fee deduction until they arrive. A missing client signature or LPOA holds the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, and automated pre-checks read it for the client's name, tax ID, the right tax form, and a signature line; anything they can't confirm waits for a person. Every case replays through the engine from its stored application and approved decisions, so its result, restriction codes, and audit trail always match the current rules. Restriction codes come off only through their owning function. The operations dashboard reports the straight-through rate, the NIGO rate, queue depth, SLA breaches, and time in each waiting state. The audit log is append-only and exports to JSON.
 
 **Stack:** FastAPI, SQLAlchemy, and Alembic on Python 3.13; React and TypeScript built with Vite; Postgres in production (Neon) and SQLite locally; Claude Haiku 5.5 for live extraction, signed-in users only, capped at 50 reads a day. Without an API key, AI intake runs the sample package with an illustrative, hand-written model response.
 
@@ -129,7 +129,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 49 API tests
+python -m pytest app/tests -v        # 53 API tests
 ```
 
 For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app --reload`; Vite forwards `/api` to the app.

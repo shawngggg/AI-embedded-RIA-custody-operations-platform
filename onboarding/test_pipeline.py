@@ -127,13 +127,22 @@ def test_clean_account_opens_only_after_principal_acceptance():
 
 
 def test_non_regulatory_items_open_the_account_restricted_from_trading():
-    app = replace(ACCOUNTS["maria_chen"], lpoa_signed=False, tax_form=None)
+    app = replace(ACCOUNTS["maria_chen"], fee_authorization=False, tax_form=None)
     waiting = open_account(app, FIRMS["granite_peak"], TODAY, flagged=FLAGGED_LIST)
     assert waiting.status == "PENDING_ACCEPTANCE"
-    assert waiting.requested_items == ["Client-signed LPOA", "Form W-9 or W-8"]
+    assert waiting.requested_items == ["Client-signed fee authorization", "Form W-9 or W-8"]
     opened = open_account(app, FIRMS["granite_peak"], TODAY, flagged=FLAGGED_LIST, decisions=Decisions(**OK))
     assert opened.status == "OPEN_RESTRICTED" and [r["code"] for r in opened.restrictions] == ["DOCS"]
-    assert "Client-signed LPOA" in opened.restrictions[0]["reason"]
+    assert "Client-signed fee authorization" in opened.restrictions[0]["reason"]
+
+
+@pytest.mark.parametrize("missing, rule", [({"client_signature": False}, "ACC-001"), ({"lpoa_signed": False}, "ACC-002")])
+def test_a_missing_client_signature_or_lpoa_holds_the_account(missing, rule):
+    # Without the signature the custodian can't process the client's information; without the LPOA the RIA
+    # can't act on the account (Shawn, Oct. 11, 2026). Neither opens restricted.
+    app = replace(ACCOUNTS["maria_chen"], **missing)
+    res = open_account(app, FIRMS["granite_peak"], TODAY, flagged=FLAGGED_LIST, decisions=Decisions(**OK))
+    assert res.status == "PENDING_ITEMS" and res.record is None and res.findings.rule_ids == [rule]
 
 
 def test_a_regulatory_gap_still_stops_the_account():

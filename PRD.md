@@ -1,13 +1,13 @@
 # PRD: AI-Embedded RIA Custody Operations Platform
 
-Oct 10, 2026 · Shawn Ghodrati
+Oct 11, 2026 · Shawn Ghodrati
 
 ## Overview
 
 The product is an operations platform for RIA custody that runs the account lifecycle from RIA onboarding to escheatment. AI handles the messy inputs; deterministic rules and people make every decision; one three-layer ledger records the result.
 
-- **Status:** Phase 1, the process architecture, is done: 25 detailed process maps, the platform overview, and the integration architecture are published. Release 1's onboarding engine is built and runs in a browser console.
-- **Next:** the MVP, a deployed operations workbench for custody operations teams, built on that engine.
+- **Status:** Phase 1, the process architecture, is done: 25 detailed process maps, the platform overview, and the integration architecture are published. Release 1's onboarding engine is built, and the MVP workbench on it is live on synthetic data.
+- **Next:** review the MVP against its success metrics; release 2 starts when that gate is met.
 - **Form:** a product-grade web app on synthetic data, with simulated external connections behind production-shaped interfaces.
 - **Links:** [live process viewer](https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/) and [repository](https://github.com/shawngggg/AI-embedded-RIA-custody-operations-platform).
 
@@ -45,7 +45,7 @@ The product demonstrates a production-shaped custody platform end to end; it is 
 
 ## Users and roles
 
-Eight roles use the platform, and the split between them is itself a control: whoever escalates never decides, and whoever places a hold isn't always the one who can lift it.
+Nine roles use the platform, and the split between them is itself a control: whoever escalates never decides, and whoever places a hold isn't always the one who can lift it.
 
 | Role | Does | Can't do |
 | --- | --- | --- |
@@ -53,6 +53,7 @@ Eight roles use the platform, and the split between them is itself a control: wh
 | AML compliance (second line) | Reviews EDD cases, risk escalations, fraud-pattern alerts; decides | Make sanctions determinations |
 | Sanctions team (second line) | Screens official lists, issues the flagged list, decides escalations, reports to OFAC | Nothing restricted in the platform; it owns sanctions codes |
 | Periodic review team | Runs risk-based periodic and trigger-event reviews of KYC, KYB, CIP, CDD, EDD, and PEP data | Change accounts outside a review |
+| RIA service team (FINRA-licensed) | Accepts each new account and RIA relationship as a registered principal (Series 24 or Series 9/10; FINRA Rule 4512); the team lead approves rescissions and agrees remediation for operational risk events; later, trading and transfers with RIAs | Accept a case it prepared; rescind an acceptance without the lead's approval |
 | RIA authorized user | Submits applications, account changes (including beneficial owner updates), transfers, and money movement; places trades and posts fee files; sets account-level entitlements; owns client and product suitability on pure RIA accounts; has view-only access to the self-directed account | Act beyond its LPOA |
 | RIA administrator | Adds the firm's users and grants their entitlements, within what the custodian allows the RIA | Grant more than the RIA's own permissions |
 | Client | Trades in their designated self-directed account and brings cash and assets into it; uses any self-service capability the RIA grants; signs owner-level forms; submits changes on the self-directed account | Request changes to RIA-managed accounts outside the RIA channel; use self-service outgoing without a grant (a signed request or a receiving firm's ACATS transfer still works) |
@@ -131,7 +132,7 @@ Validated means corrected against the author's operating experience. Partially v
 
 ## MVP: the custody operations workbench
 
-Live: https://ria-custody-1638463558.us-central1.run.app/ (synthetic data, demo sign-in by role).
+Live since Oct. 11, 2026 at [ria-custody-1638463558.us-central1.run.app](https://ria-custody-1638463558.us-central1.run.app/), on synthetic data with demo sign-in by role.
 
 The MVP is a deployed web app where a custody operations team works onboarding cases from application to open account, running on the release 1 decision engine. Internal teams work in the workbench. RIA users and clients sign in to a portal on the same platform, each seeing only their own firm's or their own accounts.
 
@@ -165,9 +166,9 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 - MVP-12 User and entitlement administration. The platform administrator adds team members and assigns roles; an RIA administrator adds the firm's users and grants entitlements within the RIA's own permissions. Every grant is logged, and a grant of a decision role needs a second approver.
 - MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status.
 - MVP-14 Account changes along map 04: the RIA submits changes to pure RIA accounts, including beneficial owner updates, with the client's signature on owner-level changes; the client submits changes on the self-directed account. Each change runs the authority, fraud-pattern, and flagged-list checks and re-runs due diligence when ownership changes.
-- MVP-15 Principal acceptance. The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it opens, an RIA's master account included, is accepted by a registered principal (FINRA Rule 4512(a)(1)(D)). The RIA service team, which works with RIAs on trading, transfers, and account acceptance, holds the FINRA registrations; operations prepares the case and needs none. The app checks the person's registration (Series 24 or Series 9/10), not just the role, and the principal can't be someone who prepared the case. Straight-through means no manual work before acceptance. An account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with non-regulatory items outstanding (the signed agreement, the LPOA, the fee authorization, or the tax form; a reference design for validation), restricted from trading and fee deduction until they arrive.
+- MVP-15 Principal acceptance. The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it opens, an RIA's master account included, is accepted by a registered principal (FINRA Rule 4512(a)(1)(D)). The RIA service team, which works with RIAs on trading, transfers, and account acceptance, holds the FINRA registrations; operations prepares the case and needs none. The app checks the person's registration (Series 24 or Series 9/10), not just the role, and the principal can't be someone who prepared the case. Straight-through means no manual work before acceptance. An account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with non-regulatory items outstanding (the fee authorization or the tax form), restricted from trading and fee deduction until they arrive. The client's signature and the LPOA are regulatory and hold the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account or see the client's information.
 - MVP-16 Documents as evidence. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, channel, and who added it. Automated pre-checks read the text for the client's name, tax ID, the right tax form, and a signature line; a document that passes every check is in good order by rule, and anything else waits for operations, who confirms good order or records why a failed check is acceptable.
-- MVP-17 Undoing an acceptance. Accepting needs the principal to confirm the review. A principal can ask to rescind an acceptance with a written reason: the account is restricted at once (no activity), and the RIA service team lead, never the requester, approves or rejects it. An approved rescission withdraws the acceptance, takes the account out of open status, sends the case back to the principal or to operations for rework, and logs an operational risk event; the lead records the remediation path (training, a technology enhancement, or a procedure update) and closes it. A non-regulatory issue needs no rescission: reopening the document keeps the account open, restricted from trading. A firm with open accounts can't be un-opened; it is restricted instead.
+- MVP-17 Undoing an acceptance. Accepting needs the principal to confirm the review. A principal can ask to rescind an acceptance with a written reason: the account is restricted at once (no activity), and the RIA service team lead, never the requester, approves or rejects it. An approved rescission withdraws the acceptance, takes the account out of open status, sends the case back to the principal or to operations for rework, and logs an operational risk event; the lead records the remediation path (training, a technology enhancement, or a procedure update) and closes it. A non-regulatory issue needs no rescission: reopening the document keeps the account open, restricted from trading and fee deduction. A firm with open accounts can't be un-opened; it is restricted instead.
 
 Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
 
@@ -190,7 +191,7 @@ The stack keeps the tested Python engine unchanged and puts a standard product w
 | Sign-in | Accounts with hashed passwords and role claims, plus demo sign-in by role | Mirrors the roles table; reviewers need no account |
 | AI | Claude API through one AI gateway | One place for the API key, the daily cap (50 extractions), and the controls gate; about a tenth of a cent per extraction on Claude Haiku 5.5 |
 | Testing and CI | pytest, Playwright end-to-end tests, GitHub Actions on every push | A merge to main needs every test passing |
-| Hosting | Google Cloud Run for the API and the built frontend; Neon Free for PostgreSQL | Cloud Run's monthly free tier covers a demo's traffic and wakes in seconds. It needs a billing account, so the service runs with no minimum instances, at most one instance, and a budget alert. Neon Free is permanent, with 1 GB of storage |
+| Hosting | Google Cloud Run for the API and the built frontend; Neon Free for PostgreSQL | Cloud Run's monthly free tier covers a demo's traffic and wakes in seconds. It needs a billing account, so the service runs with no minimum instances, at most one instance, and a $5 spend cap. Neon Free is permanent, with 1 GB of storage |
 
 ## Release 1 requirements: onboarding and shared services
 
@@ -503,7 +504,7 @@ The MVP succeeds when a first-time reviewer can work a case end to end in minute
 
 ## Release plan
 
-Phase 1 is done and release 1's engine is built; the MVP workbench is next, and each later release starts only when the previous gate is met.
+Phase 1 is done and release 1's engine is built; the MVP workbench is live, and each later release starts only when the previous gate is met.
 
 ![Release plan: Phase 1 done, Release 1 (MVP) next, then Releases 2 to 4, each behind a gate](docs/prd/release-plan.png)
 
@@ -538,7 +539,7 @@ The three MVP decisions are made (ticked below); what remains is validating two 
 | AI misreads messy documents | Schema validation, confidence thresholds, human review, and pre-release test sets |
 | The portfolio overstates hands-on experience | Validation status on every process, and reference-architecture framing throughout |
 | Public demo abuse or AI cost | Live AI only for signed-in users, with a daily cap and the illustrative response as a fallback |
-| Cloud charges beyond the free tier | No minimum instances, a one-instance ceiling, only the latest container image kept (0.5 GB of image storage is free), and a budget alert. A budget alert warns; it doesn't stop charges |
+| Cloud charges beyond the free tier | No minimum instances, a one-instance ceiling, only the latest container image kept (0.5 GB of image storage is free), and a $5 spend cap on Cloud Run, which pauses the service when reached instead of only warning |
 
 ## Glossary
 

@@ -64,8 +64,9 @@ FIELD_DOCS = {
 
 
 # Application fields whose items are non-regulatory (account_rules.NON_REGULATORY): reopening the document
-# behind one keeps an open account open, restricted from trading. Anything else needs a rescission.
-NON_REGULATORY_FIELDS = {"account": {"client_signature", "lpoa_signed", "fee_authorization", "tax_form"}}
+# behind one keeps an open account open, restricted from trading and fee deduction. Anything else, the client
+# signature and LPOA included, needs a rescission. test_api checks this matches the engine.
+NON_REGULATORY_FIELDS = {"account": {"fee_authorization", "tax_form"}}
 OPENED = ("OPEN", "OPEN_RESTRICTED", "ACTIVE")
 CORRECTABLE = ("PENDING_ITEMS", "PENDING_ACCEPTANCE", "PENDING_REWORK", "OPEN_RESTRICTED")
 
