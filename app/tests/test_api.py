@@ -48,7 +48,7 @@ def test_queues_have_seeded_work(as_user):
     c = as_user("ops.analyst")
     counts = {q["key"]: q["count"] for q in c.get("/api/queues").json()["queues"]}
     assert counts["sanctions_review"] == 2 and counts["edd_review"] == 2
-    assert counts["items_requested"] == 2 and counts["confirmation"] == 1 and counts["reviews"] >= 2
+    assert counts["items_requested"] == 3 and counts["confirmation"] == 1 and counts["reviews"] >= 2
     assert counts["principal_acceptance"] == 2           # Juniper Ridge and Lena Park
 
 
@@ -187,12 +187,42 @@ def test_items_received_need_the_document_and_operations(as_user):
     detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
         "fields": {"lpoa_signed": True, "tax_form": "W-9"},
         "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}}).json()
-    assert detail["status"] == "OPEN" and detail["manual_steps"] == 1          # Rosa opened restricted; now clear
-    assert not [r for r in detail["restrictions"] if r["active"] and r["code"] == "DOCS"]
+    assert detail["status"] == "PENDING_ACCEPTANCE" and not detail["result"]["requested_items"]
     docs = {d["doc_type"]: d for d in detail["documents"]}
     assert docs["lpoa"]["status"] == "in_good_order" and docs["lpoa"]["reviewed_by"] == "Jamie Ortiz"
     event = as_user("ops.analyst").get("/api/audit?action=items_received").json()[0]
     assert {d["sha256"] for d in event["detail"]["documents"]} == {lpoa["sha256"], w9["sha256"]}
+    detail = accept(as_user("rs.principal"), cid)
+    assert detail["status"] == "OPEN" and not [r for r in detail["restrictions"] if r["active"]]
+
+
+def test_rosa_waits_for_her_lpoa_because_it_is_regulatory(as_user):
+    detail = as_user("ops.analyst").get(f"/api/cases/{case_id(as_user('ops.analyst'), 'Rosa Delgado')}").json()
+    assert detail["status"] == "PENDING_ITEMS" and detail["account"]["status"] == "PENDING"
+    assert detail["acceptance"] is None
+
+
+def test_items_received_on_an_open_restricted_account_lift_the_docs_code(as_user):
+    ops = as_user("ops.analyst")
+    cid = case_id(ops, "Owen Gallagher")
+    detail = ops.get(f"/api/cases/{cid}").json()
+    assert detail["status"] == "OPEN_RESTRICTED" and detail["account"]["status"] == "OPEN"
+    assert [r["code"] for r in detail["restrictions"] if r["active"]] == ["DOCS"]
+    assert {c["field"] for c in detail["corrections"]} == {"fee_authorization", "tax_form"}
+    fee, w9 = upload_sample(ops, cid, "fee_authorization"), upload_sample(ops, cid, "w9")
+    detail = ops.post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"fee_authorization": True, "tax_form": "W-9"},
+        "documents": {"fee_authorization": fee["id"], "tax_form": w9["id"]}}).json()
+    assert detail["status"] == "OPEN"
+    assert not [r for r in detail["restrictions"] if r["active"] and r["code"] == "DOCS"]
+
+
+def test_the_app_and_the_engine_agree_on_what_can_wait():
+    from account_rules import NON_REGULATORY
+    from app.documents import NON_REGULATORY_FIELDS
+    from app.views import CORRECTIONS
+    assert NON_REGULATORY_FIELDS["account"] == {f for rid in NON_REGULATORY for f, *_ in CORRECTIONS[rid]}
+    assert set(NON_REGULATORY) == {"ACC-003", "ACC-004"}       # fee authorization and tax form (Shawn, Oct. 11)
 
 
 def test_the_same_file_twice_is_refused_and_extra_copies_are_closed_out(as_user):
@@ -367,7 +397,8 @@ def test_reopening_a_non_regulatory_document_keeps_the_account_open_but_restrict
     ops = as_user("ops.analyst")
     cid = case_id(ops, "Account opening: Maria Chen")
     docs = {d["doc_type"]: d for d in ops.get(f"/api/cases/{cid}").json()["documents"]}
-    out = ops.post(f"/api/documents/{docs['lpoa']['id']}/reject", json={"reason": "LPOA names a different adviser"})
+    out = ops.post(f"/api/documents/{docs['fee_authorization']['id']}/reject",
+                   json={"reason": "Fee authorization names a different adviser"})
     assert out.status_code == 200 and out.json()["status"] == "not_in_good_order"
     detail = ops.get(f"/api/cases/{cid}").json()
     assert detail["status"] == "OPEN_RESTRICTED" and detail["account"]["status"] == "OPEN"
@@ -376,9 +407,10 @@ def test_reopening_a_non_regulatory_document_keeps_the_account_open_but_restrict
     assert event["category"] == "Document accepted in error" and event["owner"] == "ops_supervisor"
     # A team lead records the remediation path and closes it; an analyst can't
     assert as_user("ops.analyst").post(f"/api/risk-events/{event['id']}", json={
-        "remediation": "training", "note": "Refresher on LPOA checks"}).status_code == 403
+        "remediation": "training", "note": "Refresher on fee authorization checks"}).status_code == 403
     closed = as_user("ops.supervisor").post(f"/api/risk-events/{event['id']}", json={
-        "remediation": "procedure", "note": "Add an adviser-name check to the LPOA review step", "close": True}).json()
+        "remediation": "procedure", "note": "Add an adviser-name check to the fee authorization review step",
+        "close": True}).json()
     assert closed["status"] == "closed" and closed["remediation_label"] == "Procedure update"
 
 
@@ -388,6 +420,13 @@ def test_a_regulatory_document_on_an_open_account_needs_a_rescission(as_user):
     docs = {d["doc_type"]: d for d in ops.get(f"/api/cases/{cid}").json()["documents"]}
     r = ops.post(f"/api/documents/{docs['formation_documents']['id']}/reject", json={"reason": "Wrong entity"})
     assert r.status_code == 409 and "rescind" in r.json()["detail"]
+    # The client's signature and the LPOA are regulatory too
+    cid = case_id(ops, "Account opening: Maria Chen")
+    docs = {d["doc_type"]: d for d in ops.get(f"/api/cases/{cid}").json()["documents"]}
+    for doc_type in ("lpoa", "account_application"):
+        r = ops.post(f"/api/documents/{docs[doc_type]['id']}/reject", json={"reason": "Signature page missing"})
+        assert r.status_code == 409 and "rescind" in r.json()["detail"]
+        assert docs[doc_type]["reopen_refusal"]
 
 
 # --- Account changes ---------------------------------------------------------
@@ -462,12 +501,21 @@ def test_ria_application_with_documents_waits_only_for_the_principal(as_user):
 def test_checkboxes_without_documents_dont_count_and_the_account_opens_restricted(as_user):
     claimed = {**NEW_APP, "lpoa_signed": True, "fee_authorization": True, "client_signature": True, "tax_form": "W-9"}
     detail = as_user("bonneville.advisor").post("/api/portal/accounts", json={
-        "application": claimed, "documents": ACCOUNT_DOCS[:1] + ACCOUNT_DOCS[2:3]}).json()
-    assert detail["status"] == "PENDING_ACCEPTANCE"          # the LPOA and W-9 aren't regulatory
-    assert {c["field"] for c in detail["corrections"]} == {"lpoa_signed", "tax_form"}
+        "application": claimed, "documents": ACCOUNT_DOCS[:2]}).json()
+    assert detail["status"] == "PENDING_ACCEPTANCE"          # the fee authorization and W-9 aren't regulatory
+    assert {c["field"] for c in detail["corrections"]} == {"fee_authorization", "tax_form"}
     detail = accept(as_user("rs.principal"), detail["id"])
     assert detail["status"] == "OPEN_RESTRICTED"
     assert "DOCS" in [r["code"] for r in detail["restrictions"] if r["active"]]
+
+
+def test_a_missing_lpoa_or_client_signature_holds_the_account(as_user):
+    for missing in ("lpoa", "account_application"):
+        docs = [d for d in ACCOUNT_DOCS if d["doc_type"] != missing]
+        detail = as_user("granite.advisor").post("/api/portal/accounts", json={
+            "application": {**NEW_APP, "holders": [{**NEW_APP["holders"][0], "name": f"Nina Park {missing}"}]},
+            "documents": docs}).json()
+        assert detail["status"] == "PENDING_ITEMS" and detail["acceptance"] is None, missing
 
 
 def test_a_regulatory_gap_waits_for_items(as_user):

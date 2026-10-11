@@ -280,7 +280,7 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
         <li>Prepared without manual steps: {d.manual_steps === 0 ? "yes" : `no (${d.manual_steps})`}</li>
       </ul>
       {outstanding.length > 0 && (
-        <p className="small"><strong>Opens restricted from trading until these non-regulatory items arrive:</strong> {outstanding.join("; ")}.
+        <p className="small"><strong>Opens restricted from trading and fee deduction until these non-regulatory items arrive:</strong> {outstanding.join("; ")}.
           Every regulatory requirement (KYC, CDD, EDD, CIP, AML) is met.</p>
       )}
       {a.can_accept ? (

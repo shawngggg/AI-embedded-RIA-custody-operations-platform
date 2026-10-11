@@ -57,15 +57,16 @@ SEED_REGISTRATIONS = {"rs.lead": (["S7", "S63", "S24"], "7700100"),
                       "rs.associate": (["S7", "S63"], "7700102")}
 
 # Seeded cases the registered principal has already accepted. Juniper Ridge and Lena Park still wait.
-# Rosa Delgado opens restricted from trading: her LPOA and tax form are still outstanding, and neither is regulatory.
+# Rosa Delgado waits for items: her LPOA is regulatory, so the account holds. Owen Gallagher opens restricted from
+# trading and fee deduction: only his fee authorization and tax form are outstanding, and neither is regulatory.
 ACCEPTED_SEEDS = {"granite_peak", "bonneville", "maria_chen", "kenji_tanaka", "farid_hosseini_pure",
-                  "farid_hosseini_sd", "whitfield_holdings", "rosa_delgado_nigo"}
+                  "farid_hosseini_sd", "whitfield_holdings", "owen_gallagher_restricted"}
 
 # Seeded firm cases and the decisions that move them to their demo state
 FIRM_SEEDS = ["granite_peak", "juniper_ridge", "bonneville", "lakeshore", "meridian_gate", "alta_vista", "cottonwood"]
 ACCOUNT_SEEDS = ["maria_chen", "kenji_tanaka", "farid_hosseini_pure", "farid_hosseini_sd", "whitfield_holdings",
                  "ilya_sorvetkin", "elena_marsh_pep", "orphan_self_directed", "rosa_delgado_nigo",
-                 "lena_park_waiting"]
+                 "lena_park_waiting", "owen_gallagher_restricted"]
 
 # How long ago each seeded case arrived, in hours, so SLA clocks and time-in-state look like a working
 # queue: some cases comfortable, one close to its deadline, one past it.
@@ -74,7 +75,8 @@ AGE_HOURS = {
     "alta_vista": 70, "cottonwood": 200,
     "maria_chen": 300, "kenji_tanaka": 260, "farid_hosseini_pure": 240, "farid_hosseini_sd": 230,
     "whitfield_holdings": 190, "ilya_sorvetkin": 21, "elena_marsh_pep": 30, "orphan_self_directed": 40,
-    "rosa_delgado_nigo": 128, "lena_park_waiting": 6, "CHG-0001": 72, "CHG-0002": 5,
+    "rosa_delgado_nigo": 128, "lena_park_waiting": 6, "owen_gallagher_restricted": 50, "CHG-0001": 72,
+    "CHG-0002": 5,
 }
 
 
@@ -125,7 +127,7 @@ def _farid_pure() -> AccountApplication:
 
 
 def _rosa_nigo() -> AccountApplication:
-    """An application that arrives without the LPOA or a tax form: it opens restricted from trading."""
+    """An application that arrives without the LPOA or a tax form: the LPOA is regulatory, so it waits for items."""
     return AccountApplication(
         "APP-2008", "ACC-2008", AccountGroup.PURE_RIA, "individual",
         [Person("Rosa Delgado", "account_holder", date_of_birth="1983-09-14", identity_verified=True,
@@ -144,6 +146,17 @@ def _lena_park() -> AccountApplication:
         lpoa_signed=True, fee_authorization=True, client_signature=True, tax_form="W-9",
         account_purpose="Long-term investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
         expected_initial_funding=210_000)
+
+
+def _owen_gallagher() -> AccountApplication:
+    """Every regulatory item is in, but the fee authorization and W-9 aren't: it opens restricted (DOCS)."""
+    return AccountApplication(
+        "APP-2010", "ACC-2010", AccountGroup.PURE_RIA, "individual",
+        [Person("Owen Gallagher", "account_holder", date_of_birth="1976-06-03", identity_verified=True,
+                address="2210 Harrison Blvd, Ogden, UT 84401", tax_id="900-00-2010", occupation="Civil engineer")],
+        lpoa_signed=True, fee_authorization=False, client_signature=True, tax_form=None,
+        account_purpose="Retirement investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
+        expected_initial_funding=145_000)
 
 
 TAX_DOC = {"W-9": "w9", "W-8BEN": "w8ben", "W-8BEN-E": "w8bene"}
@@ -256,6 +269,8 @@ def seed(db: Session) -> None:
             app, firm_key = _rosa_nigo(), "bonneville"
         elif key == "lena_park_waiting":
             app, firm_key = _lena_park(), "granite_peak"
+        elif key == "owen_gallagher_restricted":
+            app, firm_key = _owen_gallagher(), "granite_peak"
         else:
             app, firm_key = ACCOUNTS[key], ACCOUNT_FIRMS[key]
         app = shift_dates(app, delta)
