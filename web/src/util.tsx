@@ -6,7 +6,8 @@ export const STATUS: Record<string, [string, string]> = {
   PENDING_REVIEW: ["Compliance review", "refer"], PENDING_SANCTIONS: ["Sanctions review", "escalate"],
   PENDING_EDD: ["EDD pending", "escalate"], PENDING_CONFIRMATION: ["Confirmation", "escalate"],
   PENDING_VERIFICATION: ["Verification", "refer"], REDIRECTED: ["Redirected", "refer"],
-  PENDING_ACCEPTANCE: ["Principal acceptance", "refer"],
+  PENDING_ACCEPTANCE: ["Principal acceptance", "refer"], OPEN_RESTRICTED: ["Open, restricted", "refer"],
+  PENDING_REWORK: ["Rework", "escalate"],
   DECLINED: ["Declined", "block"], BLOCKED: ["Blocked", "block"], REJECTED: ["Rejected", "block"],
 };
 

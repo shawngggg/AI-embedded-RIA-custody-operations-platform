@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from restrictions import CATALOG
 
 from .acceptance import acceptance_state, holds_principal
-from .documents import DOC_TYPES, case_documents, doc_dict, field_docs
+from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .orm import REGISTRATIONS, ROLES, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .queues import DECISIONS, QUEUES
 
@@ -53,7 +53,8 @@ def user_dict(db: Session, u: User) -> dict:
             "note": u.demo_note, "firm": {"id": firm.id, "crd": firm.crd, "name": firm.legal_name} if firm else None,
             "client_account_id": u.client_account_id,
             "registrations": [{"code": r, "label": REGISTRATIONS.get(r, r)} for r in (u.registrations or [])],
-            "individual_crd": u.individual_crd, "can_accept_accounts": u.role == "ria_service" and holds_principal(u),
+            "individual_crd": u.individual_crd,
+            "can_accept_accounts": u.role in ("ria_service", "ria_service_lead") and holds_principal(u),
             "workspace": "portal" if u.role in ("ria_admin", "ria_user", "client") else "workbench"}
 
 
@@ -113,7 +114,8 @@ def decision_dict(db: Session, d: PendingDecision) -> dict:
 
 
 def corrections_for(db: Session, case: Case) -> list[dict]:
-    if case.status not in ("PENDING_ITEMS", "RETURNED") or not case.result:
+    waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
+    if not waiting or not case.result:
         return []
     findings = (case.result.get("findings") or {}).get("decisions", [])
     docs = case_documents(db, case)
@@ -135,11 +137,22 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
 def available_decisions(case: Case, user: User) -> list[dict]:
     out = []
     for key, spec in DECISIONS.items():
-        if case.status in spec["statuses"] and user.role in spec["proposer"] and not spec.get("direct"):
+        if case.status in spec["statuses"] and user.role in spec["proposer"] and not spec.get("direct") \
+                and not spec.get("custom"):
             out.append({"decision_type": key, "label": spec["label"],
                         "values": [{"value": v, "label": l} for v, l in spec["values"].items()],
                         "approver_roles": spec["approver"]})
     return out
+
+
+def rescission_state(db: Session, c: Case, user: User) -> dict | None:
+    from . import rescission
+    if c.kind not in ("firm", "account") or user.role in ("ria_admin", "ria_user", "client"):
+        return None
+    if c.status not in rescission.OPENED and not rescission.pending(db, c):
+        return None
+    why = rescission.refusal(db, c, user)
+    return {"can_request": why is None, "reason": why, "kinds": rescission.KINDS, "return_to": rescission.RETURN_TO}
 
 
 def case_detail(db: Session, c: Case, user: User) -> dict:
@@ -160,7 +173,9 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
                     "display_name": account.display_name} if account else None,
         "manual_steps": c.manual_steps, "nigo_count": c.nigo_count, "closed_at": iso(c.closed_at),
         "acceptance": None if user.role in ("ria_admin", "ria_user", "client") else acceptance_state(db, c, user),
-        "documents": [doc_dict(d) for d in case_documents(db, c)],
+        "documents": [{**doc_dict(d), "reopen_refusal": reopen_refusal(c, d, user)} for d in case_documents(db, c)],
+        "rescission": rescission_state(db, c, user),
+        "rework": (c.extra or {}).get("rework"),
     })
     return data
 

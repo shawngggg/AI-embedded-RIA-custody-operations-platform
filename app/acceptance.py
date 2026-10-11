@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .runner import run_case
-from .orm import (PRINCIPAL_REGISTRATIONS, SHORT_REGISTRATION, AuditEvent, Case, PendingDecision, User,
-                  utcnow)
+from .orm import (LICENSED_ROLES, PRINCIPAL_REGISTRATIONS, SHORT_REGISTRATION, AuditEvent, Case, PendingDecision,
+                  User, utcnow)
 
 PREPARING_ACTIONS = ("case_created", "items_received", "document_uploaded")
 
@@ -48,7 +48,7 @@ def refusal(db: Session, case: Case, user: User) -> str | None:
     """Why this person can't accept this case, or None if they can."""
     if case.status != "PENDING_ACCEPTANCE":
         return "The case isn't waiting for principal acceptance"
-    if user.role != "ria_service":
+    if user.role not in LICENSED_ROLES:
         return "A registered principal on the RIA service team accepts accounts"
     if not holds_principal(user):
         return (f"Accepting an account needs a principal registration (Series 24 or Series 9/10). "
@@ -66,7 +66,8 @@ def acceptance_state(db: Session, case: Case, user: User) -> dict | None:
             "signs_as": principal_label(user) if why is None else None}
 
 
-def accept_case(db: Session, case: Case, user: User, value: str, note: str | None = None) -> None:
+def accept_case(db: Session, case: Case, user: User, value: str, note: str | None = None,
+                reviewed: bool = False) -> None:
     """Record the principal's acceptance or decline and re-run the case. Raises 403 with a logged refusal."""
     if value not in ("accepted", "declined"):
         raise HTTPException(422, "Accept or decline")
@@ -78,6 +79,8 @@ def accept_case(db: Session, case: Case, user: User, value: str, note: str | Non
             db.commit()
             raise HTTPException(403, why)
         raise HTTPException(409, why)
+    if value == "accepted" and not reviewed:
+        raise HTTPException(422, "Confirm you reviewed the documents, findings, and risk before accepting")
     signed = principal_label(user)
     now = utcnow()
     db.add(PendingDecision(case_id=case.id, decision_type="acceptance", value=value, reference=signed,
@@ -88,5 +91,6 @@ def accept_case(db: Session, case: Case, user: User, value: str, note: str | Non
     case.decisions = decisions
     audit.record(db, user, "principal_accepted" if value == "accepted" else "principal_declined", "case", case.id,
                  case_id=case.id, signed_as=signed, registrations=list(user.registrations or []),
-                 individual_crd=user.individual_crd, note=note)
+                 individual_crd=user.individual_crd, note=note, confirmed_review=reviewed or None,
+                 outstanding=(case.result or {}).get("requested_items") or None)
     run_case(db, case, user)

@@ -21,8 +21,8 @@ from account_changes import CHANGE_RULES
 from .. import audit
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..orm import (DECISION_ROLES, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION, Account, Firm, RoleGrant,
-                   User, utcnow)
+from ..orm import (DECISION_ROLES, LICENSED_ROLES, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
+                   Account, Firm, RoleGrant, User, utcnow)
 from ..security import current_user, hash_password, require_roles
 from ..views import iso, user_dict
 
@@ -57,7 +57,7 @@ def _grant_dict(db: Session, g: RoleGrant) -> dict:
 @router.get("/roles")
 def roles(user: User = Depends(admins)):
     allowed = ROLES if user.role == "platform_admin" else {k: v for k, v in ROLES.items() if k in RIA_ADMIN_MAY_GRANT}
-    return [{"role": k, "label": v, "decision_role": k in DECISION_ROLES, "licensed": k == "ria_service"}
+    return [{"role": k, "label": v, "decision_role": k in DECISION_ROLES, "licensed": k in LICENSED_ROLES}
             for k, v in allowed.items()]
 
 
@@ -68,10 +68,10 @@ def registrations(user: User = Depends(admins)):
 
 def _check_registrations(role: str, regs: list[str], crd: str | None) -> None:
     if not regs:
-        if role == "ria_service":
+        if role in LICENSED_ROLES:
             raise HTTPException(422, "The RIA service team is licensed: record at least Series 7")
         return
-    if role != "ria_service":
+    if role not in LICENSED_ROLES:
         raise HTTPException(422, "Only the RIA service team carries FINRA registrations; operations needs none")
     unknown = set(regs) - set(REGISTRATIONS)
     if unknown:
@@ -134,8 +134,8 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
     grant = None
     if decision:
         grant = RoleGrant(user_id=u.id, role=body.role, requested_by=actor.id,
-                          registrations=body.registrations if body.role == "ria_service" else None,
-                          individual_crd=body.individual_crd if body.role == "ria_service" else None)
+                          registrations=body.registrations if body.role in LICENSED_ROLES else None,
+                          individual_crd=body.individual_crd if body.role in LICENSED_ROLES else None)
         db.add(grant)
         db.flush()
     audit.record(db, actor, "user_created", "user", u.id, username=u.username, role=u.role,
@@ -230,7 +230,7 @@ def _decide_grant(grant_id: int, approve: bool, actor: User, db: Session):
         target.role, target.active = g.role, True
         if g.registrations is not None:
             target.registrations, target.individual_crd = list(g.registrations), g.individual_crd
-        elif g.role != "ria_service":
+        elif g.role not in LICENSED_ROLES:
             target.registrations, target.individual_crd = [], None
     audit.record(db, actor, "role_grant_approved" if approve else "role_grant_rejected", "user", target.id,
                  role=g.role, registrations=g.registrations)

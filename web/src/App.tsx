@@ -15,6 +15,7 @@ import Admin from "./pages/Admin";
 import PortalHome from "./pages/PortalHome";
 import NewAccount from "./pages/NewAccount";
 import NewChange from "./pages/NewChange";
+import RiskEvents from "./pages/RiskEvents";
 import { Loading } from "./util";
 
 type Counts = { queues: { key: string; count: number; breached: number }[]; pending_approvals: number };
@@ -60,6 +61,7 @@ export default function App() {
               <div className="group">Controls</div>
               <NavLink to="/restrictions">Restriction codes</NavLink>
               <NavLink to="/audit">Audit trail</NavLink>
+              <NavLink to="/risk-events">Risk events</NavLink>
               <NavLink to="/dashboard">Dashboard</NavLink>
               {user.role === "platform_admin" && <><div className="group">Admin</div><NavLink to="/admin">Users and rules</NavLink></>}
             </>
@@ -96,6 +98,7 @@ export default function App() {
                 <Route path="/intake" element={<Intake />} />
                 <Route path="/restrictions" element={<Restrictions />} />
                 <Route path="/audit" element={<AuditPage />} />
+                <Route path="/risk-events" element={<RiskEvents />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/cases/:id" element={<CasePage />} />

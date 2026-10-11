@@ -20,7 +20,7 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   const reload = () => { users.reload(); grants.reload(); };
   const create = (e: React.FormEvent) => {
     e.preventDefault();
-    const licensed = form.role === "ria_service";
+    const licensed = ["ria_service", "ria_service_lead"].includes(form.role);
     const body = { ...form, email: form.email || null, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null,
       registrations: licensed ? regs : [], individual_crd: licensed ? form.individual_crd || null : null };
     api<any>("/api/admin/users", { body }).then((r) => {
@@ -81,7 +81,7 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
             </select></div>
           {platform && ["ria_user", "ria_admin"].includes(form.role) && f("firm_crd", "Firm CRD")}
           {form.role === "client" && f("client_account_id", "Client's self-directed account id")}
-          {form.role === "ria_service" && (
+          {["ria_service", "ria_service_lead"].includes(form.role) && (
             <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
               <legend className="small muted" style={{ padding: "0 6px" }}>FINRA registrations (synthetic in the demo)</legend>
               {(regCatalog.data ?? []).map((r) => (

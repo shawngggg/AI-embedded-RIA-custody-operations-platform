@@ -29,16 +29,18 @@ ROLES = {
     "sanctions": "Sanctions team",
     "periodic_review": "Periodic review team",
     "ria_service": "RIA service team (licensed)",
+    "ria_service_lead": "RIA service team lead (licensed)",
     "platform_admin": "Platform administrator",
     "ria_admin": "RIA administrator",
     "ria_user": "RIA user",
     "client": "Client",
 }
 INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review",
-                  "ria_service", "platform_admin"}
+                  "ria_service", "ria_service_lead", "platform_admin"}
 PORTAL_ROLES = {"ria_admin", "ria_user", "client"}
 # Granting one of these needs a second platform administrator to approve
-DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "platform_admin"}
+DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "ria_service_lead", "platform_admin"}
+LICENSED_ROLES = {"ria_service", "ria_service_lead"}
 
 # FINRA registrations. The custodian runs the trading platform, so it is a FINRA member broker-dealer: the
 # RIA service team, which works with RIAs on trading, transfers, and account acceptance, is licensed.
@@ -244,6 +246,28 @@ class Document(Base):
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     checks: Mapped[list] = mapped_column(JSON, default=list)        # automated pre-checks on the file
     synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class OpsRiskEvent(Base):
+    """
+    An operational risk event: a control that let an error through, logged so the team agrees a remediation
+    path (training, a technology change, or a procedure update) and closes it.
+    """
+    __tablename__ = "ops_risk_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    category: Mapped[str] = mapped_column(String(60))
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
+    target_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    summary: Mapped[str] = mapped_column(Text)
+    detected_by: Mapped[str] = mapped_column(String(120))
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    owner: Mapped[str] = mapped_column(String(40))                      # role that owns the follow-up
+    status: Mapped[str] = mapped_column(String(30), default="open")     # open | remediation_agreed | closed
+    remediation: Mapped[str | None] = mapped_column(String(30), nullable=True)  # training | technology | procedure | none
+    remediation_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AiUsage(Base):

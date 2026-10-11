@@ -3,7 +3,7 @@ import { api, type User } from "../api";
 
 const GROUPS: [string, (u: User) => boolean][] = [
   ["Custody operations and second line", (u) => ["ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review"].includes(u.role)],
-  ["RIA service team (FINRA-licensed)", (u) => u.role === "ria_service"],
+  ["RIA service team (FINRA-licensed)", (u) => ["ria_service", "ria_service_lead"].includes(u.role)],
   ["Platform administration", (u) => u.role === "platform_admin"],
   ["RIA firms", (u) => ["ria_admin", "ria_user"].includes(u.role)],
   ["Clients", (u) => u.role === "client"],

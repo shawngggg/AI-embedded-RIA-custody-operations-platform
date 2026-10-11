@@ -48,6 +48,7 @@ export type Doc = {
   size: number; sha256: string; channel: string; channel_label: string; received_on: string; uploaded_by: string;
   uploaded_at: string | null; status: "received" | "in_good_order" | "not_in_good_order" | "superseded"; reviewed_by: string | null;
   reviewed_at: string | null; review_note: string | null; checks: Check[]; checks_passed: boolean; synthetic: boolean;
+  reopen_refusal?: string | null;
 };
 
 export type Step = { lane: string; step: string; outcome: string; detail: string[]; rule_ids: string[] };
@@ -86,4 +87,6 @@ export type CaseDetail = CaseSummary & {
   account: { id: string; status: string; group: string; display_name: string } | null; closed_at: string | null;
   acceptance: { can_accept: boolean; reason: string | null; signs_as: string | null } | null;
   documents: Doc[];
+  rescission: { can_request: boolean; reason: string | null; kinds: Record<string, string>; return_to: Record<string, string> } | null;
+  rework: { reason: string; reference: string; requested_by: string; approved_by: string; at: string } | null;
 };

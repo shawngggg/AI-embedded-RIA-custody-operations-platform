@@ -26,7 +26,7 @@ import json
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 
-from account_rules import evaluate_account
+from account_rules import NON_REGULATORY, evaluate_account
 from applications import AccountApplication, FirmApplication
 from extraction import ExtractionResult, extract_firm_application, gate
 from firm_rules import evaluate_firm, firm_reliance, reliance_relief_in_force, to_ria_firm
@@ -383,15 +383,24 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
     res.path = path.value
     ev = evaluate_account(app, path.value, as_of)
     res.findings = ev
-    if ev.decisions:
-        res.add(AI, "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)",
-                "Not in good order", [d.reason for d in ev.decisions], ev.rule_ids)
+    extract = "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)"
+    regulatory = [d for d in ev.decisions if d.rule_id not in NON_REGULATORY]
+    outstanding = [d for d in ev.decisions if d.rule_id in NON_REGULATORY]
+    if regulatory:
+        res.add(AI, extract, "Not in good order", [d.reason for d in ev.decisions], ev.rule_ids)
         res.requested_items = ev.required_documents
         res.add(OPS, "Request corrections from the RIA", "Sent", res.requested_items)
         res.status = "PENDING_ITEMS"
         return res
-    res.add(AI, "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)",
-            "In good order")
+    if outstanding:
+        res.add(AI, extract, "Not in good order: non-regulatory items only",
+                [d.reason for d in outstanding], [d.rule_id for d in outstanding])
+        res.requested_items = ev.required_documents
+        res.add(OPS, "Request corrections from the RIA",
+                "Sent; every regulatory requirement is met, so the account can open restricted from trading",
+                res.requested_items)
+    else:
+        res.add(AI, extract, "In good order")
 
     if path is Path.A:
         res.add(RULES, "Path A applies?", "Yes: pure RIA account under a reliance-eligible RIA")
@@ -461,6 +470,9 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
     if stop:
         res.status = stop
         return res
+    if outstanding:
+        registry.place(app.account_id, "DOCS", "Outstanding: " + "; ".join(res.requested_items), by,
+                       Function.OPERATIONS, _stamp(as_of))
     res.record = account
     codes = registry.active_codes(app.account_id)
     ident = ria_app.crd_number or "NEW"
@@ -476,5 +488,5 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.add(OPS, "Transferability review of funding assets (shared subprocess)",
                 f"Release: {review.release}",
                 [f"{d.description}: {ROUTE_LABELS[d.route.value]}. {d.reason}" for d in review.dispositions])
-    res.status = "OPEN"
+    res.status = "OPEN_RESTRICTED" if outstanding else "OPEN"
     return res

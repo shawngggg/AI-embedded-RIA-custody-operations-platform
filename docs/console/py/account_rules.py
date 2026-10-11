@@ -12,6 +12,12 @@ Two kinds of finding:
 On Path A the custodian relies on the RIA for CIP and beneficial ownership and
 uses RIA-provided information only, so the Path B rules don't apply.
 
+Regulatory and non-regulatory findings (Shawn's direction, Oct. 11, 2026): an
+account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with
+non-regulatory items still outstanding, restricted from trading until they
+arrive. Which items are non-regulatory is a reference design, listed in
+NON_REGULATORY below with the reason for each.
+
 The beneficial ownership rule has two dated versions. Until Feb. 13, 2026 the
 owners were identified and verified at every new account. FinCEN's exceptive
 relief of that date limits it to the first account, or later when earlier
@@ -55,6 +61,19 @@ def missing_cip_information(ctx: AccountContext, as_of: date) -> list[str]:
 def beneficial_owners_needed_v2(ctx: AccountContext, as_of: date) -> bool:
     app = ctx.application
     return app.first_entity_account or not app.bo_info_confirmed_current
+
+
+# Missing one of these doesn't stop an account opening when every regulatory requirement is met: the account
+# opens restricted from trading (code DOCS) until the item arrives. Reference design, for validation:
+NON_REGULATORY = {
+    "ACC-001": "The client's signature on the account agreement is contractual; no KYC, CIP, or AML rule requires it",
+    "ACC-002": "The LPOA is the RIA's trading authority; without it the RIA can't trade, so a trading "
+               "restriction covers it",
+    "ACC-003": "Fee deduction authority is the adviser's obligation under the custody rule; the custodian "
+               "deducts no fees until it arrives",
+    "ACC-004": "The tax certification is an IRS requirement, not KYC or AML; until it arrives the custodian "
+               "withholds as the tax rules require (backup withholding for a missing W-9)",
+}
 
 
 COMPUTED = {

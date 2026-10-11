@@ -114,7 +114,10 @@ export function DocList({ docs, onChanged }: { docs: Doc[]; onChanged: () => voi
   const { user } = useAuth();
   const ops = ["ops_analyst", "ops_supervisor"].includes(user.role);
   const reject = (d: Doc) => {
-    const reason = window.prompt(`Why is ${d.filename} not in good order?`);
+    const reason = window.prompt(d.status === "in_good_order"
+      ? `Reopen ${d.filename}? It was accepted; the item it satisfied comes back as outstanding. On an open account, ` +
+        "the account stays open but restricted from trading, and an operational risk event is logged. Why isn't it in good order?"
+      : `Why is ${d.filename} not in good order?`);
     if (!reason || reason.trim().length < 5) return;
     api(`/api/documents/${d.id}/reject`, { body: { reason } }).then(onChanged).catch((e: Error) => alert(e.message));
   };
@@ -132,7 +135,9 @@ export function DocList({ docs, onChanged }: { docs: Doc[]; onChanged: () => voi
             {d.review_note && <div className="small">“{d.review_note}”</div>}</td>
           <td className="small"><Checks d={d} /></td>
           <td className="mono small" title={d.sha256}>{d.sha256.slice(0, 16)}…</td>
-          <td>{ops && d.status === "received" && <button className="small secondary" onClick={() => reject(d)}>Not in good order</button>}</td>
+          <td>{ops && d.status === "received" && <button className="small secondary" onClick={() => reject(d)}>Not in good order</button>}
+            {d.status === "in_good_order" && d.reopen_refusal === null && <button className="small secondary" onClick={() => reject(d)}>Reopen</button>}
+            {d.status === "in_good_order" && d.reopen_refusal?.startsWith("This document backs") && <span className="muted small">Regulatory item: rescind the acceptance to reopen</span>}</td>
         </tr>
       ))}</tbody>
     </table></div>

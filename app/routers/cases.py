@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..acceptance import accept_case
 from ..config import settings
-from ..documents import DOC_TYPES, field_docs, mark, supersede_others
+from ..documents import CORRECTABLE, DOC_TYPES, field_docs, mark, supersede_others
+from .. import rescission
 from ..db import get_db
 from ..orm import Case, Document, PendingDecision, Review, User, utcnow
 from ..queues import DECISIONS, QUEUES
@@ -86,7 +87,8 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     case = get_case_for(db, user, case_id)
     if user.role not in OPS + ("ria_admin", "ria_user", "client"):
         raise HTTPException(403, "Operations or the requester resolves missing items")
-    if case.status not in ("PENDING_ITEMS", "RETURNED") or (case.status == "RETURNED" and case.kind != "change"):
+    waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
+    if not waiting or not (case.result or {}).get("findings", {}).get("decisions"):
         raise HTTPException(409, "This case isn't waiting for items")
     allowed = {f for rows in CORRECTIONS.values() for f, _l, kind in rows if kind in ("bool", "text", "bank")}
     unknown = set(body.fields) - allowed
@@ -164,6 +166,8 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
         raise HTTPException(422, "Unknown decision or value")
     if spec.get("direct"):
         raise HTTPException(422, "A registered principal records acceptance directly: POST /api/cases/{id}/acceptance")
+    if spec.get("custom"):
+        raise HTTPException(422, "Ask for a rescission with POST /api/cases/{id}/rescission")
     if user.role not in spec["proposer"]:
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
                      decision_type=body.decision_type, reason="wrong role")
@@ -203,13 +207,51 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_inte
 class Acceptance(BaseModel):
     value: str = Field(pattern="^(accepted|declined)$")
     note: str | None = None
+    reviewed: bool = False      # the principal confirms they reviewed the documents, findings, and risk
 
 
 @router.post("/cases/{case_id}/acceptance")
 def accept(case_id: int, body: Acceptance, user: User = Depends(require_internal), db: Session = Depends(get_db)):
     """A registered principal on the RIA service team accepts or declines the account (FINRA Rule 4512)."""
     case = get_case_for(db, user, case_id)
-    accept_case(db, case, user, body.value, body.note)
+    accept_case(db, case, user, body.value, body.note, body.reviewed)
+    db.commit()
+    return case_detail(db, case, user)
+
+
+class RescissionRequest(BaseModel):
+    kind: str            # accepted_before_review | regulatory_issue
+    reason: str
+    return_to: str       # review | operations
+
+
+@router.post("/cases/{case_id}/rescission")
+def request_rescission(case_id: int, body: RescissionRequest, user: User = Depends(require_internal),
+                       db: Session = Depends(get_db)):
+    """A principal asks to rescind an acceptance. The account is restricted at once; the team lead decides."""
+    case = get_case_for(db, user, case_id)
+    rescission.request(db, case, user, body.kind, body.reason, body.return_to)
+    db.commit()
+    return case_detail(db, case, user)
+
+
+class ReworkDone(BaseModel):
+    note: str = Field(min_length=5)
+
+
+@router.post("/cases/{case_id}/rework-complete")
+def rework_complete(case_id: int, body: ReworkDone, user: User = Depends(require_roles("ops_analyst", "ops_supervisor")),
+                    db: Session = Depends(get_db)):
+    """Operations finished the rework a rescission asked for; the case runs again and goes back to the principal."""
+    case = get_case_for(db, user, case_id)
+    if case.status != "PENDING_REWORK":
+        raise HTTPException(409, "This case isn't in rework")
+    rework = dict((case.extra or {}).get("rework") or {})
+    case.extra = {k: v for k, v in (case.extra or {}).items() if k != "rework"}
+    case.manual_steps += 1
+    audit.record(db, user, "rework_completed", "case", case.id, case_id=case.id, reference=rework.get("reference"),
+                 note=body.note)
+    run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)
 
@@ -237,7 +279,9 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     d.status, d.decided_by, d.decided_at = ("approved" if approve else "rejected"), user.id, utcnow()
     audit.record(db, user, "decision_approved" if approve else "decision_rejected", "case", case.id,
                  case_id=case.id, decision_type=d.decision_type, value=d.value, reference=d.reference, note=body.note)
-    if approve:
+    if d.decision_type == "rescission":
+        (rescission.approve if approve else rescission.reject)(db, d, case, user)
+    elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
         if d.decision_type in ("sanctions", "edd"):

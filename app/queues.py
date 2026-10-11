@@ -15,7 +15,9 @@ QUEUES = {
     "verification": {"label": "Identity verification", "owner": "Custody operations",
                      "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
-                             "roles": ["ria_service"], "sla_hours": 24},
+                             "roles": ["ria_service", "ria_service_lead"], "sla_hours": 24},
+    "rework": {"label": "Rework after a rescission", "owner": "Custody operations",
+               "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 24},
 }
 
 _BY_STATUS = {
@@ -26,6 +28,8 @@ _BY_STATUS = {
     "PENDING_CONFIRMATION": "confirmation",
     "PENDING_VERIFICATION": "verification",
     "PENDING_ACCEPTANCE": "principal_acceptance",
+    "OPEN_RESTRICTED": "items_requested",     # open, but waiting on non-regulatory items from the RIA
+    "PENDING_REWORK": "rework",
 }
 
 CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED"}
@@ -63,5 +67,10 @@ DECISIONS = {
     # Gated on the person's FINRA registration, not only the role (see routers/cases.py).
     "acceptance": {"label": "Principal acceptance (FINRA Rule 4512)", "statuses": ["PENDING_ACCEPTANCE"],
                    "values": {"accepted": "Accepted", "declined": "Declined"},
-                   "proposer": ["ria_service"], "approver": ["ria_service"], "direct": True},
+                   "proposer": ["ria_service", "ria_service_lead"], "approver": ["ria_service", "ria_service_lead"],
+                   "direct": True},
+    # Requested through routers/cases.py (it restricts the account at once); approved by the team lead.
+    "rescission": {"label": "Rescind the principal's acceptance", "statuses": ["OPEN", "OPEN_RESTRICTED", "ACTIVE"],
+                   "values": {"review": "Back to the principal for review", "operations": "Back to operations for rework"},
+                   "proposer": ["ria_service", "ria_service_lead"], "approver": ["ria_service_lead"], "custom": True},
 }

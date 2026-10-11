@@ -37,6 +37,8 @@ DEMO_USERS = [
     ("sanctions.maker", "Alex Kim", "sanctions", None, None, "Proposes sanctions determinations"),
     ("sanctions.checker", "Sam Rivera", "sanctions", None, None, "Approves sanctions determinations"),
     ("review.analyst", "Casey Nguyen", "periodic_review", None, None, "Works reviews as they come due"),
+    ("rs.lead", "Renee Alvarez", "ria_service_lead", None, None,
+     "RIA service team lead (Series 7, 63, 24): approves rescissions"),
     ("rs.principal", "Avery Collins", "ria_service", None, None,
      "Registered principal (Series 7, 63, 24): accepts accounts"),
     ("rs.associate", "Noah Brennan", "ria_service", None, None,
@@ -50,12 +52,14 @@ DEMO_USERS = [
 ]
 
 # Synthetic FINRA registrations and individual CRD numbers for the licensed RIA service team
-SEED_REGISTRATIONS = {"rs.principal": (["S7", "S63", "S24"], "7700101"),
+SEED_REGISTRATIONS = {"rs.lead": (["S7", "S63", "S24"], "7700100"),
+                      "rs.principal": (["S7", "S63", "S24"], "7700101"),
                       "rs.associate": (["S7", "S63"], "7700102")}
 
 # Seeded cases the registered principal has already accepted. Juniper Ridge and Lena Park still wait.
+# Rosa Delgado opens restricted from trading: her LPOA and tax form are still outstanding, and neither is regulatory.
 ACCEPTED_SEEDS = {"granite_peak", "bonneville", "maria_chen", "kenji_tanaka", "farid_hosseini_pure",
-                  "farid_hosseini_sd", "whitfield_holdings"}
+                  "farid_hosseini_sd", "whitfield_holdings", "rosa_delgado_nigo"}
 
 # Seeded firm cases and the decisions that move them to their demo state
 FIRM_SEEDS = ["granite_peak", "juniper_ridge", "bonneville", "lakeshore", "meridian_gate", "alta_vista", "cottonwood"]
@@ -121,7 +125,7 @@ def _farid_pure() -> AccountApplication:
 
 
 def _rosa_nigo() -> AccountApplication:
-    """An application that arrives without the LPOA or a tax form."""
+    """An application that arrives without the LPOA or a tax form: it opens restricted from trading."""
     return AccountApplication(
         "APP-2008", "ACC-2008", AccountGroup.PURE_RIA, "individual",
         [Person("Rosa Delgado", "account_holder", date_of_birth="1983-09-14", identity_verified=True,
@@ -232,7 +236,7 @@ def seed(db: Session) -> None:
 
     def accept_if_seeded(case: Case, key: str) -> None:
         if key in ACCEPTED_SEEDS and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted")
+            accept_case(db, case, principal, "accepted", reviewed=True)
 
     for key in FIRM_SEEDS:
         app = shift_dates(FIRMS[key], delta)

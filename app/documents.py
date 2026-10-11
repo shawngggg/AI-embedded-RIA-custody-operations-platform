@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .config import settings
-from .orm import Account, Case, Document, Firm, User, utcnow
+from .orm import Account, Case, Document, Firm, OpsRiskEvent, User, utcnow
 
 MAX_BYTES = 5 * 1024 * 1024
 CHANNELS = {"portal": "RIA portal", "email": "Email", "fax": "Fax", "mail": "Mail", "intake": "Intake package"}
@@ -61,6 +61,13 @@ FIELD_DOCS = {
              "verify_people": ["identity_documents"]},
     "change": {"client_signature": ["change_form"], "medallion_guarantee": ["medallion"]},
 }
+
+
+# Application fields whose items are non-regulatory (account_rules.NON_REGULATORY): reopening the document
+# behind one keeps an open account open, restricted from trading. Anything else needs a rescission.
+NON_REGULATORY_FIELDS = {"account": {"client_signature", "lpoa_signed", "fee_authorization", "tax_form"}}
+OPENED = ("OPEN", "OPEN_RESTRICTED", "ACTIVE")
+CORRECTABLE = ("PENDING_ITEMS", "PENDING_ACCEPTANCE", "PENDING_REWORK", "OPEN_RESTRICTED")
 
 
 def field_docs(kind: str, field: str) -> list[str]:
@@ -323,6 +330,50 @@ def attach_at_intake(db: Session, case: Case, user: User | None, items: list[dic
             mark(db, doc, "in_good_order", AUTOMATED_REVIEWER, user)
             fields[field] = DOC_TYPES[doc_type].get("tax_form", True)
     return fields
+
+
+def reopen_refusal(case: Case, doc: Document, user: User) -> str | None:
+    """Why this person can't reopen (mark not in good order) a document that was accepted, or None."""
+    if doc.status != "in_good_order":
+        return "Only an accepted document can be reopened"
+    if user.role not in ("ops_analyst", "ops_supervisor", "ria_service", "ria_service_lead"):
+        return "Operations or a registered principal reopens a document"
+    if case.status not in CORRECTABLE + OPENED:
+        return "This case is closed"
+    field = field_for_doc(case.kind, doc.doc_type)
+    if case.status in OPENED and field and field not in NON_REGULATORY_FIELDS.get(case.kind, set()):
+        return "This document backs a regulatory requirement on an open account: rescind the acceptance instead"
+    return None
+
+
+def reopen(db: Session, case: Case, doc: Document, user: User, reason: str) -> OpsRiskEvent | None:
+    """
+    Mark an accepted document not in good order and take back the item it satisfied. On an open account this
+    is an operational risk event: the document should never have been accepted.
+    """
+    was_open = case.status in OPENED
+    mark(db, doc, "not_in_good_order", user.display_name, user, reason)
+    field = field_for_doc(case.kind, doc.doc_type)
+    if field == "verify_people":
+        case.application = {**case.application, "people": [{**p, "identity_verified": False}
+                                                           for p in case.application.get("people", [])]}
+    elif field:
+        value = None if field == "tax_form" else False
+        case.application = {**case.application, field: value}
+        account = db.get(Account, case.account_id) if case.account_id and case.kind == "account" else None
+        if account is not None:
+            account.application = {**account.application, field: value}
+    event = None
+    if was_open:
+        event = OpsRiskEvent(category="Document accepted in error", case_id=case.id, target_id=case.target_id,
+                             summary=f"{DOC_TYPES[doc.doc_type]['label']} ({doc.filename}) was accepted by "
+                                     f"{doc.reviewed_by_name or 'operations'} and later found not in good order: {reason}",
+                             detected_by=user.display_name, owner="ops_supervisor")
+        db.add(event)
+        db.flush()
+        audit.record(db, user, "ops_risk_event_logged", "ops_risk_event", event.id, case_id=case.id,
+                     category=event.category)
+    return event
 
 
 def doc_dict(d: Document) -> dict:

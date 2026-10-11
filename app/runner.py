@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 import models as engine_models
 from account_changes import ChangeType, process_change
 from firm_rules import to_ria_firm
-from pipeline import Decisions, OnboardingResult, onboard_firm, open_account
+from pipeline import OPS, Decisions, OnboardingResult, onboard_firm, open_account
 from restrictions import CATALOG
 from risk import REVIEW_MONTHS, add_months
 from sample_data import FLAGGED_LIST, IAPD_LOOKUP
@@ -94,6 +94,12 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
                              confirmation=case.decisions.get("confirmation"))
     else:
         raise ValueError(f"Unknown case kind {case.kind}")
+    rework = (case.extra or {}).get("rework")
+    if rework and res.status in ("PENDING_ACCEPTANCE", "PENDING_ITEMS"):
+        res.add(OPS, "Rework after the acceptance was rescinded", "With operations",
+                [f"{rework['reference']}: {rework['reason']}",
+                 f"Requested by {rework['requested_by']}; approved by {rework['approved_by']}"])
+        res.status = "PENDING_REWORK"
     sync(db, case, res, actor)
     return res
 
@@ -182,6 +188,8 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
             case.nigo_count += 1
     if is_closed(case.kind, res.status):
         case.closed_at = case.closed_at or now
+    else:
+        case.closed_at = None
     audit.record(db, actor, "case_run", "case", case.id, case_id=case.id, status=res.status, previous=previous,
                  rule_ids=res.findings.rule_ids if res.findings else [], path=res.path,
                  policy_version=case.result["policy_version"])
@@ -201,7 +209,7 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
             firm.status = "DECLINED"
     elif case.kind == "account":
         account = db.get(Account, case.account_id)
-        if res.status == "OPEN" and account.status != "OPEN":
+        if res.status in ("OPEN", "OPEN_RESTRICTED") and account.status != "OPEN":
             account.status, account.opened_at = "OPEN", now
             account.path, account.risk_tier = res.path, res.risk.tier
             _schedule_review(db, account.id, account.display_name, account.risk_tier)

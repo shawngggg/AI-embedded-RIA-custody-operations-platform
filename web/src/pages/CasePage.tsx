@@ -69,6 +69,8 @@ export default function CasePage() {
       )}
 
       {internal && d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
+      {internal && d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
+      {internal && d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
       {internal && <Decisions d={d} onDone={done} onFail={fail} />}
       {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} onRefresh={refresh} />}
 
@@ -256,12 +258,14 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
 
 function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
   const [note, setNote] = useState("");
+  const [reviewed, setReviewed] = useState(false);
+  const outstanding: string[] = d.result?.requested_items ?? [];
   const a = d.acceptance!;
   const r = d.result ?? {};
   const good = d.documents.filter((x) => x.status === "in_good_order").length;
   const send = (value: "accepted" | "declined") =>
-    api<CaseDetail>(`/api/cases/${d.id}/acceptance`, { body: { value, note: note || null } })
-      .then((c) => onDone(c, value === "accepted" ? "Accepted. The case ran again and opened." : "Declined."))
+    api<CaseDetail>(`/api/cases/${d.id}/acceptance`, { body: { value, note: note || null, reviewed } })
+      .then((c) => onDone(c, value === "accepted" ? (outstanding.length ? "Accepted. The account opened, restricted from trading until the outstanding items arrive." : "Accepted. The case ran again and opened.") : "Declined."))
       .catch(onFail);
   return (
     <div className="accept">
@@ -275,17 +279,87 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
         <li>Restriction codes: {d.restrictions.filter((x) => x.active).map((x) => x.code).join(", ") || "none"}</li>
         <li>Prepared without manual steps: {d.manual_steps === 0 ? "yes" : `no (${d.manual_steps})`}</li>
       </ul>
+      {outstanding.length > 0 && (
+        <p className="small"><strong>Opens restricted from trading until these non-regulatory items arrive:</strong> {outstanding.join("; ")}.
+          Every regulatory requirement (KYC, CDD, EDD, CIP, AML) is met.</p>
+      )}
       {a.can_accept ? (
         <>
           <div className="field"><label htmlFor="acc-note">Note (optional)</label>
             <input id="acc-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <label className="check"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
+            I reviewed the documents, rule findings, and risk for this {d.kind === "firm" ? "relationship" : "account"}</label>
           <p className="small">You sign as <strong>{a.signs_as}</strong>.</p>
           <div className="actions">
-            <button onClick={() => send("accepted")}>Accept</button>
+            <button disabled={!reviewed} onClick={() => send("accepted")}>Accept</button>
             <button className="secondary" onClick={() => send("declined")}>Decline</button>
           </div>
         </>
       ) : <p className="muted small">{a.reason}{a.reason?.startsWith("A registered principal") ? ". Switch to Avery Collins to accept." : ""}</p>}
+    </div>
+  );
+}
+
+function Rescind({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState("accepted_before_review");
+  const [returnTo, setReturnTo] = useState("review");
+  const [reason, setReason] = useState("");
+  const r = d.rescission!;
+  const send = () => api<CaseDetail>(`/api/cases/${d.id}/rescission`, { body: { kind, return_to: returnTo, reason } })
+    .then((c) => onDone(c, "Restricted now (RSCN). The rescission waits for the RIA service team lead.")).catch(onFail);
+  if (!open) return (
+    <div className="actions" style={{ marginBottom: 12 }}>
+      <button className="secondary small" onClick={() => setOpen(true)}>Rescind acceptance</button>
+      <span className="muted small">For a regulatory issue or an acceptance made before the review. A non-regulatory issue
+        doesn't need this: reopen the document instead, and the account stays open but restricted.</span>
+    </div>
+  );
+  return (
+    <div className="accept">
+      <h3>Rescind the acceptance</h3>
+      <p className="small">The account is restricted at once (code RSCN: no activity). The RIA service team lead approves or
+        rejects the rescission, and an approved rescission is logged as an operational risk event.</p>
+      <div className="row">
+        <div className="field"><label htmlFor="rk">Why</label>
+          <select id="rk" value={kind} onChange={(e) => { setKind(e.target.value); setReturnTo(e.target.value === "regulatory_issue" ? "operations" : "review"); }}>
+            {Object.entries(r.kinds).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select></div>
+        <div className="field"><label htmlFor="rt">Then the case goes</label>
+          <select id="rt" value={returnTo} onChange={(e) => setReturnTo(e.target.value)}>
+            {Object.entries(r.return_to).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select></div>
+      </div>
+      <div className="field"><label htmlFor="rr">What happened</label>
+        <input id="rr" type="text" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+      <div className="actions">
+        <button className="danger" disabled={reason.trim().length < 10} onClick={send}>Restrict and ask the lead to rescind</button>
+        <button className="secondary" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function Rework({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+  const { user } = useAuth();
+  const ops = ["ops_analyst", "ops_supervisor"].includes(user.role);
+  const [note, setNote] = useState("");
+  const w = d.rework!;
+  const send = () => api<CaseDetail>(`/api/cases/${d.id}/rework-complete`, { body: { note } })
+    .then((c) => onDone(c, "Rework recorded; the case ran again.")).catch(onFail);
+  return (
+    <div className="decide">
+      <h3>Rework after a rescission ({w.reference})</h3>
+      <p>{w.reason}</p>
+      <p className="muted small">Asked by {w.requested_by}, approved by {w.approved_by}, {when(w.at)}. Reopen any document that isn't
+        right in the Documents tab, attach the replacement, then send the case back to the principal.</p>
+      {ops ? (
+        <>
+          <div className="field"><label htmlFor="rw">What you fixed</label>
+            <input id="rw" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <button disabled={note.trim().length < 5} onClick={send}>Send back to the principal</button>
+        </>
+      ) : <p className="muted small">Operations does the rework.</p>}
     </div>
   );
 }

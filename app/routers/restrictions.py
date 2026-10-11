@@ -15,7 +15,8 @@ from ..views import restriction_dict
 router = APIRouter(prefix="/api/restrictions", tags=["restrictions"])
 
 ROLE_FUNCTION = {"ops_analyst": "operations", "ops_supervisor": "operations", "aml_compliance": "aml_compliance",
-                 "sanctions": "sanctions", "periodic_review": "periodic_review"}
+                 "sanctions": "sanctions", "periodic_review": "periodic_review", "ria_service": "ria_service",
+                 "ria_service_lead": "ria_service"}
 MANUAL_CODES = ["CIPV", "EDDP", "KYCR", "SANC"]
 
 
@@ -74,6 +75,8 @@ def remove(restriction_id: int, body: Remove, user: User = Depends(require_inter
         raise HTTPException(404, "No active restriction with that id")
     if r.source == "case":
         raise HTTPException(409, "This code belongs to a case; record the decision on the case instead")
+    if r.code == "RSCN":
+        raise HTTPException(409, "RSCN comes off through the rescission decision: the team lead approves or rejects it")
     if ROLE_FUNCTION.get(user.role) != r.owner:
         audit.record(db, user, "restriction_removal_refused", "restriction", r.id, code=r.code,
                      reason=f"only {r.owner} can remove {r.code}")

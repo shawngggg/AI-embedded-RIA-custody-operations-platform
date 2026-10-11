@@ -14,7 +14,7 @@ from ..views import sla_state
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 WAITING = ["PENDING_ITEMS", "PENDING_REVIEW", "PENDING_SANCTIONS", "PENDING_EDD", "PENDING_CONFIRMATION",
-           "PENDING_VERIFICATION", "PENDING_ACCEPTANCE", "RETURNED"]
+           "PENDING_VERIFICATION", "PENDING_ACCEPTANCE", "PENDING_REWORK", "OPEN_RESTRICTED", "RETURNED"]
 
 
 def _aware(dt):
@@ -28,8 +28,8 @@ def dashboard(user: User = Depends(require_internal), db: Session = Depends(get_
     by_status = defaultdict(int)
     for c in cases:
         by_status[c.status] += 1
-    opened = [c for c in cases if c.status in ("OPEN", "ACTIVE")]
-    stp = [c for c in opened if c.manual_steps == 0]
+    opened = [c for c in cases if c.status in ("OPEN", "ACTIVE", "OPEN_RESTRICTED")]
+    stp = [c for c in opened if c.manual_steps == 0 and c.nigo_count == 0]
     onboarding = [c for c in cases if c.kind in ("firm", "account")]
     nigo = [c for c in onboarding if c.nigo_count > 0]
     queues = []

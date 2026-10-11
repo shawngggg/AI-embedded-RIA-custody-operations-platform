@@ -204,6 +204,7 @@ const ROUTE_LABELS = { acats_in_kind: "ACATS in kind", loi: "LOI", liquidate: "L
 const STATUS = {
   ACTIVE: ["Active", "clear", "The firm is onboarded: master and house accounts are open."],
   OPEN: ["Open", "clear", "The account is open under the RIA's master account."],
+  OPEN_RESTRICTED: ["Open, restricted", "refer", "Every regulatory requirement is met, so the account is open, but restricted from trading until the non-regulatory items arrive."],
   PENDING_ITEMS: ["Items requested", "refer", "Not in good order. The run waits here for the RIA to send the missing items."],
   PENDING_REVIEW: ["Compliance review", "refer", "Registration findings wait for a compliance review."],
   PENDING_SANCTIONS: ["Sanctions review", "escalate", "A possible flagged-list match. Only the sanctions team can decide and release the hold."],

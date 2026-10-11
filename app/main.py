@@ -11,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .db import SessionLocal
-from .routers import admin, audit_log, auth, cases, dashboard, documents, intake, portal, restrictions, reviews
+from .routers import (admin, audit_log, auth, cases, dashboard, documents, intake, portal, restrictions, reviews,
+                      risk_events)
 from .seed import ensure_seeded
 
 
@@ -29,7 +30,7 @@ app = FastAPI(title="RIA Custody Operations Platform: MVP", version="0.1.0", lif
               docs_url="/api/docs", openapi_url="/api/openapi.json")
 
 for r in (auth.router, cases.router, restrictions.router, reviews.router, dashboard.router, audit_log.router,
-          admin.router, portal.router, intake.router, documents.router):
+          admin.router, portal.router, intake.router, documents.router, risk_events.router):
     app.include_router(r)
 
 

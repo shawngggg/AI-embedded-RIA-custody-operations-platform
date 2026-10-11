@@ -14,7 +14,7 @@ def upload_sample(client, cid: int, doc_type: str) -> dict:
 
 
 def accept(client, cid: int) -> dict:
-    r = client.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted"})
+    r = client.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -187,7 +187,8 @@ def test_items_received_need_the_document_and_operations(as_user):
     detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
         "fields": {"lpoa_signed": True, "tax_form": "W-9"},
         "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}}).json()
-    assert detail["status"] == "PENDING_ACCEPTANCE" and detail["manual_steps"] == 1
+    assert detail["status"] == "OPEN" and detail["manual_steps"] == 1          # Rosa opened restricted; now clear
+    assert not [r for r in detail["restrictions"] if r["active"] and r["code"] == "DOCS"]
     docs = {d["doc_type"]: d for d in detail["documents"]}
     assert docs["lpoa"]["status"] == "in_good_order" and docs["lpoa"]["reviewed_by"] == "Jamie Ortiz"
     event = as_user("ops.analyst").get("/api/audit?action=items_received").json()[0]
@@ -289,11 +290,14 @@ def test_rias_cannot_record_identity_verification(as_user):
 
 
 def test_the_principal_cant_accept_a_case_they_prepared(as_user):
+    detail = as_user("bonneville.advisor").post("/api/portal/accounts", json={
+        "application": NEW_APP, "documents": ACCOUNT_DOCS[:1] + ACCOUNT_DOCS[2:3]}).json()
+    cid = detail["id"]
     ops = as_user("ops.analyst")
-    cid = case_id(ops, "Rosa Delgado")
     lpoa, w9 = upload_sample(ops, cid, "lpoa"), upload_sample(ops, cid, "w9")
-    ops.post(f"/api/cases/{cid}/corrections", json={"fields": {"lpoa_signed": True, "tax_form": "W-9"},
-                                                   "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}})
+    detail = ops.post(f"/api/cases/{cid}/corrections", json={"fields": {"lpoa_signed": True, "tax_form": "W-9"},
+                                                            "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}}).json()
+    assert detail["status"] == "PENDING_ACCEPTANCE" and not detail["result"]["requested_items"]
     # Jamie later joins the RIA service team as a principal
     admin = as_user("admin.platform")
     jamie = [u for u in admin.get("/api/admin/users").json() if u["username"] == "ops.analyst"][0]
@@ -302,9 +306,88 @@ def test_the_principal_cant_accept_a_case_they_prepared(as_user):
     regs = as_user("admin.platform").post(f"/api/admin/users/{jamie['id']}/registrations", json={
         "registrations": ["S7", "S24"], "individual_crd": "7700199"}).json()["grant"]
     as_user("admin.second").post(f"/api/admin/grants/{regs['id']}/approve")
-    r = as_user("ops.analyst").post(f"/api/cases/{cid}/acceptance", json={"value": "accepted"})
+    r = as_user("ops.analyst").post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True})
     assert r.status_code == 403 and "prepared" in r.json()["detail"]
     assert accept(as_user("rs.principal"), cid)["status"] == "OPEN"
+
+
+# --- Undoing an acceptance ----------------------------------------------------------
+
+
+def test_accepting_needs_the_review_confirmation(as_user):
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    r = as_user("rs.principal").post(f"/api/cases/{cid}/acceptance", json={"value": "accepted"})
+    assert r.status_code == 422 and "reviewed" in r.json()["detail"]
+
+
+def test_rescission_restricts_at_once_and_needs_the_team_lead(as_user):
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    accept(as_user("rs.principal"), cid)
+    body = {"kind": "regulatory_issue", "return_to": "operations",
+            "reason": "The ID on file belongs to a different Lena Park; CIP has to be redone"}
+    assert as_user("rs.associate").post(f"/api/cases/{cid}/rescission", json=body).status_code == 403
+    detail = as_user("rs.principal").post(f"/api/cases/{cid}/rescission", json=body).json()
+    assert detail["status"] == "OPEN"
+    assert [r["code"] for r in detail["restrictions"] if r["active"]] == ["RSCN"]      # restricted at once
+    pending = [d for d in detail["decision_log"] if d["decision_type"] == "rescission"][0]
+    assert as_user("rs.principal").post(f"/api/decisions/{pending['id']}/approve").status_code == 403   # requester
+    assert as_user("ops.supervisor").post(f"/api/decisions/{pending['id']}/approve").status_code == 403  # wrong team
+    assert as_user("rs.principal").post("/api/restrictions/" + str(detail["restrictions"][0]["id"]) + "/remove",
+                                        json={"reason": "done", "authorization": "x"}).status_code == 409
+    detail = as_user("rs.lead").post(f"/api/decisions/{pending['id']}/approve").json()
+    assert detail["status"] == "PENDING_REWORK" and detail["account"]["status"] == "PENDING"
+    assert not [r for r in detail["restrictions"] if r["active"]]
+    events = as_user("rs.lead").get("/api/risk-events").json()["events"]
+    assert events[0]["category"] == "Principal acceptance rescinded" and events[0]["approved_by"] == "Renee Alvarez"
+    # Operations reworks and sends it back; the principal accepts again
+    ops = as_user("ops.analyst")
+    detail = ops.post(f"/api/cases/{cid}/rework-complete", json={"note": "Replaced the ID; CIP re-verified"}).json()
+    assert detail["status"] == "PENDING_ACCEPTANCE"
+    assert accept(as_user("rs.principal"), cid)["status"] == "OPEN"
+
+
+def test_rejected_rescission_lifts_the_hold_and_the_acceptance_stands(as_user):
+    cid = case_id(as_user("ops.analyst"), "Account opening: Maria Chen")
+    detail = as_user("rs.principal").post(f"/api/cases/{cid}/rescission", json={
+        "kind": "accepted_before_review", "return_to": "review", "reason": "Clicked accept before opening the documents"}).json()
+    pending = [d for d in detail["decision_log"] if d["decision_type"] == "rescission"][0]
+    detail = as_user("rs.lead").post(f"/api/decisions/{pending['id']}/reject").json()
+    assert detail["status"] == "OPEN" and not [r for r in detail["restrictions"] if r["active"] and r["code"] == "RSCN"]
+    assert as_user("rs.lead").get("/api/risk-events").json()["events"] == []
+
+
+def test_a_firm_with_open_accounts_cant_be_unopened(as_user):
+    cid = case_id(as_user("ops.analyst"), "Granite Peak")
+    r = as_user("rs.principal").post(f"/api/cases/{cid}/rescission", json={
+        "kind": "regulatory_issue", "return_to": "operations", "reason": "Ownership chart is missing a 30% owner"})
+    assert r.status_code == 409 and "restrict" in r.json()["detail"]
+
+
+def test_reopening_a_non_regulatory_document_keeps_the_account_open_but_restricted(as_user):
+    ops = as_user("ops.analyst")
+    cid = case_id(ops, "Account opening: Maria Chen")
+    docs = {d["doc_type"]: d for d in ops.get(f"/api/cases/{cid}").json()["documents"]}
+    out = ops.post(f"/api/documents/{docs['lpoa']['id']}/reject", json={"reason": "LPOA names a different adviser"})
+    assert out.status_code == 200 and out.json()["status"] == "not_in_good_order"
+    detail = ops.get(f"/api/cases/{cid}").json()
+    assert detail["status"] == "OPEN_RESTRICTED" and detail["account"]["status"] == "OPEN"
+    assert [r["code"] for r in detail["restrictions"] if r["active"]] == ["DOCS"]
+    event = as_user("ops.supervisor").get("/api/risk-events").json()["events"][0]
+    assert event["category"] == "Document accepted in error" and event["owner"] == "ops_supervisor"
+    # A team lead records the remediation path and closes it; an analyst can't
+    assert as_user("ops.analyst").post(f"/api/risk-events/{event['id']}", json={
+        "remediation": "training", "note": "Refresher on LPOA checks"}).status_code == 403
+    closed = as_user("ops.supervisor").post(f"/api/risk-events/{event['id']}", json={
+        "remediation": "procedure", "note": "Add an adviser-name check to the LPOA review step", "close": True}).json()
+    assert closed["status"] == "closed" and closed["remediation_label"] == "Procedure update"
+
+
+def test_a_regulatory_document_on_an_open_account_needs_a_rescission(as_user):
+    ops = as_user("ops.analyst")
+    cid = case_id(ops, "Whitfield")
+    docs = {d["doc_type"]: d for d in ops.get(f"/api/cases/{cid}").json()["documents"]}
+    r = ops.post(f"/api/documents/{docs['formation_documents']['id']}/reject", json={"reason": "Wrong entity"})
+    assert r.status_code == 409 and "rescind" in r.json()["detail"]
 
 
 # --- Account changes ---------------------------------------------------------
@@ -376,12 +459,24 @@ def test_ria_application_with_documents_waits_only_for_the_principal(as_user):
     assert accept(as_user("rs.principal"), detail["id"])["status"] == "OPEN"
 
 
-def test_checkboxes_without_documents_dont_count(as_user):
+def test_checkboxes_without_documents_dont_count_and_the_account_opens_restricted(as_user):
     claimed = {**NEW_APP, "lpoa_signed": True, "fee_authorization": True, "client_signature": True, "tax_form": "W-9"}
     detail = as_user("bonneville.advisor").post("/api/portal/accounts", json={
         "application": claimed, "documents": ACCOUNT_DOCS[:1] + ACCOUNT_DOCS[2:3]}).json()
-    assert detail["status"] == "PENDING_ITEMS"
+    assert detail["status"] == "PENDING_ACCEPTANCE"          # the LPOA and W-9 aren't regulatory
     assert {c["field"] for c in detail["corrections"]} == {"lpoa_signed", "tax_form"}
+    detail = accept(as_user("rs.principal"), detail["id"])
+    assert detail["status"] == "OPEN_RESTRICTED"
+    assert "DOCS" in [r["code"] for r in detail["restrictions"] if r["active"]]
+
+
+def test_a_regulatory_gap_waits_for_items(as_user):
+    app = {**NEW_APP, "account_purpose": None}        # Bonneville's accounts take Path B, where CDD needs the purpose
+    detail = as_user("bonneville.advisor").post("/api/portal/accounts", json={"application": app,
+                                                                               "documents": ACCOUNT_DOCS}).json()
+    assert detail["status"] == "PENDING_ITEMS"
+    assert "CDD-001" in [d["rule_id"] for d in detail["result"]["findings"]["decisions"]]
+
 
 
 # --- Restriction codes --------------------------------------------------------

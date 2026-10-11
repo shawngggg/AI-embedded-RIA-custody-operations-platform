@@ -126,6 +126,23 @@ def test_clean_account_opens_only_after_principal_acceptance():
         "Create account under RIA master; map to GL; apply any restriction codes")
 
 
+def test_non_regulatory_items_open_the_account_restricted_from_trading():
+    app = replace(ACCOUNTS["maria_chen"], lpoa_signed=False, tax_form=None)
+    waiting = open_account(app, FIRMS["granite_peak"], TODAY, flagged=FLAGGED_LIST)
+    assert waiting.status == "PENDING_ACCEPTANCE"
+    assert waiting.requested_items == ["Client-signed LPOA", "Form W-9 or W-8"]
+    opened = open_account(app, FIRMS["granite_peak"], TODAY, flagged=FLAGGED_LIST, decisions=Decisions(**OK))
+    assert opened.status == "OPEN_RESTRICTED" and [r["code"] for r in opened.restrictions] == ["DOCS"]
+    assert "Client-signed LPOA" in opened.restrictions[0]["reason"]
+
+
+def test_a_regulatory_gap_still_stops_the_account():
+    app = replace(ACCOUNTS["kenji_tanaka"], lpoa_signed=False, account_purpose=None)   # CDD purpose is regulatory
+    res = open_account(app, FIRMS["bonneville"], TODAY, flagged=FLAGGED_LIST, decisions=Decisions(**OK))
+    assert res.status == "PENDING_ITEMS" and res.record is None
+    assert set(res.findings.rule_ids) == {"ACC-002", "CDD-001"}
+
+
 def test_path_a_account_is_rated_on_ria_provided_information_and_funded_by_transfer():
     res = run_account("maria_chen", **OK)
     assert res.risk.information_basis.startswith("RIA-provided")

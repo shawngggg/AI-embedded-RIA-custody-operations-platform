@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import get_db
-from ..documents import (CHANNELS, DOC_TYPES, FIELD_DOCS, MAX_BYTES, case_documents, doc_dict, mark, sample_document,
-                         store)
+from ..documents import (CHANNELS, DOC_TYPES, FIELD_DOCS, MAX_BYTES, case_documents, doc_dict, mark, reopen,
+                         reopen_refusal, sample_document, store)
+from ..runner import run_case
 from ..orm import Document, User
 from ..queues import is_closed
 from ..security import current_user
@@ -78,10 +79,19 @@ class NotInGoodOrder(BaseModel):
 
 @router.post("/documents/{doc_id}/reject")
 def reject(doc_id: int, body: NotInGoodOrder, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Mark a document not in good order: one waiting to be checked, or one already accepted (reopen)."""
     doc = db.get(Document, doc_id)
     if doc is None:
         raise HTTPException(404, "No such document")
-    get_case_for(db, user, doc.case_id)
+    case = get_case_for(db, user, doc.case_id)
+    if doc.status == "in_good_order":
+        why = reopen_refusal(case, doc, user)
+        if why:
+            raise HTTPException(403 if "reopens" in why else 409, why)
+        reopen(db, case, doc, user, body.reason)
+        run_case(db, case, user)
+        db.commit()
+        return doc_dict(doc)
     if user.role not in OPS:
         raise HTTPException(403, "Operations checks documents")
     if doc.status != "received":
