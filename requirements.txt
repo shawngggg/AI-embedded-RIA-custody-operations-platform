@@ -1,3 +1,16 @@
-pytest>=8
-# Only needed for live AI extraction calls (extraction.py); tests and the console run without it
-anthropic>=1.13
+# The onboarding engine (onboarding/) needs only the standard library plus pytest for its tests.
+pytest==9.1.1
+
+# The MVP web app (app/)
+fastapi==0.143.0
+uvicorn==0.53.0
+SQLAlchemy==2.1.4
+alembic==1.20.0
+psycopg[binary]==3.3.6
+PyJWT==2.14.0
+python-multipart==0.0.32
+pypdf==5.9.0
+httpx==0.28.1
+
+# Live AI extraction (extraction.py). Without an API key the app uses the illustrative sample instead.
+anthropic==1.13.0

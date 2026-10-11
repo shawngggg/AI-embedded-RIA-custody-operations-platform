@@ -5,8 +5,9 @@ client account opening (02).
 Each run returns a step-by-step trace in the maps' lanes, the resulting
 status, every rule finding with its citation, the restriction codes placed,
 and an audit record. A run stops where the map waits: for missing items, a
-compliance review, a sanctions determination, or an EDD decision. The
-decisions people make are inputs (Decisions), so every branch can be replayed.
+compliance review, a sanctions determination, an EDD decision, or the
+registered principal's acceptance. The decisions people make are inputs
+(Decisions), so every branch can be replayed.
 
 What runs where:
   - Milestone 1 (Shawn's models.py): the account-opening gate (can_open) and
@@ -25,7 +26,7 @@ import json
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 
-from account_rules import evaluate_account
+from account_rules import NON_REGULATORY, evaluate_account
 from applications import AccountApplication, FirmApplication
 from extraction import ExtractionResult, extract_firm_application, gate
 from firm_rules import evaluate_firm, firm_reliance, reliance_relief_in_force, to_ria_firm
@@ -42,6 +43,13 @@ RULES = "Rules and controls engine"
 AML = "AML compliance"
 SANCTIONS = "Sanctions team"
 LEDGER = "Ledger and account services"
+PRINCIPAL = "RIA service team"
+
+# The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it
+# opens, including an RIA's master account, is accepted by a registered principal on the RIA service team.
+# Operations prepares the case and needs no license.
+ACCEPTANCE_SOURCE = ("FINRA Rule 4512(a)(1)(D): the signature of the partner, officer or manager accepting "
+                     "the account under the member's procedures; firms assign this to a registered principal")
 
 ROUTE_LABELS = {"acats_in_kind": "ACATS in kind", "loi": "LOI", "liquidate": "Liquidate",
                 "product_acceptance": "Product acceptance", "review": "Review"}
@@ -67,6 +75,8 @@ class Decisions:
     sanctions_reference: str = "DET-DEMO-0001"
     edd: str | None = None                    # approved | declined
     edd_reference: str = "EDD-DEMO-0001"
+    acceptance: str | None = None             # accepted | declined, by a registered principal
+    acceptance_by: str = "Registered principal (demo)"
 
 
 @dataclass
@@ -197,6 +207,20 @@ def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name) -> str
     return None
 
 
+def _accept(res: OnboardingResult, decisions, what: str) -> str | None:
+    """Principal acceptance (FINRA Rule 4512). Returns a stop status, or None once accepted."""
+    name = f"Principal acceptance of the {what} (FINRA Rule 4512)"
+    if decisions.acceptance is None:
+        res.add(PRINCIPAL, name, "Waiting for a registered principal",
+                ["Every check before this step is complete", ACCEPTANCE_SOURCE])
+        return "PENDING_ACCEPTANCE"
+    if decisions.acceptance == "declined":
+        res.add(PRINCIPAL, name, "Declined by the registered principal", [decisions.acceptance_by])
+        return "DECLINED"
+    res.add(PRINCIPAL, name, "Accepted", [f"Accepted by {decisions.acceptance_by}"])
+    return None
+
+
 def _pep_media_step(res: OnboardingResult, people) -> None:
     hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
     hits += [f"{p.name}: adverse media" for p in people if p.adverse_media]
@@ -291,6 +315,10 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     res.add(RULES, "Determine reliance eligibility",
             "Eligible: pure RIA accounts can use Path A" if reliance.eligible else
             "Not eligible: the firm's accounts take Path B", reliance.reasons)
+    stop = _accept(res, decisions, "RIA relationship and master account")
+    if stop:
+        res.status = stop
+        return res
     ria = to_ria_firm(app, active=True)
     res.record = ria
     ident = app.crd_number or "NEW"
@@ -355,15 +383,24 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
     res.path = path.value
     ev = evaluate_account(app, path.value, as_of)
     res.findings = ev
-    if ev.decisions:
-        res.add(AI, "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)",
-                "Not in good order", [d.reason for d in ev.decisions], ev.rule_ids)
+    extract = "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)"
+    regulatory = [d for d in ev.decisions if d.rule_id not in NON_REGULATORY]
+    outstanding = [d for d in ev.decisions if d.rule_id in NON_REGULATORY]
+    if regulatory:
+        res.add(AI, extract, "Not in good order", [d.reason for d in ev.decisions], ev.rule_ids)
         res.requested_items = ev.required_documents
         res.add(OPS, "Request corrections from the RIA", "Sent", res.requested_items)
         res.status = "PENDING_ITEMS"
         return res
-    res.add(AI, "Extract application, title, LPOA, tax forms, entity documents; categorize NIGO (AI)",
-            "In good order")
+    if outstanding:
+        res.add(AI, extract, "Not in good order: non-regulatory items only",
+                [d.reason for d in outstanding], [d.rule_id for d in outstanding])
+        res.requested_items = ev.required_documents
+        res.add(OPS, "Request corrections from the RIA",
+                "Sent; every regulatory requirement is met, so the account can open restricted from trading",
+                res.requested_items)
+    else:
+        res.add(AI, extract, "In good order")
 
     if path is Path.A:
         res.add(RULES, "Path A applies?", "Yes: pure RIA account under a reliance-eligible RIA")
@@ -429,6 +466,13 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.status = stop
         return res
 
+    stop = _accept(res, decisions, "account")
+    if stop:
+        res.status = stop
+        return res
+    if outstanding:
+        registry.place(app.account_id, "DOCS", "Outstanding: " + "; ".join(res.requested_items), by,
+                       Function.OPERATIONS, _stamp(as_of))
     res.record = account
     codes = registry.active_codes(app.account_id)
     ident = ria_app.crd_number or "NEW"
@@ -444,5 +488,5 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.add(OPS, "Transferability review of funding assets (shared subprocess)",
                 f"Release: {review.release}",
                 [f"{d.description}: {ROUTE_LABELS[d.route.value]}. {d.reason}" for d in review.dispositions])
-    res.status = "OPEN"
+    res.status = "OPEN_RESTRICTED" if outstanding else "OPEN"
     return res

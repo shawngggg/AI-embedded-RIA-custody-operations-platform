@@ -1,0 +1,12 @@
+.git
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+data
+*.db
+web/node_modules
+web/dist
+bpmn
+docs
+tools
+.env

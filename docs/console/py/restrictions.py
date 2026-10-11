@@ -28,6 +28,7 @@ class Function(Enum):
     SANCTIONS = "sanctions"
     FRAUD = "fraud"
     LEGAL = "legal"
+    RIA_SERVICE = "ria_service"
 
 
 class Activity(Enum):
@@ -70,6 +71,13 @@ CATALOG = {c.code: c for c in [
              "Platform policy (fraud holds are the custodian's own decision)"),
     CodeType("LEGAL", "Legal process hold: levy, garnishment, or court order", Function.LEGAL, OUTGOING, True,
              "Platform policy (legal process is the custodian's own decision)"),
+    CodeType("DOCS", "Open with non-regulatory items outstanding: no trading or fee deduction until they arrive",
+             Function.OPERATIONS, frozenset({Activity.BUY, Activity.SELL, Activity.FEE_DEDUCTION}), False,
+             "Platform policy: an account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with "
+             "non-regulatory items outstanding, restricted from trading (account opening map, 02)"),
+    CodeType("RSCN", "Principal acceptance being rescinded: no activity", Function.RIA_SERVICE, ALL, True,
+             "FINRA Rule 4512 (account acceptance); platform policy: a regulatory issue found after acceptance "
+             "restricts the account at once, while the rescission waits for the RIA service team lead"),
     CodeType("DECD", "Owner deceased: RIA authority has ended", Function.OPERATIONS,
              frozenset({Activity.BUY, Activity.SELL, Activity.WITHDRAWAL, Activity.TRANSFER_OUT,
                         Activity.FEE_DEDUCTION}), True,

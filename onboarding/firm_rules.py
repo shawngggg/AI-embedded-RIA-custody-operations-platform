@@ -276,9 +276,10 @@ RELIANCE_RELIEF = [
     {
         "rule_id": "RLY-001", "version": "1",
         "effective_date": "2004-02-12", "expiry_date": "2028-01-01",
-        "source": "SEC staff no-action position (2004), most recently extended in the letter to SIFMA "
-                  "of Dec. 3, 2025 through Jan. 1, 2028, the postponed effective date of FinCEN's "
-                  "investment adviser AML rule",
+        "source": "SEC staff no-action position on reliance on investment advisers for CIP (2004), "
+                  "extended to the beneficial ownership requirements in 2016 and most recently, in the "
+                  "letter to SIFMA of Dec. 3, 2025, through Jan. 1, 2028, the postponed effective date of "
+                  "FinCEN's investment adviser AML rule",
     },
 ]
 

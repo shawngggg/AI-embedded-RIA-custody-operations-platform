@@ -2,11 +2,13 @@
 
 **Live viewer:** https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/
 
+**Live MVP:** https://ria-custody-1638463558.us-central1.run.app/ (synthetic data; sign in as any demo role, no password. The first visit after a quiet spell takes a few seconds while the app and database wake up.)
+
 **Product requirements:** [PRD.md](PRD.md), covering users, the MVP, architecture, releases, and success metrics
 
 A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
 
-**Phase one**, mapping every process, is complete. **Phase two**, building the platform module by module, has started: the onboarding module is built and runs in the browser.
+**Phase one**, mapping every process, is complete. **Phase two**, building the platform module by module, has started: the onboarding module is built, and the MVP web app puts it in front of a custody operations team, the RIAs, and their clients.
 
 ![Platform overview](docs/diagrams/00-platform-overview.png)
 
@@ -21,7 +23,7 @@ Every request enters through the platform APIs, every outbound instruction or fi
 - **AI proposes; rules and people decide; the ledger records.** AI handles unstructured inputs and exceptions, such as document extraction, NIGO categorization, address matching, and break triage. Every decision passes a deterministic rules check or a human approval, and nothing AI produces posts to the ledger directly.
 - **One three-layer ledger.** Client accounts roll up to the RIA master account, and RIA masters roll up to the custodian general ledger.
 - **First line and second line stay separate.** Operations escalates; compliance and the sanctions team decide. Restriction codes can be removed only by the function that owns them.
-- **The RIA is the channel and makes the investment decisions.** Account changes, money movement, and asset transfers come through the RIA, which owns account entitlements and client and product suitability; owner-level changes, such as beneficiaries and registration, carry the client's signature. The custodian provides the platform and holds the assets. It makes no investment judgment and decides only what its own obligations require: options and margin approval, AML and sanctions, fraud holds, legal process, and which assets it will hold.
+- **The RIA is the channel and makes the investment decisions.** On pure RIA accounts, account changes, money movement, and asset transfers come through the RIA, which owns account entitlements and client and product suitability; owner-level changes, such as beneficiaries and registration, carry the client's signature. On the self-directed account, the client makes the changes. The custodian provides the platform and holds the assets. It makes no investment judgment and decides only what its own obligations require: options and margin approval, AML and sanctions, fraud holds, legal process, and which assets it will hold.
 - **Two account groups, no dual management.** A client has one or more pure RIA accounts managed by the RIA, and may have one designated self-directed account as an added benefit. The client trades and deposits there freely. An RIA grant turns on self-service outgoing money movement and transfers, and the client can always move assets out through a signed request or a receiving firm's ACATS transfer. The RIA has view-only access and decides whether to bill it, and keeping client-directed trading in its own account keeps the RIA's fiduciary scope unambiguous.
 - **Validated where experienced, researched where not.** Steps I performed are validated against my experience. Steps I didn't perform are built from current US regulation and industry practice and labeled as reference design, and my own positions were checked against the rules.
 - **Shared subprocesses instead of repeated steps.** Sanctions escalation and the transferability review are modeled once and called from onboarding, maintenance, transfers, and offboarding.
@@ -82,6 +84,8 @@ Every process is now mapped: 11 are validated, 11 partially validated, 2 in revi
 | 6. Transferability | ACATS in kind, letter of instruction, liquidation, or product acceptance for each position; full or partial release | `transferability.py` |
 | 7. AI extraction | Claude structured outputs behind a deterministic controls gate: every value must be quoted from the documents | `extraction.py` |
 | 8. Demo console | The module running in the browser through Pyodide | `docs/console/` |
+| Account changes | Map 04: channel check by account group, client signature for owner-level changes, medallion for re-registration, fraud-pattern lookback, screening of new parties and banks, due diligence re-run | `account_changes.py` |
+| Rolling review | Review dates by risk tier, early review on an ownership change, a refresh request with a 30-day response window, and a KYCR code when it's missed | `rolling_review.py` |
 
 `pipeline.py` runs the milestones in map order and returns a step-by-step trace, every rule finding with its source, the restriction codes placed, and an audit record.
 
@@ -96,9 +100,41 @@ To run it from the repo root:
 
 ```
 pip install -r requirements.txt
-python -m pytest onboarding -v      # 177 tests
+python -m pytest onboarding -v      # 206 tests
 python onboarding/demo.py           # every scenario, printed step by step
 ```
+
+## MVP web app
+
+`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed.
+
+What each role can do:
+
+- **Operations analyst:** work queues with SLA clocks, take in a new RIA firm by form or by having AI read the application package, check each document that arrives and record the item it satisfies, and confirm suspicious account changes.
+- **Sanctions team, AML compliance, and supervisors:** decide escalated cases under maker-checker. One person proposes, a second person with the approving role approves, and the app refuses self-approval and logs the attempt.
+- **RIA service team (FINRA-licensed):** a registered principal accepts every new account and RIA relationship before it opens (FINRA Rule 4512), after confirming the review. The custodian runs the trading platform, so it's a FINRA member broker-dealer. The app checks the person's registration, not just their role, and a principal can't accept a case they prepared. Operations needs no license.
+- **RIA service team lead:** approves a principal's request to rescind an acceptance. The request restricts the account at once; an approved rescission un-opens it, sends the case back for review or rework, and is logged as an operational risk event for the team to agree a remediation path: training, a technology change, or a procedure update.
+- **Periodic review:** rolling reviews by risk tier. A missed refresh deadline places a KYCR code.
+- **RIA user:** submit account applications and account changes for the firm's pure RIA accounts. Self-directed accounts are view-only for the RIA.
+- **Client:** make changes on their own self-directed account.
+- **Platform administrator:** add team members, assign roles, and record the RIA service team's FINRA registrations. A grant of a decision role or a registration change waits for a second administrator. An RIA administrator manages its own firm's users.
+
+An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even with non-regulatory items outstanding (the LPOA, fee authorization, signed agreement, or tax form), restricted from trading until they arrive. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, and automated pre-checks read it for the client's name, tax ID, the right tax form, and a signature line; anything they can't confirm waits for a person. Every case replays through the engine from its stored application and approved decisions, so its result, restriction codes, and audit trail always match the current rules. Restriction codes come off only through their owning function. The operations dashboard reports the straight-through rate, the NIGO rate, queue depth, SLA breaches, and time in each waiting state. The audit log is append-only and exports to JSON.
+
+**Stack:** FastAPI, SQLAlchemy, and Alembic on Python 3.13; React and TypeScript built with Vite; Postgres in production (Neon) and SQLite locally; Claude Haiku 5.5 for live extraction, signed-in users only, capped at 50 reads a day. Without an API key, AI intake runs the sample package with an illustrative, hand-written model response.
+
+To run it locally from the repo root:
+
+```
+pip install -r requirements.txt
+cd web && npm ci && npm run build && cd ..
+uvicorn app.main:app                 # http://localhost:8000, seeded on first start
+python -m pytest app/tests -v        # 49 API tests
+```
+
+For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app --reload`; Vite forwards `/api` to the app.
+
+It runs live on Google Cloud Run with a Neon database, at no cost for a demo: https://ria-custody-1638463558.us-central1.run.app/. [docs/DEPLOY.md](docs/DEPLOY.md) has the deployment steps. GitHub Actions runs the engine tests, the API tests on SQLite and Postgres, a migration check, and the frontend build on every push.
 
 ## Repository contents
 
@@ -111,17 +147,23 @@ python onboarding/demo.py           # every scenario, printed step by step
 | `onboarding/` | Onboarding module code and its tests |
 | `docs/console/` | Browser console for the onboarding module (with copies of the modules it loads) |
 | `tools/sync_console.py` | Copies the modules into the console after a change |
+| `app/` | MVP backend: API, data model, roles, queues, maker-checker, audit log, and its tests |
+| `web/` | MVP screens (React and TypeScript): the operations workbench and the RIA and client portal |
+| `migrations/` | Database migrations (Alembic) |
+| `Dockerfile`, `docs/DEPLOY.md` | Container build and the Cloud Run and Neon deployment guide |
+| `.github/workflows/ci.yml` | Continuous integration |
 
 ## Roadmap
 
 1. Map every process (done) and validate the two maps still in review.
 2. Build the onboarding module in Python, extending my [onboarding execution engine](https://github.com/shawngggg/onboarding-execution-engine) (policy-as-code KYC/AML rules), with a browser console (done).
-3. Add the remaining modules (transfers, settlement, reconciliation, billing, reporting) and extend the console.
+3. Build the MVP web app for the custody operations team, RIAs, and clients (built and deployed).
+4. Add the remaining modules (transfers, settlement, reconciliation, billing, reporting).
 
 ## Notes
 
 - **Reference architecture.** Process content reflects my operating experience in RIA custody and brokerage operations, current US regulation, and industry practice. It does not depict any specific firm's internal procedures, systems, or data. All data and parties are synthetic.
-- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude). In the onboarding module, I wrote Milestone 1 (`onboarding/models.py`); its specification and tests were written with AI assistance. Milestones 2 to 8 were written by Claude (Anthropic's AI model) to the requirements in my process maps. The rule content is a reference design built from those maps and current regulation, not legal advice. The PRD was written with AI assistance (Claude) from my product decisions and review.
+- **How it was made.** The process content comes from my own review and corrections. The BPMN diagrams were produced with AI assistance (Claude). In the onboarding module, I wrote Milestone 1 (`onboarding/models.py`); its specification and tests were written with AI assistance. Milestones 2 to 8, account changes, and rolling review were written by Claude (Anthropic's AI model) to the requirements in my process maps. The MVP web app (`app/`, `web/`, `migrations/`) was written by Claude to my PRD and process maps. The rule content is a reference design built from those maps and current regulation, not legal advice. The PRD was written with AI assistance (Claude) from my product decisions and review.
 - **Third-party software.** The viewer embeds [bpmn-js](https://bpmn.io), licensed under the bpmn.io license; see `docs/BPMN-JS-LICENSE.txt`. Its watermark must remain visible. The onboarding console loads [Pyodide](https://pyodide.org) (Mozilla Public License 2.0) from jsDelivr.
 
 ## Author
