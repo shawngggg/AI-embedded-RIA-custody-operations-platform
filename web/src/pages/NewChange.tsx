@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type CaseDetail } from "../api";
 import { useAuth } from "../auth";
+import { type DocChoice, IntakeDocRow, toUploads } from "../docs";
 import { Loading, useLoad } from "../util";
 
 type ChangeType = { value: string; label: string; owner_level: boolean };
@@ -34,7 +35,8 @@ export default function NewChange() {
   const [bank, setBank] = useState({ name: "", aba: "", account_last4: "" });
   const [party, setParty] = useState<Party>(blankParty);
   const [signature, setSignature] = useState(false);
-  const [medallion, setMedallion] = useState(false);
+  const [changeForm, setChangeForm] = useState<DocChoice>(null);
+  const [medallion, setMedallion] = useState<DocChoice>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -57,7 +59,9 @@ export default function NewChange() {
     const body = {
       account_id: accountId, change_type: changeType,
       details: Object.fromEntries(Object.entries(details).filter(([, v]) => v.trim())),
-      client_signature: signature, medallion_guarantee: medallion,
+      client_signature: client && signature,
+      documents: toUploads([["change_form", client ? null : changeForm],
+        ["medallion", changeType === "registration" ? medallion : null]]),
       new_parties: changeType === "beneficial_owner" && party.name.trim()
         ? [{ ...party, role: "owner", date_of_birth: party.date_of_birth || null, address: party.address || null,
              tax_id: party.tax_id || null }] : [],
@@ -161,13 +165,17 @@ export default function NewChange() {
 
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Signatures</h2>
-          <label className="check"><input type="checkbox" checked={signature} onChange={(e) => setSignature(e.target.checked)} />
-            {client ? "I sign this change request" : "Client-signed change form attached"}
-            {type?.owner_level && <span className="pill t-refer" style={{ marginLeft: 6 }}>Required for this change</span>}</label>
-          {changeType === "registration" && (
-            <label className="check"><input type="checkbox" checked={medallion} onChange={(e) => setMedallion(e.target.checked)} />
-              Medallion signature guarantee attached <span className="pill t-refer" style={{ marginLeft: 6 }}>Required for this change</span></label>
+          {client ? (
+            <label className="check"><input type="checkbox" checked={signature} onChange={(e) => setSignature(e.target.checked)} />
+              I sign this change request electronically
+              {type?.owner_level && <span className="pill t-refer" style={{ marginLeft: 6 }}>Required for this change</span>}</label>
+          ) : (
+            <IntakeDocRow label="Client-signed change form" value={changeForm} onChange={setChangeForm} required={type?.owner_level} />
           )}
+          {changeType === "registration" && (
+            <IntakeDocRow label="Medallion signature guarantee" value={medallion} onChange={setMedallion} required />
+          )}
+          {!client && <p className="small muted">A checkbox isn't evidence: the change counts as signed only when the signed form is attached.</p>}
         </div>
 
         {error && <p className="error" role="alert">{error}</p>}

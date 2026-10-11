@@ -46,7 +46,8 @@ def decisions_of(case: Case) -> Decisions:
     d = case.decisions or {}
     return Decisions(compliance_signoff=bool(d.get("compliance_signoff")),
                      sanctions=d.get("sanctions"), sanctions_reference=d.get("sanctions_reference", "DET-UNSET"),
-                     edd=d.get("edd"), edd_reference=d.get("edd_reference", "EDD-UNSET"))
+                     edd=d.get("edd"), edd_reference=d.get("edd_reference", "EDD-UNSET"),
+                     acceptance=d.get("acceptance"), acceptance_by=d.get("acceptance_by", "unknown"))
 
 
 def simulated_iapd(app) -> dict:

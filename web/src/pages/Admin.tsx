@@ -10,15 +10,19 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   const roles = useLoad(() => api<{ role: string; label: string; decision_role: boolean }[]>("/api/admin/roles"), []);
   const grants = useLoad(() => platform ? api<any[]>("/api/admin/grants") : Promise.resolve([]), []);
   const rules = useLoad<Record<string, any[]>>(() => platform ? api<Record<string, any[]>>("/api/admin/rules") : Promise.resolve({}), []);
+  const regCatalog = useLoad(() => platform ? api<{ code: string; label: string }[]>("/api/admin/registrations") : Promise.resolve([]), []);
   const [form, setForm] = useState({ username: "", display_name: "", email: "", role: portal ? "ria_user" : "ops_analyst",
-    password: "", firm_crd: "", client_account_id: "" });
+    password: "", firm_crd: "", client_account_id: "", individual_crd: "" });
+  const [regs, setRegs] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [lib, setLib] = useState("Firm rules");
 
   const reload = () => { users.reload(); grants.reload(); };
   const create = (e: React.FormEvent) => {
     e.preventDefault();
-    const body = { ...form, email: form.email || null, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null };
+    const licensed = form.role === "ria_service";
+    const body = { ...form, email: form.email || null, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null,
+      registrations: licensed ? regs : [], individual_crd: licensed ? form.individual_crd || null : null };
     api<any>("/api/admin/users", { body }).then((r) => {
       setMsg({ ok: r.grant ? `${r.user.display_name} added; the ${r.grant.role_label} role waits for a second administrator.` : `${r.user.display_name} added.` });
       reload();
@@ -38,14 +42,14 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
     <>
       <h1>{portal ? "Firm users" : "Users, roles, and rules"}</h1>
       <p className="muted">{portal ? "Add your firm's users and grant their access. You can't grant more than your firm's own permissions."
-        : "Add team members and assign roles. Giving someone a decision role (supervisor, AML compliance, sanctions, administrator) waits for a second administrator."}</p>
+        : "Add team members and assign roles. Giving someone a decision role (supervisor, AML compliance, sanctions, RIA service, administrator) waits for a second administrator. Only the RIA service team, which accepts accounts and works with RIAs on trading and transfers, carries FINRA registrations; operations needs none."}</p>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       {platform && grants.data && grants.data.length > 0 && (
         <div className="decide">
           <h3>Grants waiting for approval</h3>
           {grants.data.map((g) => (
             <div key={g.id} className="row" style={{ alignItems: "center", marginBottom: 6 }}>
-              <span><strong>{g.user}</strong> as {g.role_label}, requested by {g.requested_by}, {when(g.created_at)}</span>
+              <span><strong>{g.user}</strong> as {g.role_label}{g.registrations ? ` with ${g.registrations.join(", ")}${g.individual_crd ? ` (CRD ${g.individual_crd})` : ""}` : ""}, requested by {g.requested_by}, {when(g.created_at)}</span>
               {g.can_approve ? <><button className="small" onClick={() => decide(g.id, true)}>Approve</button>
                 <button className="small secondary" onClick={() => decide(g.id, false)}>Reject</button></>
                 : <span className="muted small">You requested this; another administrator approves it.</span>}
@@ -59,7 +63,8 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
             <div className="scroll"><table>
               <thead><tr><th>User</th><th>Role</th><th>Firm or account</th><th>Status</th><th></th></tr></thead>
               <tbody>{users.data.map((u) => (
-                <tr key={u.id}><td>{u.display_name}<br /><span className="mono muted">{u.username}</span></td><td>{u.role_label}</td>
+                <tr key={u.id}><td>{u.display_name}<br /><span className="mono muted">{u.username}</span></td>
+                  <td>{u.role_label}{u.registrations.length > 0 && <div className="muted small">{u.registrations.map((r) => r.label.split(" (")[0]).join(", ")}{u.can_accept_accounts ? " · accepts accounts" : ""}</div>}</td>
                   <td className="small">{u.firm?.name ?? u.client_account_id ?? ""}</td>
                   <td>{u.active ? <span className="pill t-clear">Active</span> : <span className="pill t-quiet">Inactive</span>}{u.is_demo ? <span className="muted small"> demo</span> : null}</td>
                   <td>{u.active && u.id !== user.id && <button className="small secondary" onClick={() => deactivate(u)}>Deactivate</button>}</td></tr>
@@ -76,6 +81,17 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
             </select></div>
           {platform && ["ria_user", "ria_admin"].includes(form.role) && f("firm_crd", "Firm CRD")}
           {form.role === "client" && f("client_account_id", "Client's self-directed account id")}
+          {form.role === "ria_service" && (
+            <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
+              <legend className="small muted" style={{ padding: "0 6px" }}>FINRA registrations (synthetic in the demo)</legend>
+              {(regCatalog.data ?? []).map((r) => (
+                <label key={r.code} className="check"><input type="checkbox" checked={regs.includes(r.code)}
+                  onChange={(e) => setRegs(e.target.checked ? [...regs, r.code] : regs.filter((x) => x !== r.code))} /> {r.label}</label>
+              ))}
+              <p className="small muted">Accepting accounts needs Series 24 or Series 9/10, and a principal registration builds on Series 7.</p>
+              {f("individual_crd", "Individual CRD number")}
+            </fieldset>
+          )}
           {f("password", "Temporary password (10+ characters)", "password")}
           <button type="submit">Add user</button>
         </form>

@@ -4,7 +4,7 @@
   --clear: #22704a; --refer: #9a5f0e; --escalate: #b3410e; --block: #9b1c1c; --error: #b3261e;
   --clear-bg: #e5f2ea; --refer-bg: #f7eedd; --escalate-bg: #f8e6dc; --block-bg: #f6e1e1;
   --lane-ops: #9a5f0e; --lane-ai: #6b46c1; --lane-rules: #1f3864; --lane-aml: #b3410e;
-  --lane-sanctions: #9b1c1c; --lane-ledger: #22704a;
+  --lane-sanctions: #9b1c1c; --lane-ledger: #22704a; --lane-principal: #0f6e7a;
   --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -18,7 +18,7 @@
     --clear: #6fcf97; --refer: #e3b25f; --escalate: #f08a5d; --block: #ef7c7c; --error: #ff8a80;
     --clear-bg: #16301f; --refer-bg: #33280f; --escalate-bg: #3a2014; --block-bg: #3a1a1a;
     --lane-ops: #e3b25f; --lane-ai: #b9a3f0; --lane-rules: #9db8ea; --lane-aml: #f08a5d;
-    --lane-sanctions: #ef7c7c; --lane-ledger: #6fcf97;
+    --lane-sanctions: #ef7c7c; --lane-ledger: #6fcf97; --lane-principal: #5fc7d3;
   }
 }
 *, *::before, *::after { box-sizing: border-box; }
@@ -140,3 +140,21 @@ pre { background: var(--paper); border: 1px solid var(--line); border-radius: 8p
   .main { padding: 18px 16px 48px; }
   .grid.two { grid-template-columns: 1fr; }
 }
+
+/* Documents */
+ul.checks { list-style: none; margin: 0; padding: 0; }
+.chk { white-space: nowrap; }
+.chk.pass span { color: var(--clear); font-weight: 700; }
+.chk.fail { color: var(--block); }
+.chk.manual { color: var(--refer); }
+.upload { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: var(--raised); }
+.upload.compact { padding: 8px 10px; }
+.docrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.docrow:first-of-type { border-top: 0; }
+.docrow-label { flex: 1 1 260px; }
+.filebtn { display: inline-flex; align-items: center; font: 600 0.82rem var(--sans); border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 11px; min-height: 32px; margin: 0; cursor: pointer; color: var(--ink); background: var(--surface); }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filebtn:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.accept { border: 1px solid var(--lane-principal); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--lane-principal) 6%, var(--surface)); }
+.accept h3 { margin-top: 0; }
+.evidence { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 6px 0; background: var(--surface); }

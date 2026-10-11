@@ -6,6 +6,7 @@ export const STATUS: Record<string, [string, string]> = {
   PENDING_REVIEW: ["Compliance review", "refer"], PENDING_SANCTIONS: ["Sanctions review", "escalate"],
   PENDING_EDD: ["EDD pending", "escalate"], PENDING_CONFIRMATION: ["Confirmation", "escalate"],
   PENDING_VERIFICATION: ["Verification", "refer"], REDIRECTED: ["Redirected", "refer"],
+  PENDING_ACCEPTANCE: ["Principal acceptance", "refer"],
   DECLINED: ["Declined", "block"], BLOCKED: ["Blocked", "block"], REJECTED: ["Rejected", "block"],
 };
 
@@ -45,6 +46,7 @@ export function slaText(hours: number | null): string {
 export const LANES: Record<string, string> = {
   "Custody operations": "--lane-ops", "AI assist services": "--lane-ai", "Rules and controls engine": "--lane-rules",
   "AML compliance": "--lane-aml", "Sanctions team": "--lane-sanctions", "Ledger and account services": "--lane-ledger",
+  "RIA service team": "--lane-principal",
 };
 
 export function Loading({ what = "Loading" }: { what?: string }) {

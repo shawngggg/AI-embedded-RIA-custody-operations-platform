@@ -19,6 +19,7 @@ from sample_data import (
 )
 
 PACKAGE_KEY = "red_butte_package"
+ACCEPTED = {"acceptance": "accepted", "acceptance_by": "Registered principal (demo, Series 24)"}
 
 
 def run_firm(key: str, as_of: date = TODAY, **decisions) -> OnboardingResult:
@@ -74,13 +75,16 @@ def main() -> None:
     for key in [PACKAGE_KEY, *FIRMS]:
         print_result(run_firm(key))
     print("Replaying the waiting branches with people's decisions:\n")
+    print_result(run_firm("granite_peak", **ACCEPTED))
     print_result(run_firm("meridian_gate", sanctions="true_match", sanctions_reference="DET-2026-0101"))
-    print_result(run_firm("lakeshore", edd="approved", edd_reference="EDD-2026-0102"))
+    print_result(run_firm("lakeshore", edd="approved", edd_reference="EDD-2026-0102", **ACCEPTED))
     print("CLIENT ACCOUNTS\n")
     for key in ACCOUNTS:
         print_result(run_account(key))
-    print_result(run_account("ilya_sorvetkin", sanctions="false_positive", sanctions_reference="DET-2026-0103"))
-    print_result(run_account("elena_marsh_pep", edd="approved", edd_reference="EDD-2026-0104"))
+    print_result(run_account("maria_chen", **ACCEPTED))
+    print_result(run_account("ilya_sorvetkin", sanctions="false_positive", sanctions_reference="DET-2026-0103",
+                             **ACCEPTED))
+    print_result(run_account("elena_marsh_pep", edd="approved", edd_reference="EDD-2026-0104", **ACCEPTED))
     print("Same entity account before FinCEN's Feb. 13, 2026 exceptive relief:\n")
     print_result(run_account("whitfield_holdings", date(2026, 2, 12)))
 

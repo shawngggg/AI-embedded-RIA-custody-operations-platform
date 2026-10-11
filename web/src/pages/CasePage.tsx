@@ -1,8 +1,19 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type CaseDetail, type Correction } from "../api";
+import { api, type CaseDetail, type Correction, type Doc } from "../api";
 import { isInternal, useAuth } from "../auth";
+import { Checks, DocList, DocStatus, DocUpload } from "../docs";
 import { LANES, Loading, slaText, Status, useLoad, when } from "../util";
+
+const DOC_CHOICES = [
+  ["account_application", "Client-signed account application"], ["lpoa", "Limited power of attorney (LPOA)"],
+  ["fee_authorization", "Fee deduction authorization"], ["w9", "Form W-9"], ["w8ben", "Form W-8BEN"],
+  ["w8bene", "Form W-8BEN-E"], ["formation_documents", "Formation documents or trust instrument"],
+  ["bo_certification", "Beneficial ownership certification"], ["ownership_chart", "Ownership chart"],
+  ["custodial_agreement", "Custodial services agreement (signed)"], ["reliance_contract", "CIP reliance agreement"],
+  ["identity_documents", "Identity documents for owners and control persons"], ["change_form", "Client-signed change form"],
+  ["medallion", "Medallion signature guarantee"], ["other", "Other document"],
+].map(([value, label]) => ({ value, label }));
 
 const ROUTE: Record<string, string> = { acats_in_kind: "ACATS in kind", loi: "LOI", liquidate: "Liquidate",
   product_acceptance: "Product acceptance", review: "Review" };
@@ -23,6 +34,9 @@ export default function CasePage() {
     setMsg({ ok });
   };
   const fail = (e: Error) => setMsg({ error: e.message });
+  const refresh = (ok?: string) => api<CaseDetail>(`/api/cases/${id}`).then((detail) => {
+    c.setData(detail); auditLog.reload(); if (ok) setMsg({ ok });
+  }).catch(fail);
 
   if (c.error) return <p className="error">{c.error}</p>;
   if (!c.data) return <Loading />;
@@ -54,12 +68,14 @@ export default function CasePage() {
         <p><strong>Requested:</strong> {r.requested_items.join("; ")}</p>
       )}
 
+      {internal && d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
       {internal && <Decisions d={d} onDone={done} onFail={fail} />}
-      {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} />}
+      {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} onRefresh={refresh} />}
 
       <div className="tabs" role="tablist">
-        {[["steps", "Steps"], ["findings", "Rule findings"], ["risk", "Risk"], ["transfer", "Transfer"],
-          ["extraction", "AI extraction"], ["codes", "Codes"], ["audit", "Audit trail"], ["data", "Application"]]
+        {[["steps", "Steps"], ["documents", `Documents (${d.documents.length})`], ["findings", "Rule findings"], ["risk", "Risk"],
+          ["transfer", "Transfer"], ["extraction", "AI extraction"], ["codes", "Codes"], ["audit", "Audit trail"],
+          ["data", "Application"]]
           .filter(([k]) => (k !== "transfer" || r.transfer) && (k !== "extraction" || d.extra?.extraction) && (k !== "risk" || r.risk))
           .map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
       </div>
@@ -76,6 +92,19 @@ export default function CasePage() {
             </li>
           ))}
         </ol>
+      )}
+      {tab === "documents" && (
+        <>
+          <p className="muted small">Every item marked received points to a document here. Each file keeps its SHA-256 fingerprint,
+            so anyone can later prove it wasn't changed. Automated checks read the text; a person in operations confirms good order.</p>
+          <DocList docs={d.documents} onChanged={() => refresh("Marked not in good order.")} />
+          {!d.closed_at && ["ops_analyst", "ops_supervisor", "ria_admin", "ria_user", "client"].includes(user.role) && (
+            <>
+              <h3>Add a document</h3>
+              <DocUpload caseId={d.id} types={DOC_CHOICES} onUploaded={(doc) => refresh(`${doc.filename} added.`)} />
+            </>
+          )}
+        </>
       )}
       {tab === "findings" && (r.findings?.decisions?.length ? (
         <div className="scroll"><table>
@@ -213,45 +242,126 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
           </div>
         );
       })}
-      {pending.length === 0 && !d.available_decisions.length && d.status.startsWith("PENDING") && !d.corrections.length && (
+      {pending.length === 0 && !d.available_decisions.length && d.status.startsWith("PENDING") && d.status !== "PENDING_ACCEPTANCE" && !d.corrections.length && (
         <p className="muted small">This case waits for another team. Switch to that team's demo user to decide.</p>
       )}
       {d.decision_log.filter((x) => x.status !== "pending").map((x) => (
-        <p key={x.id} className="small muted">{x.label}: {x.value_label} ({x.reference}), proposed by {x.proposed_by}, {x.status} by {x.decided_by}</p>
+        x.decision_type === "acceptance"
+          ? <p key={x.id} className="small muted">{x.label}: {x.value_label} by {x.reference}, {when(x.decided_at)}{x.note ? ` · "${x.note}"` : ""}</p>
+          : <p key={x.id} className="small muted">{x.label}: {x.value_label} ({x.reference}), proposed by {x.proposed_by}, {x.status} by {x.decided_by}</p>
       ))}
     </div>
   );
 }
 
-function Corrections({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+  const [note, setNote] = useState("");
+  const a = d.acceptance!;
+  const r = d.result ?? {};
+  const good = d.documents.filter((x) => x.status === "in_good_order").length;
+  const send = (value: "accepted" | "declined") =>
+    api<CaseDetail>(`/api/cases/${d.id}/acceptance`, { body: { value, note: note || null } })
+      .then((c) => onDone(c, value === "accepted" ? "Accepted. The case ran again and opened." : "Declined."))
+      .catch(onFail);
+  return (
+    <div className="accept">
+      <h3>Principal acceptance (FINRA Rule 4512)</h3>
+      <p className="small">Every check is complete. A registered principal on the RIA service team accepts the
+        {d.kind === "firm" ? " RIA relationship and its master account" : " account"} before it opens.</p>
+      <ul className="small">
+        {r.path && <li>Due diligence path: {r.path === "A" ? "A (relies on the RIA's CIP)" : "B (the custodian carries CIP and CDD)"}</li>}
+        {r.risk && <li>Risk: {r.risk.tier} ({r.risk.score} points); next review {r.risk.next_review}</li>}
+        <li>Documents in good order: {good} of {d.documents.length}</li>
+        <li>Restriction codes: {d.restrictions.filter((x) => x.active).map((x) => x.code).join(", ") || "none"}</li>
+        <li>Prepared without manual steps: {d.manual_steps === 0 ? "yes" : `no (${d.manual_steps})`}</li>
+      </ul>
+      {a.can_accept ? (
+        <>
+          <div className="field"><label htmlFor="acc-note">Note (optional)</label>
+            <input id="acc-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <p className="small">You sign as <strong>{a.signs_as}</strong>.</p>
+          <div className="actions">
+            <button onClick={() => send("accepted")}>Accept</button>
+            <button className="secondary" onClick={() => send("declined")}>Decline</button>
+          </div>
+        </>
+      ) : <p className="muted small">{a.reason}{a.reason?.startsWith("A registered principal") ? ". Switch to Avery Collins to accept." : ""}</p>}
+    </div>
+  );
+}
+
+function Corrections({ d, onDone, onFail, onRefresh }: {
+  d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void; onRefresh: (ok?: string) => void;
+}) {
   const { user } = useAuth();
   const ops = ["ops_analyst", "ops_supervisor"].includes(user.role);
   const [values, setValues] = useState<Record<string, any>>({});
-  const [verify, setVerify] = useState(false);
+  const [chosen, setChosen] = useState<Record<string, number>>({});     // field -> document id checked in good order
+  const [overrides, setOverrides] = useState<Record<string, string>>({}); // field -> why a failed check is fine
   const [control, setControl] = useState("");
   const [bank, setBank] = useState({ name: "", aba: "", account_last4: "" });
+  const docItems = d.corrections.filter((c) => c.type === "document");
+  const otherItems = d.corrections.filter((c) => c.type !== "document");
 
   const submit = () => {
     const fields: Record<string, any> = {};
+    const documents: Record<string, number> = {};
+    let verify = false;
     d.corrections.forEach((c: Correction) => {
+      if (c.type === "document" && chosen[c.field]) {
+        documents[c.field] = chosen[c.field];
+        if (c.field === "verify_people") verify = true;
+        else fields[c.field] = c.field === "tax_form" ? "from document" : true;
+      }
       if (c.type === "bool" && values[c.field]) fields[c.field] = true;
       if (c.type === "text" && (values[c.field] ?? "").trim()) fields[c.field] = values[c.field].trim();
       if (c.type === "bank" && bank.name && bank.aba && bank.account_last4) fields.new_bank = bank;
     });
-    api<CaseDetail>(`/api/cases/${d.id}/corrections`, { body: { fields, verify_people: verify, control_person: control || null } })
+    const notes = Object.fromEntries(Object.entries(overrides).filter(([k, v]) => documents[k] && v.trim()));
+    api<CaseDetail>(`/api/cases/${d.id}/corrections`, { body: { fields, documents, overrides: notes, verify_people: verify, control_person: control || null } })
       .then((c) => onDone(c, "Items recorded; the case ran again.")).catch(onFail);
   };
 
+  const canSubmit = ops ? true : otherItems.length > 0;
   return (
     <div className="panel">
       <h3 style={{ marginTop: 0 }}>Resolve the missing items</h3>
-      {d.corrections.map((c) => (
+      {docItems.map((c) => (
+        <div key={c.field} className="field">
+          <strong>{c.label}</strong> <span className="muted small mono">{c.rule_id}</span>
+          {c.documents.map((doc: Doc) => (
+            <div key={doc.id} className="evidence">
+              <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                <span><a href={`/api/documents/${doc.id}/file`} target="_blank" rel="noreferrer">{doc.filename}</a>
+                  <span className="muted small"> · {doc.type_label} · {doc.received_on} via {doc.channel_label} · added by {doc.uploaded_by}</span></span>
+                <DocStatus d={doc} />
+              </div>
+              <div className="small"><Checks d={doc} /></div>
+              {ops && (
+                <label className="check" style={{ marginTop: 6 }}>
+                  <input type="checkbox" checked={chosen[c.field] === doc.id}
+                    onChange={(e) => setChosen({ ...chosen, [c.field]: e.target.checked ? doc.id : 0 })} />
+                  {c.field === "verify_people" ? "I checked these documents and verified identity" : "I opened this document and it's in good order"}
+                </label>
+              )}
+              {ops && chosen[c.field] === doc.id && doc.checks.some((k) => k.result === "fail") && (
+                <div className="field" style={{ marginTop: 6 }}>
+                  <label htmlFor={`ov-${doc.id}`}>It failed an automated check. Why is it in good order anyway?</label>
+                  <input id={`ov-${doc.id}`} type="text" value={overrides[c.field] ?? ""}
+                    onChange={(e) => setOverrides({ ...overrides, [c.field]: e.target.value })} />
+                </div>
+              )}
+            </div>
+          ))}
+          {!c.documents.length && <p className="muted small">Nothing attached yet.{ops ? "" : " Upload it here; operations checks it and records the item."}</p>}
+          {!ops && c.documents.length > 0 && <p className="muted small">Received. Operations checks it and records the item.</p>}
+          <DocUpload compact caseId={d.id} types={c.doc_types} onUploaded={(doc) => onRefresh(`${doc.filename} attached.`)} />
+        </div>
+      ))}
+      {otherItems.map((c) => (
         <div key={c.field} className="field">
           {c.type === "bool" && <label className="check"><input type="checkbox" checked={!!values[c.field]} onChange={(e) => setValues({ ...values, [c.field]: e.target.checked })} /> {c.label}</label>}
           {c.type === "text" && <><label htmlFor={c.field}>{c.label}</label><input id={c.field} type="text" value={values[c.field] ?? ""} onChange={(e) => setValues({ ...values, [c.field]: e.target.value })} /></>}
-          {c.type === "verify_people" && (ops
-            ? <label className="check"><input type="checkbox" checked={verify} onChange={(e) => setVerify(e.target.checked)} /> {c.label} (simulated verification service)</label>
-            : <p className="muted small">{c.reason}: operations records identity verification after the documents arrive.</p>)}
           {c.type === "control_person" && <><label htmlFor="cp">{c.label}</label><input id="cp" type="text" value={control} onChange={(e) => setControl(e.target.value)} /></>}
           {c.type === "bank" && (
             <div className="row">
@@ -263,7 +373,7 @@ function Corrections({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDet
           <span className="muted small mono">{c.rule_id}</span>
         </div>
       ))}
-      <button onClick={submit}>Record items and re-run</button>
+      {canSubmit && <button onClick={submit}>Record items and re-run</button>}
     </div>
   );
 }

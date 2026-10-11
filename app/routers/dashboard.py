@@ -14,7 +14,7 @@ from ..views import sla_state
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 WAITING = ["PENDING_ITEMS", "PENDING_REVIEW", "PENDING_SANCTIONS", "PENDING_EDD", "PENDING_CONFIRMATION",
-           "PENDING_VERIFICATION", "RETURNED"]
+           "PENDING_VERIFICATION", "PENDING_ACCEPTANCE", "RETURNED"]
 
 
 def _aware(dt):

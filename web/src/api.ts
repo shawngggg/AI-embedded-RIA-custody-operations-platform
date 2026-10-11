@@ -38,6 +38,16 @@ export type User = {
   id: number; username: string; display_name: string; email: string | null; role: string; role_label: string;
   active: boolean; is_demo: boolean; note: string | null; workspace: "workbench" | "portal";
   firm: { id: number; crd: string; name: string } | null; client_account_id: string | null;
+  registrations: { code: string; label: string }[]; individual_crd: string | null; can_accept_accounts: boolean;
+};
+
+export type Check = { check: string; result: "pass" | "fail" | "manual"; detail: string };
+
+export type Doc = {
+  id: number; case_id: number; doc_type: string; type_label: string; filename: string; content_type: string;
+  size: number; sha256: string; channel: string; channel_label: string; received_on: string; uploaded_by: string;
+  uploaded_at: string | null; status: "received" | "in_good_order" | "not_in_good_order"; reviewed_by: string | null;
+  reviewed_at: string | null; review_note: string | null; checks: Check[]; checks_passed: boolean; synthetic: boolean;
 };
 
 export type Step = { lane: string; step: string; outcome: string; detail: string[]; rule_ids: string[] };
@@ -63,7 +73,10 @@ export type Decision = {
   can_approve?: boolean; case_title?: string;
 };
 
-export type Correction = { field: string; label: string; type: string; rule_id: string; reason: string; current: any };
+export type Correction = {
+  field: string; label: string; type: string; rule_id: string; reason: string; current: any;
+  doc_types: { value: string; label: string }[]; documents: Doc[];
+};
 
 export type CaseDetail = CaseSummary & {
   application: any; decisions: any; result: any; extra: any; restrictions: Restriction[];
@@ -71,4 +84,6 @@ export type CaseDetail = CaseSummary & {
   available_decisions: { decision_type: string; label: string; values: { value: string; label: string }[];
     approver_roles: string[] }[];
   account: { id: string; status: string; group: string; display_name: string } | null; closed_at: string | null;
+  acceptance: { can_accept: boolean; reason: string | null; signs_as: string | null } | null;
+  documents: Doc[];
 };

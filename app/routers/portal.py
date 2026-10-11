@@ -13,6 +13,7 @@ from ..db import get_db
 from ..orm import Account, Firm, User
 from ..runner import run_case
 from ..security import current_user
+from ..documents import FIELD_DOCS, attach_at_intake
 from ..seed import create_account_case, create_change_case
 from ..serialize import account_from
 from ..views import case_detail
@@ -43,6 +44,18 @@ def accounts(user: User = Depends(current_user), db: Session = Depends(get_db)):
 class NewAccount(BaseModel):
     application: dict
     firm_crd: str | None = None      # internal users name the firm; RIA users use their own
+    # [{doc_type, sample: true} or {doc_type, filename, content_b64}]: the signed documents and tax form
+    documents: list[dict] = Field(default_factory=list)
+
+
+def _apply_document_fields(db: Session, case, user: User, items: list[dict], channel: str) -> None:
+    """Attach intake documents and set the fields they back; the rest of the application is unchanged."""
+    fields = attach_at_intake(db, case, user, items, channel)
+    if fields:
+        case.application = {**case.application, **fields}
+        account = db.get(Account, case.account_id) if case.account_id else None
+        if account is not None and case.kind == "account":
+            account.application = {**account.application, **fields}
 
 
 @router.post("/accounts")
@@ -56,6 +69,9 @@ def new_account(body: NewAccount, user: User = Depends(current_user), db: Sessio
     if firm is None:
         raise HTTPException(422, "Unknown firm")
     data = dict(body.application)
+    # Signed documents and the tax form count only when the document itself is attached
+    for f in FIELD_DOCS["account"]:
+        data[f] = None if f == "tax_form" else False
     data.setdefault("application_id", f"APP-{uuid.uuid4().hex[:6].upper()}")
     data.setdefault("account_id", f"ACC-{uuid.uuid4().hex[:6].upper()}")
     if db.get(Account, data["account_id"]):
@@ -67,6 +83,7 @@ def new_account(body: NewAccount, user: User = Depends(current_user), db: Sessio
     if not app.holders:
         raise HTTPException(422, "Name at least one account holder")
     case = create_account_case(db, app, firm, user)
+    _apply_document_fields(db, case, user, body.documents, "portal" if user.role.startswith("ria") else "mail")
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)
@@ -80,6 +97,7 @@ class NewChange(BaseModel):
     medallion_guarantee: bool = False
     new_parties: list[dict] = Field(default_factory=list)
     new_bank: dict | None = None
+    documents: list[dict] = Field(default_factory=list)   # client-signed change form, medallion guarantee
 
 
 @router.post("/changes")
@@ -104,11 +122,14 @@ def new_change(body: NewChange, user: User = Depends(current_user), db: Session 
         "submitted_by_role": user.role,
         "submitted_by_firm": db.get(Firm, user.firm_id).crd if user.firm_id else None,
         "submitted_by_client_of": user.client_account_id, "details": body.details,
-        "client_signature": body.client_signature, "medallion_guarantee": body.medallion_guarantee,
+        # The client signs their own request in the portal; anyone else attaches the client-signed form
+        "client_signature": body.client_signature if user.role == "client" else False,
+        "medallion_guarantee": False,
         "new_parties": body.new_parties, "new_bank": body.new_bank,
         "recent_changes": account.change_history or [], "path": account.path or "B",
     }
     case = create_change_case(db, change, account, user)
+    _apply_document_fields(db, case, user, body.documents, "mail" if user.role == "ops_analyst" else "portal")
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)

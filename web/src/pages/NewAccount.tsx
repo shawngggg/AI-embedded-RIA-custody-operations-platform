@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type CaseDetail } from "../api";
 import { useAuth } from "../auth";
+import { type DocChoice, IntakeDocRow, TAX_FORMS, toUploads } from "../docs";
 
 type Holder = {
   name: string; role: string; ownership_pct: number; date_of_birth: string; address: string; tax_id: string;
@@ -22,18 +23,19 @@ const ROLES: [string, string][] = [
 
 type Form = {
   group: "pure_ria" | "self_directed"; registration_type: string; holders: Holder[];
-  entity_name: string; entity_ein: string; entity_type: string; entity_formation_documents: boolean;
-  beneficial_ownership_certification: boolean; first_entity_account: boolean; bo_info_confirmed_current: boolean;
-  client_signature: boolean; lpoa_signed: boolean; fee_authorization: boolean; tax_form: string;
+  entity_name: string; entity_ein: string; entity_type: string;
+  first_entity_account: boolean; bo_info_confirmed_current: boolean;
+  docs: Record<string, DocChoice>; tax_doc: string;
   account_purpose: string; source_of_funds: string; source_of_wealth: string; expected_initial_funding: number;
   third_party_funding: boolean;
 };
 
 const blank: Form = {
   group: "pure_ria", registration_type: "individual", holders: [blankHolder()],
-  entity_name: "", entity_ein: "", entity_type: "operating_company", entity_formation_documents: false,
-  beneficial_ownership_certification: false, first_entity_account: true, bo_info_confirmed_current: false,
-  client_signature: false, lpoa_signed: false, fee_authorization: false, tax_form: "",
+  entity_name: "", entity_ein: "", entity_type: "operating_company",
+  first_entity_account: true, bo_info_confirmed_current: false,
+  docs: { account_application: null, lpoa: null, fee_authorization: null, tax: null, formation_documents: null,
+    bo_certification: null }, tax_doc: "w9",
   account_purpose: "", source_of_funds: "", source_of_wealth: "", expected_initial_funding: 0, third_party_funding: false,
 };
 
@@ -44,7 +46,8 @@ const sample: Form = {
     ...blankHolder(), name: "Theo Lindqvist", date_of_birth: "1988-09-14", address: "77 Canyon Rd, Park City, UT 84060",
     tax_id: "900-00-3101", occupation: "Architect",
   }],
-  client_signature: true, lpoa_signed: true, fee_authorization: true, tax_form: "W-9",
+  docs: { account_application: { sample: true }, lpoa: { sample: true }, fee_authorization: { sample: true },
+    tax: { sample: true }, formation_documents: null, bo_certification: null },
   account_purpose: "Long-term investing", source_of_funds: "Employment income", source_of_wealth: "Salary and savings",
   expected_initial_funding: 320000,
 };
@@ -59,6 +62,7 @@ export default function NewAccount() {
   const pure = f.group === "pure_ria";
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
+  const setDoc = (k: string, v: DocChoice) => setF((x) => ({ ...x, docs: { ...x.docs, [k]: v } }));
   const setHolder = (i: number, patch: Partial<Holder>) =>
     setF((x) => ({ ...x, holders: x.holders.map((h, j) => (j === i ? { ...h, ...patch } : h)) }));
 
@@ -72,8 +76,7 @@ export default function NewAccount() {
     }));
     const application: Record<string, unknown> = {
       group: f.group, registration_type: f.registration_type, holders,
-      client_signature: f.client_signature, lpoa_signed: pure && f.lpoa_signed, fee_authorization: pure && f.fee_authorization,
-      tax_form: f.tax_form || null, account_purpose: f.account_purpose || null, source_of_funds: f.source_of_funds || null,
+      account_purpose: f.account_purpose || null, source_of_funds: f.source_of_funds || null,
       source_of_wealth: f.source_of_wealth || null, expected_initial_funding: Number(f.expected_initial_funding) || 0,
       third_party_funding: f.third_party_funding,
     };
@@ -81,13 +84,15 @@ export default function NewAccount() {
       Object.assign(application, {
         entity_name: f.entity_name || null, entity_ein: f.entity_ein || null,
         entity_type: f.registration_type === "trust" ? "trust" : f.entity_type,
-        entity_formation_documents: f.entity_formation_documents,
-        beneficial_ownership_certification: f.beneficial_ownership_certification,
         first_entity_account: f.first_entity_account, bo_info_confirmed_current: f.bo_info_confirmed_current,
       });
     }
     try {
-      const c = await api<CaseDetail>("/api/portal/accounts", { body: { application } });
+      const wanted: [string, DocChoice][] = [["account_application", f.docs.account_application],
+        [f.tax_doc, f.docs.tax]];
+      if (pure) wanted.push(["lpoa", f.docs.lpoa], ["fee_authorization", f.docs.fee_authorization]);
+      if (entity) wanted.push(["formation_documents", f.docs.formation_documents], ["bo_certification", f.docs.bo_certification]);
+      const c = await api<CaseDetail>("/api/portal/accounts", { body: { application, documents: toUploads(wanted) } });
       navigate(`/portal/cases/${c.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -99,7 +104,7 @@ export default function NewAccount() {
     <>
       <h1>New account application</h1>
       <p className="muted">Submitted under {user.firm?.name}. The rules engine checks it as soon as you submit: anything
-        missing comes back to you as a list of items, and a clean application opens without anyone keying it.</p>
+        missing comes back to you as a list of items, and a clean application goes straight to a registered principal for acceptance.</p>
       <div className="actions" style={{ marginBottom: 16 }}>
         <button type="button" className="secondary" onClick={() => setF(sample)}>Fill with a clean sample</button>
         <button type="button" className="secondary" onClick={() => setF(blank)}>Clear</button>
@@ -149,15 +154,10 @@ export default function NewAccount() {
                   </select></div>
               )}
             </div>
-            <label className="check"><input type="checkbox" checked={f.entity_formation_documents}
-              onChange={(e) => set("entity_formation_documents", e.target.checked)} />
-              {f.registration_type === "trust" ? "Trust instrument attached" : "Formation documents attached"}</label>
             <label className="check"><input type="checkbox" checked={f.first_entity_account}
               onChange={(e) => set("first_entity_account", e.target.checked)} />First account for this entity at the custodian</label>
             <label className="check"><input type="checkbox" checked={f.bo_info_confirmed_current}
               onChange={(e) => set("bo_info_confirmed_current", e.target.checked)} />Client confirmed the beneficial ownership on file is current</label>
-            <label className="check"><input type="checkbox" checked={f.beneficial_ownership_certification}
-              onChange={(e) => set("beneficial_ownership_certification", e.target.checked)} />Beneficial ownership certification attached</label>
             <p className="small muted">Since FinCEN's February 13, 2026 relief, the certification is collected for the
               entity's first account, or when the client can't confirm the information on file is current.</p>
           </div>
@@ -211,22 +211,21 @@ export default function NewAccount() {
         </div>
 
         <div className="panel">
-          <h2 style={{ marginTop: 0 }}>Signed documents</h2>
-          <label className="check"><input type="checkbox" checked={f.client_signature} onChange={(e) => set("client_signature", e.target.checked)} />
-            Client-signed account application</label>
-          {pure && <label className="check"><input type="checkbox" checked={f.lpoa_signed} onChange={(e) => set("lpoa_signed", e.target.checked)} />
-            Limited power of attorney for your firm</label>}
-          {pure && <label className="check"><input type="checkbox" checked={f.fee_authorization} onChange={(e) => set("fee_authorization", e.target.checked)} />
-            Written authorization to deduct advisory fees</label>}
-          <div className="field" style={{ maxWidth: 260 }}>
-            <label htmlFor="tax">Tax certification</label>
-            <select id="tax" value={f.tax_form} onChange={(e) => set("tax_form", e.target.value)}>
-              <option value="">Not attached</option>
-              <option value="W-9">W-9 (US person)</option>
-              <option value="W-8BEN">W-8BEN (foreign individual)</option>
-              <option value="W-8BEN-E">W-8BEN-E (foreign entity)</option>
+          <h2 style={{ marginTop: 0 }}>Documents</h2>
+          <p className="small muted">Attach each signed document. A document counts only when it's attached: the rules read it, and
+            anything they can't confirm goes to operations to check by eye.</p>
+          <IntakeDocRow label="Client-signed account application" value={f.docs.account_application} onChange={(v) => setDoc("account_application", v)} />
+          {pure && <IntakeDocRow label="Limited power of attorney for your firm" value={f.docs.lpoa} onChange={(v) => setDoc("lpoa", v)} />}
+          {pure && <IntakeDocRow label="Written authorization to deduct advisory fees" value={f.docs.fee_authorization} onChange={(v) => setDoc("fee_authorization", v)} />}
+          <IntakeDocRow label="Tax certification" value={f.docs.tax} onChange={(v) => setDoc("tax", v)}>
+            <select aria-label="Tax form" value={f.tax_doc} onChange={(e) => set("tax_doc", e.target.value)} style={{ maxWidth: 260, marginTop: 6 }}>
+              {TAX_FORMS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
-          </div>
+          </IntakeDocRow>
+          {entity && <IntakeDocRow label={f.registration_type === "trust" ? "Trust instrument" : "Formation documents"}
+            value={f.docs.formation_documents} onChange={(v) => setDoc("formation_documents", v)} />}
+          {entity && <IntakeDocRow label="Beneficial ownership certification" value={f.docs.bo_certification}
+            onChange={(v) => setDoc("bo_certification", v)} />}
         </div>
 
         <div className="panel">

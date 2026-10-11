@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -28,16 +28,34 @@ ROLES = {
     "aml_compliance": "AML compliance",
     "sanctions": "Sanctions team",
     "periodic_review": "Periodic review team",
+    "ria_service": "RIA service team (licensed)",
     "platform_admin": "Platform administrator",
     "ria_admin": "RIA administrator",
     "ria_user": "RIA user",
     "client": "Client",
 }
 INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review",
-                  "platform_admin"}
+                  "ria_service", "platform_admin"}
 PORTAL_ROLES = {"ria_admin", "ria_user", "client"}
 # Granting one of these needs a second platform administrator to approve
-DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "platform_admin"}
+DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "platform_admin"}
+
+# FINRA registrations. The custodian runs the trading platform, so it is a FINRA member broker-dealer: the
+# RIA service team, which works with RIAs on trading, transfers, and account acceptance, is licensed.
+# Operations prepares cases and needs no license. (Synthetic in the demo.)
+REGISTRATIONS = {
+    "S7": "Series 7 (General Securities Representative)",
+    "S63": "Series 63 (Uniform Securities Agent)",
+    "S24": "Series 24 (General Securities Principal)",
+    "S9_10": "Series 9/10 (General Securities Sales Supervisor)",
+    "S4": "Series 4 (Registered Options Principal)",
+}
+SHORT_REGISTRATION = {"S7": "Series 7", "S63": "Series 63", "S24": "Series 24", "S9_10": "Series 9/10",
+                      "S4": "Series 4"}
+# Accepting an account (FINRA Rule 4512) is a principal's act; options approval (Rule 2360) needs Series 4.
+PRINCIPAL_REGISTRATIONS = {"S24", "S9_10"}
+# A principal registration builds on a representative registration
+NEEDS_SERIES_7 = {"S24", "S9_10", "S4"}
 
 
 class User(Base):
@@ -53,6 +71,9 @@ class User(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     demo_note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    registrations: Mapped[list] = mapped_column(JSON, default=list,          # e.g. ["S7", "S63", "S24"]
+                                                server_default=text("'[]'"))
+    individual_crd: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -65,6 +86,8 @@ class RoleGrant(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")   # pending | approved | rejected
     requested_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    registrations: Mapped[list | None] = mapped_column(JSON, nullable=True)  # registrations granted with the role
+    individual_crd: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -192,6 +215,34 @@ class AuditEvent(Base):
     target_id: Mapped[str] = mapped_column(String(60), index=True)
     case_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Document(Base):
+    """
+    A document received for a case: the evidence behind an item marked received. The file is kept with its
+    SHA-256 fingerprint; a person in operations checks it and marks it in good order (or not).
+    """
+    __tablename__ = "documents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), index=True)
+    target_id: Mapped[str] = mapped_column(String(60), index=True)
+    doc_type: Mapped[str] = mapped_column(String(40))
+    filename: Mapped[str] = mapped_column(String(200))
+    content_type: Mapped[str] = mapped_column(String(80))
+    size: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    channel: Mapped[str] = mapped_column(String(20))                 # portal | email | fax | mail | intake
+    received_on: Mapped[date] = mapped_column(Date)
+    uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    uploaded_by_name: Mapped[str] = mapped_column(String(120))
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    status: Mapped[str] = mapped_column(String(30), default="received")  # received | in_good_order | not_in_good_order
+    reviewed_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checks: Mapped[list] = mapped_column(JSON, default=list)        # automated pre-checks on the file
+    synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class AiUsage(Base):

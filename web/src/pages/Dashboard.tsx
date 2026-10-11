@@ -12,7 +12,7 @@ export default function Dashboard() {
   return (
     <>
       <h1>Operations dashboard</h1>
-      <p className="muted">Synthetic workload. Straight-through means opened with no manual step besides approval.</p>
+      <p className="muted">Synthetic workload. Straight-through means opened with no manual work before the registered principal&apos;s acceptance, which every account needs (FINRA Rule 4512).</p>
       <div className="grid tiles">
         <div className="tile"><div className="label">Cases</div><div className="value">{x.cases}</div><div className="sub">all kinds</div></div>
         <div className="tile"><div className="label">Straight-through rate</div><div className="value">{pct(x.straight_through.rate)}</div><div className="sub">{x.straight_through.no_manual_step} of {x.straight_through.opened} opened</div></div>

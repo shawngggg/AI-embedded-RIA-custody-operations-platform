@@ -140,6 +140,7 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 | AML compliance | Decide EDD cases and compliance reviews | EDD and review queue |
 | Sanctions team | Decide flagged-list escalations: release or block | Escalations with evidence packages |
 | Periodic review team | Work reviews that come due by risk tier | Reviews due and overdue |
+| RIA service team (FINRA-licensed) | Accept each new account and RIA relationship as a registered principal; later, trading and transfers with RIAs | Principal acceptance queue |
 | Platform administrator | Maintain rule versions and demo data | Rule library and data reset |
 | RIA administrator | Add the firm's users and grant their entitlements | Firm users and their entitlements |
 | RIA user | Submit applications, documents, NIGO responses, and account changes for pure RIA accounts; track status | The firm's open requests and their status |
@@ -161,8 +162,10 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 - MVP-12 User and entitlement administration. The platform administrator adds team members and assigns roles; an RIA administrator adds the firm's users and grants entitlements within the RIA's own permissions. Every grant is logged, and a grant of a decision role needs a second approver.
 - MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status.
 - MVP-14 Account changes along map 04: the RIA submits changes to pure RIA accounts, including beneficial owner updates, with the client's signature on owner-level changes; the client submits changes on the self-directed account. Each change runs the authority, fraud-pattern, and flagged-list checks and re-runs due diligence when ownership changes.
+- MVP-15 Principal acceptance. The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it opens, an RIA's master account included, is accepted by a registered principal (FINRA Rule 4512(a)(1)(D)). The RIA service team, which works with RIAs on trading, transfers, and account acceptance, holds the FINRA registrations; operations prepares the case and needs none. The app checks the person's registration (Series 24 or Series 9/10), not just the role, and the principal can't be someone who prepared the case. Straight-through means no manual work before acceptance.
+- MVP-16 Documents as evidence. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, channel, and who added it. Automated pre-checks read the text for the client's name, tax ID, the right tax form, and a signature line; a document that passes every check is in good order by rule, and anything else waits for operations, who confirms good order or records why a failed check is acceptable.
 
-Out of the MVP: fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
+Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
 
 ## MVP architecture
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type CaseDetail } from "../api";
 import { useAuth } from "../auth";
+import { type DocChoice, IntakeDocRow, toUploads } from "../docs";
 import { useLoad } from "../util";
 
 export default function Intake() {
@@ -15,8 +16,8 @@ export default function Intake() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ legal_name: "", registration: "SEC", sec_file_number: "", crd_number: "", raum: "",
     principal_address: "", ein: "", adv_last_annual_amendment: "", control_person: "", owner_pct: "100" });
-  const [docs, setDocs] = useState({ formation_documents: true, ownership_chart: true, beneficial_ownership_certification: true,
-    custodial_agreement_signed: true, reliance_contract: false });
+  const [docs, setDocs] = useState<Record<string, DocChoice>>({ formation_documents: null, ownership_chart: null,
+    bo_certification: null, custodial_agreement: null, reliance_contract: null });
 
   const go = (c: CaseDetail) => { refreshCounts(); navigate(`/cases/${c.id}`); };
   const extract = () => {
@@ -29,9 +30,10 @@ export default function Intake() {
     e.preventDefault();
     const app = { legal_name: form.legal_name, registration: form.registration, sec_file_number: form.sec_file_number || null,
       crd_number: form.crd_number || null, raum: Number(form.raum || 0), principal_address: form.principal_address || null,
-      ein: form.ein || null, adv_last_annual_amendment: form.adv_last_annual_amendment || null, ...docs,
+      ein: form.ein || null, adv_last_annual_amendment: form.adv_last_annual_amendment || null,
       people: form.control_person ? [{ name: form.control_person, role: "control_person", ownership_pct: Number(form.owner_pct || 0) }] : [] };
-    api<CaseDetail>("/api/intake/firm", { body: { application: app } }).then(go).catch((err) => setError(err.message));
+    api<CaseDetail>("/api/intake/firm", { body: { application: app, documents: toUploads(Object.entries(docs)) } })
+      .then(go).catch((err) => setError(err.message));
   };
   const f = (k: keyof typeof form, label: string, type = "text") => (
     <div className="field"><label htmlFor={k}>{label}</label><input id={k} type={type} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} /></div>
@@ -72,9 +74,13 @@ export default function Intake() {
           {f("principal_address", "Principal place of business")}
           <div className="row">{f("ein", "EIN")}{f("adv_last_annual_amendment", "Last ADV annual amendment", "date")}</div>
           <div className="row">{f("control_person", "Control person")}{f("owner_pct", "Their ownership %", "number")}</div>
-          {Object.entries(docs).map(([k, v]) => (
-            <label key={k} className="check"><input type="checkbox" checked={v} onChange={(e) => setDocs({ ...docs, [k]: e.target.checked })} /> {k.replace(/_/g, " ")}</label>
+          <h3>Documents received</h3>
+          {([["formation_documents", "Formation documents"], ["ownership_chart", "Ownership chart"],
+            ["bo_certification", "Beneficial ownership certification"], ["custodial_agreement", "Custodial services agreement (signed)"],
+            ["reliance_contract", "CIP reliance agreement (optional)"]] as [string, string][]).map(([k, label]) => (
+            <IntakeDocRow key={k} label={label} value={docs[k]} onChange={(v) => setDocs({ ...docs, [k]: v })} />
           ))}
+          <p className="small muted">Identity documents for the owners and control person are checked by operations after the case opens.</p>
           <button type="submit" disabled={!form.legal_name}>Open a case</button>
         </form>
       </div>

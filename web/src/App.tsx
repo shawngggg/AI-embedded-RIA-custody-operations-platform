@@ -79,6 +79,11 @@ export default function App() {
               <strong>{user.display_name}</strong>
               <span className="role">{user.role_label}</span>
               {user.firm && <span className="muted small">{user.firm.name}</span>}
+              {user.registrations.length > 0 && (
+                <span className="muted small" title={user.registrations.map((r) => r.label).join("\n")}>
+                  {user.registrations.map((r) => r.label.split(" (")[0]).join(" · ")}{user.individual_crd ? ` · CRD ${user.individual_crd}` : ""}
+                </span>
+              )}
             </div>
             <button className="secondary small" onClick={signOut}>{user.is_demo ? "Switch user" : "Sign out"}</button>
           </div>

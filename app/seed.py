@@ -21,7 +21,9 @@ from sample_data import (
 )
 
 from . import audit
+from .acceptance import accept_case
 from .config import settings
+from .documents import AUTOMATED_REVIEWER, FIELD_DOCS, checks_pass, mark, sample_document, store
 from .db import Base, engine
 from .orm import Account, Case, Firm, Review, User
 from .runner import run_case
@@ -35,6 +37,10 @@ DEMO_USERS = [
     ("sanctions.maker", "Alex Kim", "sanctions", None, None, "Proposes sanctions determinations"),
     ("sanctions.checker", "Sam Rivera", "sanctions", None, None, "Approves sanctions determinations"),
     ("review.analyst", "Casey Nguyen", "periodic_review", None, None, "Works reviews as they come due"),
+    ("rs.principal", "Avery Collins", "ria_service", None, None,
+     "Registered principal (Series 7, 63, 24): accepts accounts"),
+    ("rs.associate", "Noah Brennan", "ria_service", None, None,
+     "Licensed representative (Series 7, 63): can't accept accounts"),
     ("admin.platform", "Jordan Blake", "platform_admin", None, None, "Adds team members and grants roles"),
     ("admin.second", "Riley Chen", "platform_admin", None, None, "Approves grants of decision roles"),
     ("granite.admin", "Dana Whitfield", "ria_admin", "310001", None, "Granite Peak Advisors: firm users"),
@@ -43,10 +49,19 @@ DEMO_USERS = [
     ("client.farid", "Farid Hosseini", "client", None, "ACC-2003", "Client with a self-directed account"),
 ]
 
+# Synthetic FINRA registrations and individual CRD numbers for the licensed RIA service team
+SEED_REGISTRATIONS = {"rs.principal": (["S7", "S63", "S24"], "7700101"),
+                      "rs.associate": (["S7", "S63"], "7700102")}
+
+# Seeded cases the registered principal has already accepted. Juniper Ridge and Lena Park still wait.
+ACCEPTED_SEEDS = {"granite_peak", "bonneville", "maria_chen", "kenji_tanaka", "farid_hosseini_pure",
+                  "farid_hosseini_sd", "whitfield_holdings"}
+
 # Seeded firm cases and the decisions that move them to their demo state
 FIRM_SEEDS = ["granite_peak", "juniper_ridge", "bonneville", "lakeshore", "meridian_gate", "alta_vista", "cottonwood"]
 ACCOUNT_SEEDS = ["maria_chen", "kenji_tanaka", "farid_hosseini_pure", "farid_hosseini_sd", "whitfield_holdings",
-                 "ilya_sorvetkin", "elena_marsh_pep", "orphan_self_directed", "rosa_delgado_nigo"]
+                 "ilya_sorvetkin", "elena_marsh_pep", "orphan_self_directed", "rosa_delgado_nigo",
+                 "lena_park_waiting"]
 
 # How long ago each seeded case arrived, in hours, so SLA clocks and time-in-state look like a working
 # queue: some cases comfortable, one close to its deadline, one past it.
@@ -55,14 +70,19 @@ AGE_HOURS = {
     "alta_vista": 70, "cottonwood": 200,
     "maria_chen": 300, "kenji_tanaka": 260, "farid_hosseini_pure": 240, "farid_hosseini_sd": 230,
     "whitfield_holdings": 190, "ilya_sorvetkin": 21, "elena_marsh_pep": 30, "orphan_self_directed": 40,
-    "rosa_delgado_nigo": 128, "CHG-0001": 72, "CHG-0002": 5,
+    "rosa_delgado_nigo": 128, "lena_park_waiting": 6, "CHG-0001": 72, "CHG-0002": 5,
 }
 
 
 def backdate(db: Session, case: Case, hours: float) -> None:
     """Move a freshly seeded case, its history, and what it touched back in time by `hours`."""
-    from .orm import AuditEvent, CaseTransition, Restriction
+    from .orm import AuditEvent, CaseTransition, Document, Restriction
     shift = timedelta(hours=hours)
+    for row in db.query(Document).filter(Document.case_id == case.id):
+        row.uploaded_at -= shift
+        row.received_on = row.uploaded_at.date()
+        if row.reviewed_at:
+            row.reviewed_at -= shift
     for col in ("created_at", "updated_at", "queue_entered_at", "sla_due", "closed_at"):
         if getattr(case, col) is not None:
             setattr(case, col, getattr(case, col) - shift)
@@ -109,6 +129,42 @@ def _rosa_nigo() -> AccountApplication:
         lpoa_signed=False, fee_authorization=True, client_signature=True, tax_form=None,
         account_purpose="College savings for two children", source_of_funds="Salary", source_of_wealth="Salary",
         expected_initial_funding=60_000)
+
+
+def _lena_park() -> AccountApplication:
+    """A clean application: every check passes, and it waits for the registered principal."""
+    return AccountApplication(
+        "APP-2009", "ACC-2009", AccountGroup.PURE_RIA, "individual",
+        [Person("Lena Park", "account_holder", date_of_birth="1991-02-27", identity_verified=True,
+                address="1820 S 1100 E, Salt Lake City, UT 84105", tax_id="900-00-2009", occupation="Pharmacist")],
+        lpoa_signed=True, fee_authorization=True, client_signature=True, tax_form="W-9",
+        account_purpose="Long-term investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
+        expected_initial_funding=210_000)
+
+
+TAX_DOC = {"W-9": "w9", "W-8BEN": "w8ben", "W-8BEN-E": "w8bene"}
+
+
+def seed_documents(db: Session, case: Case, uploader: str, channel: str, ops_user: User) -> None:
+    """Synthetic documents behind every item a seeded application already has."""
+    app = case.application
+    for field, types in FIELD_DOCS[case.kind].items():
+        if field == "verify_people":
+            required = [p for p in app.get("people", [])
+                        if p.get("ownership_pct", 0) >= 25 or p.get("role") == "control_person"]
+            if not required or not all(p.get("identity_verified") for p in required):
+                continue
+            doc_type = "identity_documents"
+        elif not app.get(field):
+            continue
+        else:
+            doc_type = TAX_DOC.get(app[field]) if field == "tax_form" else types[0]
+        filename, data = sample_document(db, case, doc_type, settings.today())
+        doc = store(db, case, None, doc_type, filename, data, channel, synthetic=True, actor_name=uploader)
+        if doc_type == "identity_documents" or not checks_pass(doc.checks):
+            mark(db, doc, "in_good_order", ops_user.display_name, ops_user)
+        else:
+            mark(db, doc, "in_good_order", AUTOMATED_REVIEWER, None)
 
 
 def create_firm_case(db: Session, app, actor: User | None, extraction: dict | None = None) -> Case:
@@ -165,17 +221,27 @@ def seed(db: Session) -> None:
 
     users = {}
     for username, name, role, crd, account_id, note in DEMO_USERS:
-        u = User(username=username, display_name=name, role=role, is_demo=True, demo_note=note)
+        regs, individual_crd = SEED_REGISTRATIONS.get(username, ([], None))
+        u = User(username=username, display_name=name, role=role, is_demo=True, demo_note=note,
+                 registrations=regs, individual_crd=individual_crd)
         db.add(u)
         users[username] = u
     db.flush()
     system_ops = users["ops.analyst"]
+    principal = users["rs.principal"]
+
+    def accept_if_seeded(case: Case, key: str) -> None:
+        if key in ACCEPTED_SEEDS and case.status == "PENDING_ACCEPTANCE":
+            accept_case(db, case, principal, "accepted")
 
     for key in FIRM_SEEDS:
         app = shift_dates(FIRMS[key], delta)
         case = create_firm_case(db, app, system_ops)
         firms_by_crd[app.crd_number] = db.get(Firm, case.firm_id)
+        seed_documents(db, case, system_ops.display_name, "email", system_ops)
         run_case(db, case, system_ops)
+        db.flush()
+        accept_if_seeded(case, key)
         db.flush()
         backdate(db, case, AGE_HOURS[key])
 
@@ -184,6 +250,8 @@ def seed(db: Session) -> None:
             app, firm_key = _farid_pure(), "granite_peak"
         elif key == "rosa_delgado_nigo":
             app, firm_key = _rosa_nigo(), "bonneville"
+        elif key == "lena_park_waiting":
+            app, firm_key = _lena_park(), "granite_peak"
         else:
             app, firm_key = ACCOUNTS[key], ACCOUNT_FIRMS[key]
         app = shift_dates(app, delta)
@@ -192,7 +260,10 @@ def seed(db: Session) -> None:
         if app.group is AccountGroup.SELF_DIRECTED:
             actor = system_ops
         case = create_account_case(db, app, firm, actor)
+        seed_documents(db, case, actor.display_name, "portal", system_ops)
         run_case(db, case, actor)
+        db.flush()
+        accept_if_seeded(case, key)
         db.flush()
         backdate(db, case, AGE_HOURS[key])
 

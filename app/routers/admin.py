@@ -21,7 +21,8 @@ from account_changes import CHANGE_RULES
 from .. import audit
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..orm import DECISION_ROLES, ROLES, Account, Firm, RoleGrant, User, utcnow
+from ..orm import (DECISION_ROLES, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION, Account, Firm, RoleGrant,
+                   User, utcnow)
 from ..security import current_user, hash_password, require_roles
 from ..views import iso, user_dict
 
@@ -47,6 +48,8 @@ def _grant_dict(db: Session, g: RoleGrant) -> dict:
     dec = db.get(User, g.decided_by) if g.decided_by else None
     return {"id": g.id, "user": u.display_name, "username": u.username, "role": g.role,
             "role_label": ROLES[g.role], "status": g.status, "requested_by": by.display_name,
+            "registrations": [SHORT_REGISTRATION.get(r, r) for r in g.registrations] if g.registrations is not None
+            else None, "individual_crd": g.individual_crd,
             "requested_by_id": g.requested_by, "decided_by": dec.display_name if dec else None,
             "created_at": iso(g.created_at), "decided_at": iso(g.decided_at)}
 
@@ -54,7 +57,29 @@ def _grant_dict(db: Session, g: RoleGrant) -> dict:
 @router.get("/roles")
 def roles(user: User = Depends(admins)):
     allowed = ROLES if user.role == "platform_admin" else {k: v for k, v in ROLES.items() if k in RIA_ADMIN_MAY_GRANT}
-    return [{"role": k, "label": v, "decision_role": k in DECISION_ROLES} for k, v in allowed.items()]
+    return [{"role": k, "label": v, "decision_role": k in DECISION_ROLES, "licensed": k == "ria_service"}
+            for k, v in allowed.items()]
+
+
+@router.get("/registrations")
+def registrations(user: User = Depends(admins)):
+    return [{"code": k, "label": v, "needs_series_7": k in NEEDS_SERIES_7} for k, v in REGISTRATIONS.items()]
+
+
+def _check_registrations(role: str, regs: list[str], crd: str | None) -> None:
+    if not regs:
+        if role == "ria_service":
+            raise HTTPException(422, "The RIA service team is licensed: record at least Series 7")
+        return
+    if role != "ria_service":
+        raise HTTPException(422, "Only the RIA service team carries FINRA registrations; operations needs none")
+    unknown = set(regs) - set(REGISTRATIONS)
+    if unknown:
+        raise HTTPException(422, f"Unknown registration: {', '.join(sorted(unknown))}")
+    if NEEDS_SERIES_7 & set(regs) and "S7" not in regs:
+        raise HTTPException(422, "A principal or options principal registration builds on Series 7")
+    if not crd or not crd.isdigit():
+        raise HTTPException(422, "Record the person's individual CRD number (digits)")
 
 
 @router.get("/users")
@@ -73,6 +98,8 @@ class NewUser(BaseModel):
     password: str = Field(min_length=10)
     firm_crd: str | None = None
     client_account_id: str | None = None
+    registrations: list[str] = Field(default_factory=list)   # FINRA registrations, RIA service team only
+    individual_crd: str | None = None
 
 
 @router.post("/users")
@@ -97,6 +124,7 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
         if actor.role == "ria_admin" and account.firm_id != actor.firm_id:
             raise HTTPException(403, "Only accounts under your firm")
     _scope(db, actor, role=body.role, firm_id=firm_id if body.role in ("ria_user", "ria_admin") else None)
+    _check_registrations(body.role, body.registrations, body.individual_crd)
     decision = body.role in DECISION_ROLES
     u = User(username=body.username, display_name=body.display_name, email=body.email, role=body.role,
              password_hash=hash_password(body.password), firm_id=firm_id, client_account_id=body.client_account_id,
@@ -105,11 +133,13 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
     db.flush()
     grant = None
     if decision:
-        grant = RoleGrant(user_id=u.id, role=body.role, requested_by=actor.id)
+        grant = RoleGrant(user_id=u.id, role=body.role, requested_by=actor.id,
+                          registrations=body.registrations if body.role == "ria_service" else None,
+                          individual_crd=body.individual_crd if body.role == "ria_service" else None)
         db.add(grant)
         db.flush()
     audit.record(db, actor, "user_created", "user", u.id, username=u.username, role=u.role,
-                 waiting_for_approval=decision or None)
+                 waiting_for_approval=decision or None, registrations=body.registrations or None)
     db.commit()
     return {"user": user_dict(db, u), "grant": _grant_dict(db, grant) if grant else None}
 
@@ -138,6 +168,30 @@ def change_role(user_id: int, body: RoleChange, actor: User = Depends(admins), d
     audit.record(db, actor, "role_changed", "user", target.id, old_role=old, new_role=body.role)
     db.commit()
     return {"user": user_dict(db, target), "grant": None}
+
+
+class RegistrationChange(BaseModel):
+    registrations: list[str]
+    individual_crd: str | None = None
+
+
+@router.post("/users/{user_id}/registrations")
+def change_registrations(user_id: int, body: RegistrationChange, actor: User = Depends(require_roles("platform_admin")),
+                         db: Session = Depends(get_db)):
+    """A change to someone's registrations waits for a second administrator, like any decision-role grant."""
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "No such user")
+    if target.id == actor.id:
+        raise HTTPException(403, "You can't change your own registrations")
+    _check_registrations(target.role, body.registrations, body.individual_crd or target.individual_crd)
+    grant = RoleGrant(user_id=target.id, role=target.role, requested_by=actor.id, registrations=body.registrations,
+                      individual_crd=body.individual_crd or target.individual_crd)
+    db.add(grant)
+    db.flush()
+    audit.record(db, actor, "registration_change_requested", "user", target.id, registrations=body.registrations)
+    db.commit()
+    return {"user": user_dict(db, target), "grant": _grant_dict(db, grant)}
 
 
 @router.post("/users/{user_id}/deactivate")
@@ -174,8 +228,12 @@ def _decide_grant(grant_id: int, approve: bool, actor: User, db: Session):
     target = db.get(User, g.user_id)
     if approve:
         target.role, target.active = g.role, True
+        if g.registrations is not None:
+            target.registrations, target.individual_crd = list(g.registrations), g.individual_crd
+        elif g.role != "ria_service":
+            target.registrations, target.individual_crd = [], None
     audit.record(db, actor, "role_grant_approved" if approve else "role_grant_rejected", "user", target.id,
-                 role=g.role)
+                 role=g.role, registrations=g.registrations)
     db.commit()
     return _grant_dict(db, g)
 

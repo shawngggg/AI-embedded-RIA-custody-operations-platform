@@ -7,9 +7,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import audit
+from ..acceptance import accept_case
 from ..config import settings
+from ..documents import DOC_TYPES, field_docs, mark
 from ..db import get_db
-from ..orm import Case, PendingDecision, Review, User, utcnow
+from ..orm import Case, Document, PendingDecision, Review, User, utcnow
 from ..queues import DECISIONS, QUEUES
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
@@ -68,16 +70,21 @@ def get_case(case_id: int, user: User = Depends(current_user), db: Session = Dep
 
 class Corrections(BaseModel):
     fields: dict = Field(default_factory=dict)
+    documents: dict[str, int] = Field(default_factory=dict)   # field -> id of the document that evidences it
+    overrides: dict[str, str] = Field(default_factory=dict)   # field -> why a document that failed a check is fine
     verify_people: bool = False
     control_person: str | None = None
     note: str | None = None
+
+
+OPS = ("ops_analyst", "ops_supervisor")
 
 
 @router.post("/cases/{case_id}/corrections")
 def submit_corrections(case_id: int, body: Corrections, user: User = Depends(current_user),
                        db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
-    if user.role not in ("ops_analyst", "ops_supervisor", "ria_admin", "ria_user", "client"):
+    if user.role not in OPS + ("ria_admin", "ria_user", "client"):
         raise HTTPException(403, "Operations or the requester resolves missing items")
     if case.status not in ("PENDING_ITEMS", "RETURNED") or (case.status == "RETURNED" and case.kind != "change"):
         raise HTTPException(409, "This case isn't waiting for items")
@@ -85,10 +92,34 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     unknown = set(body.fields) - allowed
     if unknown:
         raise HTTPException(422, f"Not a correctable field: {', '.join(sorted(unknown))}")
-    if body.verify_people and user.role not in ("ops_analyst", "ops_supervisor"):
-        raise HTTPException(403, "Only operations records identity verification")
+    fields = dict(body.fields)
+
+    # Items backed by a document need the document, and a person in operations to check it
+    claimed = [f for f, v in fields.items() if v and field_docs(case.kind, f)]
+    if body.verify_people:
+        claimed.append("verify_people")
+    if claimed and user.role not in OPS:
+        raise HTTPException(403, "Operations checks each document before the item is marked received. "
+                                 "Upload the document, and operations records it.")
+    evidence = []
+    for f in claimed:
+        doc = db.get(Document, body.documents.get(f, -1))
+        types = field_docs(case.kind, f)
+        label = "tax form (W-9 or W-8)" if f == "tax_form" else DOC_TYPES[types[0]]["label"]
+        if doc is None or doc.case_id != case.id or doc.doc_type not in types:
+            raise HTTPException(422, f"Attach the {label} to this case first, then record it")
+        if doc.status == "not_in_good_order":
+            raise HTTPException(422, f"{doc.filename} was marked not in good order")
+        failed = [c["check"] for c in doc.checks or [] if c["result"] == "fail"]
+        if failed and len((body.overrides.get(f) or "").strip()) < 10:
+            raise HTTPException(422, f"{doc.filename} failed: {', '.join(failed)}. Explain why it's in good order "
+                                     "anyway, or mark it not in good order and request a new one.")
+        if f == "tax_form":
+            fields["tax_form"] = DOC_TYPES[doc.doc_type]["tax_form"]
+        evidence.append(doc)
+
     app = dict(case.application)
-    app.update(body.fields)
+    app.update(fields)
     if body.verify_people:
         app["people"] = [{**p, "identity_verified": True} for p in app.get("people", [])]
     if body.control_person:
@@ -96,8 +127,13 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
             {"name": body.control_person, "role": "control_person", "ownership_pct": 0.0, "identity_verified": False}]
     case.application = app
     case.manual_steps += 1
-    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted(body.fields),
-                 verify_people=body.verify_people or None, control_person=body.control_person, note=body.note)
+    for doc in evidence:
+        if doc.status != "in_good_order":
+            field = next(f for f in claimed if body.documents.get(f) == doc.id)
+            mark(db, doc, "in_good_order", user.display_name, user, body.overrides.get(field))
+    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted(fields),
+                 verify_people=body.verify_people or None, control_person=body.control_person, note=body.note,
+                 documents=[{"id": d.id, "doc_type": d.doc_type, "sha256": d.sha256} for d in evidence] or None)
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)
@@ -125,6 +161,8 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
     spec = DECISIONS.get(body.decision_type)
     if spec is None or body.value not in spec["values"]:
         raise HTTPException(422, "Unknown decision or value")
+    if spec.get("direct"):
+        raise HTTPException(422, "A registered principal records acceptance directly: POST /api/cases/{id}/acceptance")
     if user.role not in spec["proposer"]:
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
                      decision_type=body.decision_type, reason="wrong role")
@@ -159,6 +197,20 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_inte
         item["case_title"] = db.get(Case, d.case_id).title
         out.append(item)
     return out
+
+
+class Acceptance(BaseModel):
+    value: str = Field(pattern="^(accepted|declined)$")
+    note: str | None = None
+
+
+@router.post("/cases/{case_id}/acceptance")
+def accept(case_id: int, body: Acceptance, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    """A registered principal on the RIA service team accepts or declines the account (FINRA Rule 4512)."""
+    case = get_case_for(db, user, case_id)
+    accept_case(db, case, user, body.value, body.note)
+    db.commit()
+    return case_detail(db, case, user)
 
 
 class Decide(BaseModel):

@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from restrictions import CATALOG
 
-from .orm import ROLES, Account, Case, Firm, PendingDecision, Restriction, Review, User
+from .acceptance import acceptance_state, holds_principal
+from .documents import DOC_TYPES, case_documents, doc_dict, field_docs
+from .orm import REGISTRATIONS, ROLES, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .queues import DECISIONS, QUEUES
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
@@ -50,6 +52,8 @@ def user_dict(db: Session, u: User) -> dict:
             "role": u.role, "role_label": ROLES.get(u.role, u.role), "active": u.active, "is_demo": u.is_demo,
             "note": u.demo_note, "firm": {"id": firm.id, "crd": firm.crd, "name": firm.legal_name} if firm else None,
             "client_account_id": u.client_account_id,
+            "registrations": [{"code": r, "label": REGISTRATIONS.get(r, r)} for r in (u.registrations or [])],
+            "individual_crd": u.individual_crd, "can_accept_accounts": u.role == "ria_service" and holds_principal(u),
             "workspace": "portal" if u.role in ("ria_admin", "ria_user", "client") else "workbench"}
 
 
@@ -108,25 +112,30 @@ def decision_dict(db: Session, d: PendingDecision) -> dict:
             "approver_roles": spec["approver"]}
 
 
-def corrections_for(case: Case) -> list[dict]:
+def corrections_for(db: Session, case: Case) -> list[dict]:
     if case.status not in ("PENDING_ITEMS", "RETURNED") or not case.result:
         return []
     findings = (case.result.get("findings") or {}).get("decisions", [])
+    docs = case_documents(db, case)
     out, seen = [], set()
     for f in findings:
         for field, label, kind in CORRECTIONS.get(f["rule_id"], []):
             if field in seen:
                 continue
             seen.add(field)
-            out.append({"field": field, "label": label, "type": kind, "rule_id": f["rule_id"],
-                        "reason": f["reason"], "current": case.application.get(field)})
+            types = field_docs(case.kind, field)
+            out.append({"field": field, "label": label, "type": "document" if types else kind,
+                        "rule_id": f["rule_id"], "reason": f["reason"], "current": case.application.get(field),
+                        "doc_types": [{"value": t, "label": DOC_TYPES[t]["label"]} for t in types],
+                        "documents": [doc_dict(d) for d in docs
+                                      if d.doc_type in types and d.status != "not_in_good_order"]})
     return out
 
 
 def available_decisions(case: Case, user: User) -> list[dict]:
     out = []
     for key, spec in DECISIONS.items():
-        if case.status in spec["statuses"] and user.role in spec["proposer"]:
+        if case.status in spec["statuses"] and user.role in spec["proposer"] and not spec.get("direct"):
             out.append({"decision_type": key, "label": spec["label"],
                         "values": [{"value": v, "label": l} for v, l in spec["values"].items()],
                         "approver_roles": spec["approver"]})
@@ -145,11 +154,13 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "restrictions": [restriction_dict(r) for r in restrictions],
         "decision_log": [decision_dict(db, d) for d in pending],
         "available_decisions": [] if user.role in ("ria_admin", "ria_user", "client") else available_decisions(c, user),
-        "corrections": corrections_for(c) if user.role in ("ops_analyst", "ops_supervisor", "ria_admin", "ria_user",
+        "corrections": corrections_for(db, c) if user.role in ("ops_analyst", "ops_supervisor", "ria_admin", "ria_user",
                                                            "client") else [],
         "account": {"id": account.id, "status": account.status, "group": account.group,
                     "display_name": account.display_name} if account else None,
         "manual_steps": c.manual_steps, "nigo_count": c.nigo_count, "closed_at": iso(c.closed_at),
+        "acceptance": None if user.role in ("ria_admin", "ria_user", "client") else acceptance_state(db, c, user),
+        "documents": [doc_dict(d) for d in case_documents(db, c)],
     })
     return data
 

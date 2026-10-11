@@ -14,6 +14,8 @@ QUEUES = {
                      "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 24},
     "verification": {"label": "Identity verification", "owner": "Custody operations",
                      "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 72},
+    "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
+                             "roles": ["ria_service"], "sla_hours": 24},
 }
 
 _BY_STATUS = {
@@ -23,6 +25,7 @@ _BY_STATUS = {
     "PENDING_EDD": "edd_review",
     "PENDING_CONFIRMATION": "confirmation",
     "PENDING_VERIFICATION": "verification",
+    "PENDING_ACCEPTANCE": "principal_acceptance",
 }
 
 CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED"}
@@ -56,4 +59,9 @@ DECISIONS = {
     "verification": {"label": "Identity verification of new parties", "statuses": ["PENDING_VERIFICATION"],
                      "values": {"verified": "Identity verified"},
                      "proposer": ["ops_analyst", "ops_supervisor"], "approver": ["ops_supervisor"]},
+    # Not maker-checker: operations prepared the case, and a registered principal accepts it directly.
+    # Gated on the person's FINRA registration, not only the role (see routers/cases.py).
+    "acceptance": {"label": "Principal acceptance (FINRA Rule 4512)", "statuses": ["PENDING_ACCEPTANCE"],
+                   "values": {"accepted": "Accepted", "declined": "Declined"},
+                   "proposer": ["ria_service"], "approver": ["ria_service"], "direct": True},
 }

@@ -9,7 +9,7 @@ import io
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from extraction import DEFAULT_MODEL, extract_firm_application, gate
@@ -18,6 +18,7 @@ from sample_data import FIRM_PACKAGE_TEXT, ILLUSTRATIVE_EXTRACTION
 from .. import audit
 from ..config import settings
 from ..db import get_db
+from ..documents import attach_at_intake, store
 from ..orm import AiUsage, User
 from ..runner import run_case
 from ..security import require_roles
@@ -46,23 +47,24 @@ def status(user: User = Depends(ops), db: Session = Depends(get_db)):
             "cap": settings.ai_daily_cap, "sample_text": FIRM_PACKAGE_TEXT}
 
 
-def _read(file: UploadFile | None, text: str | None) -> str:
+def _read(file: UploadFile | None, text: str | None) -> tuple[str, bytes | None, str | None]:
+    """The package's text, plus the original PDF bytes and file name when a PDF was uploaded."""
     if text and text.strip():
-        return text.replace("\r\n", "\n")   # browsers send form text with CRLF line breaks
+        return text.replace("\r\n", "\n"), None, None   # browsers send form text with CRLF line breaks
     if file is None:
         raise HTTPException(422, "Upload a PDF or text file, or paste the text")
     raw = file.file.read()
-    if file.filename and file.filename.lower().endswith(".pdf"):
+    if raw.startswith(b"%PDF"):
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(raw))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
-    return raw.decode("utf-8", errors="replace").replace("\r\n", "\n")
+        return "\n".join(page.extract_text() or "" for page in reader.pages), raw, file.filename
+    return raw.decode("utf-8", errors="replace").replace("\r\n", "\n"), None, file.filename
 
 
 @router.post("/extract")
 def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
             user: User = Depends(ops), db: Session = Depends(get_db)):
-    document = _read(file, text)
+    document, original, filename = _read(file, text)
     if len(document) > 60_000:
         raise HTTPException(413, "Keep packages under 60,000 characters for the demo")
     usage = _usage(db, settings.today())
@@ -90,6 +92,9 @@ def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
                                  + (f" as case {prior.id}" if prior else ""))
     extraction = {**result.to_dict(), "mode": mode, "document": document[:20_000]}
     case = create_firm_case(db, result.application, user, extraction=extraction)
+    raw = original if original is not None else document.encode("utf-8")
+    store(db, case, user, "application_package", filename or "application-package.txt", raw, "intake",
+          content_type=None if original is not None else "text/plain")
     audit.record(db, user, "ai_extraction", "case", case.id, case_id=case.id, mode=mode, model=result.model,
                  accepted=len(result.accepted), rejected=len(result.rejected))
     run_case(db, case, user)
@@ -99,6 +104,7 @@ def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
 
 class FirmForm(BaseModel):
     application: dict
+    documents: list[dict] = Field(default_factory=list)   # [{doc_type, sample} or {doc_type, filename, content_b64}]
 
 
 @router.post("/firm")
@@ -109,11 +115,19 @@ def firm_by_form(body: FirmForm, user: User = Depends(ops), db: Session = Depend
         raise HTTPException(422, f"Application not readable: {exc}")
     if not app.legal_name:
         raise HTTPException(422, "The firm's legal name is required")
+    # Documents count only when attached, and identity is verified by a person after the documents arrive
+    from dataclasses import replace
+    app = replace(app, formation_documents=False, ownership_chart=False, beneficial_ownership_certification=False,
+                  custodial_agreement_signed=False, reliance_contract=False,
+                  people=[replace(p, identity_verified=False) for p in app.people])
     from sqlalchemy import select
     from ..orm import Firm
     if app.crd_number and db.scalar(select(Firm).where(Firm.crd == app.crd_number)):
         raise HTTPException(409, "A firm with that CRD number already exists")
     case = create_firm_case(db, app, user)
+    fields = attach_at_intake(db, case, user, body.documents, "email")
+    if fields:
+        case.application = {**case.application, **fields}
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)

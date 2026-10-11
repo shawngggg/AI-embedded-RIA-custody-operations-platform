@@ -5,8 +5,9 @@ client account opening (02).
 Each run returns a step-by-step trace in the maps' lanes, the resulting
 status, every rule finding with its citation, the restriction codes placed,
 and an audit record. A run stops where the map waits: for missing items, a
-compliance review, a sanctions determination, or an EDD decision. The
-decisions people make are inputs (Decisions), so every branch can be replayed.
+compliance review, a sanctions determination, an EDD decision, or the
+registered principal's acceptance. The decisions people make are inputs
+(Decisions), so every branch can be replayed.
 
 What runs where:
   - Milestone 1 (Shawn's models.py): the account-opening gate (can_open) and
@@ -42,6 +43,13 @@ RULES = "Rules and controls engine"
 AML = "AML compliance"
 SANCTIONS = "Sanctions team"
 LEDGER = "Ledger and account services"
+PRINCIPAL = "RIA service team"
+
+# The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it
+# opens, including an RIA's master account, is accepted by a registered principal on the RIA service team.
+# Operations prepares the case and needs no license.
+ACCEPTANCE_SOURCE = ("FINRA Rule 4512(a)(1)(D): the signature of the partner, officer or manager accepting "
+                     "the account under the member's procedures; firms assign this to a registered principal")
 
 ROUTE_LABELS = {"acats_in_kind": "ACATS in kind", "loi": "LOI", "liquidate": "Liquidate",
                 "product_acceptance": "Product acceptance", "review": "Review"}
@@ -67,6 +75,8 @@ class Decisions:
     sanctions_reference: str = "DET-DEMO-0001"
     edd: str | None = None                    # approved | declined
     edd_reference: str = "EDD-DEMO-0001"
+    acceptance: str | None = None             # accepted | declined, by a registered principal
+    acceptance_by: str = "Registered principal (demo)"
 
 
 @dataclass
@@ -197,6 +207,20 @@ def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name) -> str
     return None
 
 
+def _accept(res: OnboardingResult, decisions, what: str) -> str | None:
+    """Principal acceptance (FINRA Rule 4512). Returns a stop status, or None once accepted."""
+    name = f"Principal acceptance of the {what} (FINRA Rule 4512)"
+    if decisions.acceptance is None:
+        res.add(PRINCIPAL, name, "Waiting for a registered principal",
+                ["Every check before this step is complete", ACCEPTANCE_SOURCE])
+        return "PENDING_ACCEPTANCE"
+    if decisions.acceptance == "declined":
+        res.add(PRINCIPAL, name, "Declined by the registered principal", [decisions.acceptance_by])
+        return "DECLINED"
+    res.add(PRINCIPAL, name, "Accepted", [f"Accepted by {decisions.acceptance_by}"])
+    return None
+
+
 def _pep_media_step(res: OnboardingResult, people) -> None:
     hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
     hits += [f"{p.name}: adverse media" for p in people if p.adverse_media]
@@ -291,6 +315,10 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     res.add(RULES, "Determine reliance eligibility",
             "Eligible: pure RIA accounts can use Path A" if reliance.eligible else
             "Not eligible: the firm's accounts take Path B", reliance.reasons)
+    stop = _accept(res, decisions, "RIA relationship and master account")
+    if stop:
+        res.status = stop
+        return res
     ria = to_ria_firm(app, active=True)
     res.record = ria
     ident = app.crd_number or "NEW"
@@ -429,6 +457,10 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.status = stop
         return res
 
+    stop = _accept(res, decisions, "account")
+    if stop:
+        res.status = stop
+        return res
     res.record = account
     codes = registry.active_codes(app.account_id)
     ident = ria_app.crd_number or "NEW"
