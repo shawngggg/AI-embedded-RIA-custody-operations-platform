@@ -2,6 +2,8 @@
 
 **Live viewer:** https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/
 
+**Live MVP:** https://ria-custody-1638463558.us-central1.run.app/ (synthetic data; sign in as any demo role, no password. The first visit after a quiet spell takes a few seconds while the app and database wake up.)
+
 **Product requirements:** [PRD.md](PRD.md), covering users, the MVP, architecture, releases, and success metrics
 
 A BPMN 2.0 process architecture for an AI-embedded RIA custody operations platform: 25 detailed processes covering the full account lifecycle, from RIA firm onboarding and product acceptance through trading, settlement, billing, reporting, retirement servicing, transitions, offboarding, escheatment, and regulatory filings.
@@ -132,7 +134,7 @@ python -m pytest app/tests -v        # 49 API tests
 
 For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app --reload`; Vite forwards `/api` to the app.
 
-[docs/DEPLOY.md](docs/DEPLOY.md) deploys it to Google Cloud Run with a Neon database, at no cost for a demo. GitHub Actions runs the engine tests, the API tests on SQLite and Postgres, a migration check, and the frontend build on every push.
+It runs live on Google Cloud Run with a Neon database, at no cost for a demo: https://ria-custody-1638463558.us-central1.run.app/. [docs/DEPLOY.md](docs/DEPLOY.md) has the deployment steps. GitHub Actions runs the engine tests, the API tests on SQLite and Postgres, a migration check, and the frontend build on every push.
 
 ## Repository contents
 
@@ -155,7 +157,7 @@ For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app -
 
 1. Map every process (done) and validate the two maps still in review.
 2. Build the onboarding module in Python, extending my [onboarding execution engine](https://github.com/shawngggg/onboarding-execution-engine) (policy-as-code KYC/AML rules), with a browser console (done).
-3. Build the MVP web app for the custody operations team, RIAs, and clients (built; deployment next).
+3. Build the MVP web app for the custody operations team, RIAs, and clients (built and deployed).
 4. Add the remaining modules (transfers, settlement, reconciliation, billing, reporting).
 
 ## Notes
