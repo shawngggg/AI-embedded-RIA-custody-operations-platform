@@ -237,7 +237,8 @@ class Document(Base):
     uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     uploaded_by_name: Mapped[str] = mapped_column(String(120))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    status: Mapped[str] = mapped_column(String(30), default="received")  # received | in_good_order | not_in_good_order
+    status: Mapped[str] = mapped_column(String(30), default="received")
+    # received | in_good_order | not_in_good_order | superseded (another copy was accepted for the same item)
     reviewed_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)

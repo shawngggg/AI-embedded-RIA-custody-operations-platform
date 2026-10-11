@@ -128,7 +128,7 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
                         "rule_id": f["rule_id"], "reason": f["reason"], "current": case.application.get(field),
                         "doc_types": [{"value": t, "label": DOC_TYPES[t]["label"]} for t in types],
                         "documents": [doc_dict(d) for d in docs
-                                      if d.doc_type in types and d.status != "not_in_good_order"]})
+                                      if d.doc_type in types and d.status in ("received", "in_good_order")]})
     return out
 
 

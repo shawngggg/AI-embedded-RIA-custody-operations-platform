@@ -46,7 +46,7 @@ export type Check = { check: string; result: "pass" | "fail" | "manual"; detail:
 export type Doc = {
   id: number; case_id: number; doc_type: string; type_label: string; filename: string; content_type: string;
   size: number; sha256: string; channel: string; channel_label: string; received_on: string; uploaded_by: string;
-  uploaded_at: string | null; status: "received" | "in_good_order" | "not_in_good_order"; reviewed_by: string | null;
+  uploaded_at: string | null; status: "received" | "in_good_order" | "not_in_good_order" | "superseded"; reviewed_by: string | null;
   reviewed_at: string | null; review_note: string | null; checks: Check[]; checks_passed: boolean; synthetic: boolean;
 };
 

@@ -194,6 +194,24 @@ def test_items_received_need_the_document_and_operations(as_user):
     assert {d["sha256"] for d in event["detail"]["documents"]} == {lpoa["sha256"], w9["sha256"]}
 
 
+def test_the_same_file_twice_is_refused_and_extra_copies_are_closed_out(as_user):
+    ops = as_user("ops.analyst")
+    cid = case_id(ops, "Rosa Delgado")
+    first = upload_sample(ops, cid, "lpoa")
+    again = ops.post(f"/api/cases/{cid}/documents", data={"doc_type": "lpoa", "sample": "true"})
+    assert again.status_code == 409 and first["filename"] in again.json()["detail"]
+    # A different copy of the same document (re-sent with another date) is allowed
+    other = ops.post(f"/api/cases/{cid}/documents", data={"doc_type": "lpoa", "sample": "true",
+                                                         "received_on": "2026-10-09"}).json()
+    assert other["sha256"] != first["sha256"]
+    w9 = upload_sample(ops, cid, "w9")
+    detail = ops.post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"lpoa_signed": True, "tax_form": "W-9"},
+        "documents": {"lpoa_signed": other["id"], "tax_form": w9["id"]}}).json()
+    status = {d["id"]: d["status"] for d in detail["documents"]}
+    assert status[other["id"]] == "in_good_order" and status[first["id"]] == "superseded"
+
+
 def test_a_document_marked_not_in_good_order_cant_back_an_item(as_user):
     ops = as_user("ops.analyst")
     cid = case_id(ops, "Rosa Delgado")

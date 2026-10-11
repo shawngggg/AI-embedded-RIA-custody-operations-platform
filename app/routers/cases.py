@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..acceptance import accept_case
 from ..config import settings
-from ..documents import DOC_TYPES, field_docs, mark
+from ..documents import DOC_TYPES, field_docs, mark, supersede_others
 from ..db import get_db
 from ..orm import Case, Document, PendingDecision, Review, User, utcnow
 from ..queues import DECISIONS, QUEUES
@@ -128,9 +128,10 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     case.application = app
     case.manual_steps += 1
     for doc in evidence:
+        field = next(f for f in claimed if body.documents.get(f) == doc.id)
         if doc.status != "in_good_order":
-            field = next(f for f in claimed if body.documents.get(f) == doc.id)
             mark(db, doc, "in_good_order", user.display_name, user, body.overrides.get(field))
+        supersede_others(db, doc, field_docs(case.kind, field), user.display_name, user)
     audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted(fields),
                  verify_people=body.verify_people or None, control_person=body.control_person, note=body.note,
                  documents=[{"id": d.id, "doc_type": d.doc_type, "sha256": d.sha256} for d in evidence] or None)

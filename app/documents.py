@@ -255,10 +255,16 @@ def store(db: Session, case: Case, user: User | None, doc_type: str, filename: s
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Keep documents under 5 MB")
     content_type = content_type or sniff(data)
+    sha = hashlib.sha256(data).hexdigest()
+    same = db.scalar(select(Document).where(Document.case_id == case.id, Document.sha256 == sha,
+                                            Document.status != "not_in_good_order"))
+    if same is not None:
+        raise HTTPException(409, f"This exact file is already on the case: {same.filename}, added by "
+                                 f"{same.uploaded_by_name} on {same.received_on.isoformat()}")
     names, tax_ids = subject_names(db, case)
     doc = Document(case_id=case.id, target_id=case.target_id, doc_type=doc_type,
                    filename=(filename or f"{doc_type}.pdf")[:200], content_type=content_type, size=len(data),
-                   sha256=hashlib.sha256(data).hexdigest(), data=data, channel=channel,
+                   sha256=sha, data=data, channel=channel,
                    received_on=received_on or settings.today(), uploaded_by=user.id if user else None,
                    uploaded_by_name=actor_name or (user.display_name if user else "system"),
                    checks=pre_checks(data, content_type, doc_type, names, tax_ids, right_tax_form(db, case)),
@@ -273,9 +279,19 @@ def store(db: Session, case: Case, user: User | None, doc_type: str, filename: s
 
 def mark(db: Session, doc: Document, status: str, reviewer: str, user: User | None, note: str | None = None) -> None:
     doc.status, doc.reviewed_by_name, doc.reviewed_at, doc.review_note = status, reviewer, utcnow(), note
-    audit.record(db, user, "document_in_good_order" if status == "in_good_order" else "document_not_in_good_order",
+    action = {"in_good_order": "document_in_good_order", "superseded": "document_superseded"}.get(
+        status, "document_not_in_good_order")
+    audit.record(db, user, action,
                  "document", doc.id, case_id=doc.case_id, doc_type=doc.doc_type, sha256=doc.sha256,
                  reviewer=reviewer, note=note)
+
+
+def supersede_others(db: Session, accepted: Document, types: list[str], reviewer: str, user: User | None) -> None:
+    """Once one copy satisfies an item, other copies still waiting on the same item are closed out."""
+    others = db.scalars(select(Document).where(Document.case_id == accepted.case_id, Document.id != accepted.id,
+                                               Document.doc_type.in_(types), Document.status == "received")).all()
+    for doc in others:
+        mark(db, doc, "superseded", reviewer, user, f"{accepted.filename} was accepted for this item")
 
 
 def decode_upload(item: dict) -> tuple[str, bytes]:

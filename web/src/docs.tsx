@@ -31,6 +31,7 @@ export function fileToBase64(file: File): Promise<string> {
 const STATUS_LABEL: Record<Doc["status"], [string, string]> = {
   received: ["Received, not yet checked", "refer"], in_good_order: ["In good order", "clear"],
   not_in_good_order: ["Not in good order", "block"],
+  superseded: ["Superseded by another copy", "quiet"],
 };
 const MARK: Record<string, string> = { pass: "✓", fail: "✗", manual: "?" };
 

@@ -298,6 +298,7 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
   const [values, setValues] = useState<Record<string, any>>({});
   const [chosen, setChosen] = useState<Record<string, number>>({});     // field -> document id checked in good order
   const [overrides, setOverrides] = useState<Record<string, string>>({}); // field -> why a failed check is fine
+  const [another, setAnother] = useState<Record<string, boolean>>({});     // field -> show the upload for a different copy
   const [control, setControl] = useState("");
   const [bank, setBank] = useState({ name: "", aba: "", account_last4: "" });
   const docItems = d.corrections.filter((c) => c.type === "document");
@@ -355,7 +356,13 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
           ))}
           {!c.documents.length && <p className="muted small">Nothing attached yet.{ops ? "" : " Upload it here; operations checks it and records the item."}</p>}
           {!ops && c.documents.length > 0 && <p className="muted small">Received. Operations checks it and records the item.</p>}
-          <DocUpload compact caseId={d.id} types={c.doc_types} onUploaded={(doc) => onRefresh(`${doc.filename} attached.`)} />
+          {c.documents.length === 0 || another[c.field] ? (
+            <DocUpload compact caseId={d.id} types={c.doc_types}
+              onUploaded={(doc) => { setAnother({ ...another, [c.field]: false }); onRefresh(`${doc.filename} attached.`); }} />
+          ) : (
+            <button type="button" className="small secondary" onClick={() => setAnother({ ...another, [c.field]: true })}>
+              Attach a different copy</button>
+          )}
         </div>
       ))}
       {otherItems.map((c) => (

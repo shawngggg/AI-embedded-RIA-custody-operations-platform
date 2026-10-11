@@ -84,8 +84,8 @@ def reject(doc_id: int, body: NotInGoodOrder, user: User = Depends(current_user)
     get_case_for(db, user, doc.case_id)
     if user.role not in OPS:
         raise HTTPException(403, "Operations checks documents")
-    if doc.status == "in_good_order":
-        raise HTTPException(409, "This document was already accepted in good order")
+    if doc.status != "received":
+        raise HTTPException(409, "Only a document waiting to be checked can be marked not in good order")
     mark(db, doc, "not_in_good_order", user.display_name, user, body.reason)
     db.commit()
     return doc_dict(doc)
