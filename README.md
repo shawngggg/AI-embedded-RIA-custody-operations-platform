@@ -106,7 +106,7 @@ python onboarding/demo.py           # every scenario, printed step by step
 
 ## MVP web app
 
-`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed.
+`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed. Transfers, trading, and fee billing appear in the portal as planned pages marked with their release (2 or 3); they need the ledger, which comes first.
 
 What each role can do:
 

@@ -16,6 +16,7 @@ import PortalHome from "./pages/PortalHome";
 import NewAccount from "./pages/NewAccount";
 import NewChange from "./pages/NewChange";
 import RiskEvents from "./pages/RiskEvents";
+import Planned from "./pages/Planned";
 import { Loading } from "./util";
 
 type Counts = { queues: { key: string; count: number; breached: number }[]; pending_approvals: number };
@@ -72,6 +73,10 @@ export default function App() {
               {user.role !== "client" && <NavLink to="/portal/new-account">New account</NavLink>}
               <NavLink to="/portal/change">Account change</NavLink>
               {user.role === "ria_admin" && <NavLink to="/portal/users">Firm users</NavLink>}
+              <div className="group">Later releases</div>
+              <NavLink to="/portal/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>
+              <NavLink to="/portal/trading" className="planned">Trading <span className="badge">R3</span></NavLink>
+              {user.role !== "client" && <NavLink to="/portal/billing" className="planned">Billing <span className="badge">R3</span></NavLink>}
             </>
           )}
         </nav>
@@ -110,6 +115,9 @@ export default function App() {
                 <Route path="/portal/new-account" element={<NewAccount />} />
                 <Route path="/portal/change" element={<NewChange />} />
                 <Route path="/portal/users" element={<Admin portal />} />
+                <Route path="/portal/transfers" element={<Planned which="transfers" />} />
+                <Route path="/portal/trading" element={<Planned which="trading" />} />
+                {user.role !== "client" && <Route path="/portal/billing" element={<Planned which="billing" />} />}
                 <Route path="/portal/cases/:id" element={<CasePage />} />
                 <Route path="*" element={<Navigate to="/portal" replace />} />
               </>

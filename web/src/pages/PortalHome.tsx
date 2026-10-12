@@ -11,8 +11,8 @@ export default function PortalHome() {
   return (
     <>
       <h1>{client ? "Your self-directed account" : `${user.firm?.name}: accounts and requests`}</h1>
-      <p className="muted">{client ? "You trade here and can change your account details. Your RIA can see this account but doesn't manage it."
-        : "Submit applications and account changes for your firm's pure RIA accounts. Self-directed accounts are view-only for the RIA; the client changes them."}</p>
+      <p className="muted">{client ? "You can change your account details here. Your RIA can see this account but doesn't manage it. Trading and transfers arrive in later releases."
+        : "Submit applications and account changes for your firm's pure RIA accounts. Self-directed accounts are view-only for the RIA; the client changes them. Transfers, trading, and fee billing arrive in later releases."}</p>
       <div className="actions" style={{ marginBottom: 16 }}>
         {!client && <Link to="/portal/new-account"><button>New account application</button></Link>}
         <Link to="/portal/change"><button className={client ? "" : "secondary"}>Request an account change</button></Link>
