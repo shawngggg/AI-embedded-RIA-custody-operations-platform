@@ -1854,7 +1854,9 @@ if(viewer){
   document.getElementById("zout").addEventListener("click",()=>zoomBy(0.8));
   document.getElementById("zfit").addEventListener("click",()=>viewer.get("canvas").zoom("fit-viewport","auto"));
 }
-show("ov");
+const fromHash = () => DIAGRAMS.some(d => d.k === location.hash.slice(1)) ? location.hash.slice(1) : null;
+addEventListener("hashchange", () => { const k = fromHash(); if (k) show(k); });
+show(fromHash() || "ov");
 </script>
 </body>
 </html>
