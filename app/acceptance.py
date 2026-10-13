@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .runner import run_case
+from .traceability import stamp
 from .orm import (LICENSED_ROLES, PRINCIPAL_REGISTRATIONS, SHORT_REGISTRATION, AuditEvent, Case, PendingDecision,
                   User, utcnow)
 
@@ -92,5 +93,5 @@ def accept_case(db: Session, case: Case, user: User, value: str, note: str | Non
     audit.record(db, user, "principal_accepted" if value == "accepted" else "principal_declined", "case", case.id,
                  case_id=case.id, signed_as=signed, registrations=list(user.registrations or []),
                  individual_crd=user.individual_crd, note=note, confirmed_review=reviewed or None,
-                 outstanding=(case.result or {}).get("requested_items") or None)
+                 outstanding=(case.result or {}).get("requested_items") or None, **stamp(case, "acceptance"))
     run_case(db, case, user)

@@ -36,11 +36,12 @@ def _scope(db: Session, actor: User, target: User | None = None, role: str | Non
     if actor.role == "platform_admin":
         return
     if role and role not in RIA_ADMIN_MAY_GRANT:
-        raise HTTPException(403, "An RIA administrator can grant only RIA user, RIA administrator, or client access")
+        audit.refuse(db, actor, "role_grant", "An RIA administrator can grant only RIA user, RIA administrator, or "
+                     "client access", target_type="user", target_id=target.id if target else "-", role=role)
     if target is not None and target.firm_id != actor.firm_id and target.role != "client":
-        raise HTTPException(403, "Only your firm's users")
+        audit.refuse(db, actor, "role_grant", "Only your firm's users", target_type="user", target_id=target.id)
     if firm_id is not None and firm_id != actor.firm_id:
-        raise HTTPException(403, "Only your firm")
+        audit.refuse(db, actor, "role_grant", "Only your firm", target_type="firm", target_id=firm_id)
 
 
 def _grant_dict(db: Session, g: RoleGrant) -> dict:

@@ -1,6 +1,7 @@
 """The append-only audit log."""
 from __future__ import annotations
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from .orm import AuditEvent, User
@@ -17,6 +18,15 @@ def record(db: Session, actor: User | None, action: str, target_type: str, targe
     )
     db.add(event)
     return event
+
+
+def refuse(db: Session, actor: User | None, action: str, reason: str, *, status: int = 403,
+           target_type: str = "case", target_id=None, case_id: int | None = None, **detail):
+    """Log a refused attempt (`<action>_refused`) and stop the request: every refusal leaves a trace."""
+    record(db, actor, f"{action}_refused", target_type, target_id if target_id is not None else (case_id or "-"),
+           case_id=case_id, reason=reason, **detail)
+    db.commit()
+    raise HTTPException(status, reason)
 
 
 def to_dict(e: AuditEvent) -> dict:

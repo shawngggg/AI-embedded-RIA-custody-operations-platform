@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import get_db
+from . import audit
 from .orm import INTERNAL_ROLES, User
 
 COOKIE = "session"
@@ -58,14 +59,16 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 def require_roles(*roles: str):
-    def guard(user: User = Depends(current_user)) -> User:
+    def guard(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
         if user.role not in roles:
-            raise HTTPException(403, f"This needs one of these roles: {', '.join(roles)}")
+            audit.refuse(db, user, "access", f"This needs one of these roles: {', '.join(roles)}",
+                         target_type="endpoint", target_id=f"{request.method} {request.url.path}")
         return user
     return guard
 
 
-def require_internal(user: User = Depends(current_user)) -> User:
+def require_internal(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
     if user.role not in INTERNAL_ROLES:
-        raise HTTPException(403, "Internal teams only")
+        audit.refuse(db, user, "access", "Internal teams only", target_type="endpoint",
+                     target_id=f"{request.method} {request.url.path}")
     return user

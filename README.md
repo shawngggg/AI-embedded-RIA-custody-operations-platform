@@ -129,7 +129,8 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 53 API tests
+python -m pytest app/tests -v        # 55 API tests
+python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 
 For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app --reload`; Vite forwards `/api` to the app.

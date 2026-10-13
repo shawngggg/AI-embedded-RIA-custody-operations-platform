@@ -7,7 +7,7 @@ Oct 11, 2026 · Shawn Ghodrati
 The product is an operations platform for RIA custody that runs the account lifecycle from RIA onboarding to escheatment. AI handles the messy inputs; deterministic rules and people make every decision; one three-layer ledger records the result.
 
 - **Status:** Phase 1, the process architecture, is done: 25 detailed process maps, the platform overview, and the integration architecture are published. Release 1's onboarding engine is built, and the MVP workbench on it is live on synthetic data.
-- **Next:** review the MVP against its success metrics; release 2 starts when that gate is met.
+- **Next:** close the MVP gate: 4 success metrics meet their targets and 1 is tracked; the other 3 need live AI or a timed first-time reviewer; release 2 starts when the gate closes.
 - **Form:** a product-grade web app on synthetic data, with simulated external connections behind production-shaped interfaces.
 - **Links:** [live process viewer](https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/) and [repository](https://github.com/shawngggg/AI-embedded-RIA-custody-operations-platform).
 
@@ -501,6 +501,23 @@ The MVP succeeds when a first-time reviewer can work a case end to end in minute
 | Reviewer walkthrough | Time for a first-time reviewer to sign in and take a seeded case from application to open account | Under 5 minutes | R1 (MVP) |
 | Role enforcement | Share of decision attempts by the wrong role that are refused and logged | 100% | R1 (MVP) |
 | Build health | Share of merges to main with every test passing in CI | 100% | R1 (MVP) |
+
+### MVP gate review (Oct. 12, 2026)
+
+Five of the eight release 1 metrics are measured on synthetic data: four meet their targets and one is tracked without a target. The other three need live AI or a timed first-time reviewer before the gate closes.
+
+| Metric | Target | Result | Status |
+| --- | --- | --- | --- |
+| Decision traceability | 100% | 41 of 41 decisions carry the approver, rule version, and citation | Met |
+| NIGO detection recall | 90% or higher | Not measured: needs live AI and a seeded NIGO test set | Open |
+| Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
+| AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
+| Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |
+| Reviewer walkthrough | Under 5 minutes | Not measured: needs a first-time reviewer, timed from sign-in to open account | Open |
+| Role enforcement | 100% | 131 of 131 wrong-role attempts refused and logged | Met |
+| Build health | 100% | 3 of 3 merges to main passed CI | Met |
+
+The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips.
 
 ## Release plan
 

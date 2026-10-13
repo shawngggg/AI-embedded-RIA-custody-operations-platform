@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from restrictions import CATALOG
 
+from . import audit
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .orm import REGISTRATIONS, ROLES, Account, Case, Firm, PendingDecision, Restriction, Review, User
@@ -68,8 +69,11 @@ def can_see(db: Session, user: User, case: Case) -> bool:
 
 def get_case_for(db: Session, user: User, case_id: int) -> Case:
     case = db.get(Case, case_id)
-    if case is None or not can_see(db, user, case):
+    if case is None:
         raise HTTPException(404, "No such case")
+    if not can_see(db, user, case):
+        # Same answer as a missing case, so nothing leaks; logged, because probing other firms' cases is a signal
+        audit.refuse(db, user, "access", "No such case", status=404, case_id=case.id, scope="outside the user's firm or account")
     return case
 
 

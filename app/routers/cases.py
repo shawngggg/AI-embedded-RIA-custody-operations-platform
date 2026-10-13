@@ -16,6 +16,7 @@ from ..orm import Case, Document, PendingDecision, Review, User, utcnow
 from ..queues import DECISIONS, QUEUES
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
+from ..traceability import stamp
 from ..views import (CORRECTIONS, case_detail, case_summary, decision_dict, get_case_for, review_dict,
                      sla_state)
 
@@ -86,7 +87,7 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
                        db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
     if user.role not in OPS + ("ria_admin", "ria_user", "client"):
-        raise HTTPException(403, "Operations or the requester resolves missing items")
+        audit.refuse(db, user, "items_received", "Operations or the requester resolves missing items", case_id=case.id)
     waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
     if not waiting or not (case.result or {}).get("findings", {}).get("decisions"):
         raise HTTPException(409, "This case isn't waiting for items")
@@ -101,8 +102,8 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     if body.verify_people:
         claimed.append("verify_people")
     if claimed and user.role not in OPS:
-        raise HTTPException(403, "Operations checks each document before the item is marked received. "
-                                 "Upload the document, and operations records it.")
+        audit.refuse(db, user, "items_received", "Operations checks each document before the item is marked received. "
+                     "Upload the document, and operations records it.", case_id=case.id, fields=sorted(claimed))
     evidence = []
     for f in claimed:
         doc = db.get(Document, body.documents.get(f, -1))
@@ -185,7 +186,7 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
     db.flush()
     case.manual_steps += 1
     audit.record(db, user, "decision_proposed", "case", case.id, case_id=case.id, decision_type=body.decision_type,
-                 value=body.value, reference=body.reference)
+                 value=body.value, reference=body.reference, **stamp(case, body.decision_type))
     db.commit()
     return decision_dict(db, d)
 
@@ -278,7 +279,8 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
         raise HTTPException(403, "The person who proposed a decision can't approve it")
     d.status, d.decided_by, d.decided_at = ("approved" if approve else "rejected"), user.id, utcnow()
     audit.record(db, user, "decision_approved" if approve else "decision_rejected", "case", case.id,
-                 case_id=case.id, decision_type=d.decision_type, value=d.value, reference=d.reference, note=body.note)
+                 case_id=case.id, decision_type=d.decision_type, value=d.value, reference=d.reference, note=body.note,
+                 proposed_by=d.proposed_by, **stamp(case, d.decision_type))
     if d.decision_type == "rescission":
         (rescission.approve if approve else rescission.reject)(db, d, case, user)
     elif approve:

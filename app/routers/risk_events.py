@@ -46,7 +46,8 @@ def update(event_id: int, body: Update, user: User = Depends(require_internal), 
     if e is None:
         raise HTTPException(404, "No such event")
     if user.role not in LEADS:
-        raise HTTPException(403, "A team lead records the remediation path")
+        audit.refuse(db, user, "ops_risk_event_update", "A team lead records the remediation path",
+                     target_type="ops_risk_event", target_id=e.id, case_id=e.case_id)
     if e.status == "closed":
         raise HTTPException(409, "This event is closed")
     if body.remediation not in REMEDIATION:

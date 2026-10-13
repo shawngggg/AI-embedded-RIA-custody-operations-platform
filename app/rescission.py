@@ -25,6 +25,7 @@ from . import audit
 from .acceptance import holds_principal
 from .orm import LICENSED_ROLES, Account, Case, Firm, OpsRiskEvent, PendingDecision, Restriction, User, utcnow
 from .runner import run_case
+from .traceability import stamp
 
 OPENED = ("OPEN", "OPEN_RESTRICTED", "ACTIVE")
 KINDS = {"accepted_before_review": "Accepted before the review was finished",
@@ -77,7 +78,7 @@ def request(db: Session, case: Case, user: User, kind: str, reason: str, return_
     audit.record(db, user, "restriction_placed", "restriction", hold.id, case_id=case.id, code="RSCN",
                  target=case.target_id, owner=hold.owner, reason=hold.reason)
     audit.record(db, user, "rescission_requested", "case", case.id, case_id=case.id, reference=ref, kind=kind,
-                 return_to=return_to, reason=reason.strip())
+                 return_to=return_to, reason=reason.strip(), **stamp(case, "rescission"))
     return d
 
 
