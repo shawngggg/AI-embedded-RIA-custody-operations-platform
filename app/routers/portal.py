@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from account_changes import ChangeType
 from models import AccountGroup
 
+from .. import audit
 from ..db import get_db
 from ..orm import Account, Firm, User
 from ..runner import run_case
@@ -65,7 +66,8 @@ def new_account(body: NewAccount, user: User = Depends(current_user), db: Sessio
     elif user.role in ("ops_analyst", "ops_supervisor"):
         firm = db.scalar(select(Firm).where(Firm.crd == body.firm_crd))
     else:
-        raise HTTPException(403, "RIA users and operations submit account applications")
+        audit.refuse(db, user, "account_application", "RIA users and operations submit account applications",
+                     target_type="firm", target_id="-")
     if firm is None:
         raise HTTPException(422, "Unknown firm")
     data = dict(body.application)
@@ -110,7 +112,8 @@ def new_change(body: NewChange, user: User = Depends(current_user), db: Session 
     if user.role == "client" and account.id != user.client_account_id:
         raise HTTPException(404, "No open account with that id")
     if user.role not in ("ria_admin", "ria_user", "client", "ops_analyst"):
-        raise HTTPException(403, "RIA users, the client, or operations submit changes")
+        audit.refuse(db, user, "account_change", "RIA users, the client, or operations submit changes",
+                     target_type="account", target_id=account.id)
     try:
         ChangeType(body.change_type)
     except ValueError:

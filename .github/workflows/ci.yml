@@ -33,6 +33,8 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://app:app@localhost:5432/mvp_test
         run: python -m pytest app/tests -q
+      - name: MVP gate metrics (traceability, straight-through, role enforcement)
+        run: python tools/gate_review.py --check --no-github
       - name: Migrations match the data model
         env:
           DATABASE_URL: postgresql://app:app@localhost:5432/mvp_test

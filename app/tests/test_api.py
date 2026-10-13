@@ -670,3 +670,42 @@ def test_demo_reset(as_user):
     assert admin.post("/api/admin/reset").json() == {"ok": True}
     admin = as_user("admin.platform")
     assert "temp.user" not in {u["username"] for u in admin.get("/api/admin/users").json()}
+
+
+# --- Gate metrics: traceability and logged refusals -------------------------------------
+
+
+def test_every_decision_event_carries_its_basis(as_user):
+    cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
+    d = as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-T-1"}).json()
+    as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
+    event = as_user("ops.analyst").get("/api/audit?action=decision_approved").json()[0]["detail"]
+    assert event["policy_version"] == "2026.10"
+    sanctions = [b for b in event["basis"] if b["rule_id"] == "SCR-001"][0]
+    assert "31 CFR Chapter V" in sanctions["source"] and sanctions["flagged_entries"]
+    lena = case_id(as_user("ops.analyst"), "Lena Park")
+    accepted = accept(as_user("rs.principal"), lena)
+    assert accepted["status"] == "OPEN"
+    event = as_user("ops.analyst").get("/api/audit?action=principal_accepted").json()[0]["detail"]
+    assert event["policy_version"] and any(b["rule_id"] == "FINRA-4512" for b in event["basis"])
+    assert all(b["source"] and b["rule_version"] for b in event["basis"])
+
+
+def test_refusals_are_logged_not_just_refused(as_user):
+    def refused(action):
+        return as_user("admin.platform").get(f"/api/audit?action={action}").json()
+    assert as_user("granite.advisor").get("/api/queues").status_code == 403
+    assert refused("access_refused")[0]["detail"]["reason"] == "Internal teams only"
+    rosa = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    assert as_user("granite.advisor").get(f"/api/cases/{rosa}").status_code == 404     # another firm's case
+    assert refused("access_refused")[0]["case_id"] == rosa
+    doc = upload_sample(as_user("bonneville.advisor"), rosa, "lpoa")
+    assert as_user("bonneville.advisor").post(f"/api/documents/{doc['id']}/reject",
+                                              json={"reason": "Unsigned"}).status_code == 403
+    assert refused("document_check_refused")
+    event = as_user("rs.lead").get("/api/risk-events").json()["events"]
+    if event:
+        assert as_user("ops.analyst").post(f"/api/risk-events/{event[0]['id']}", json={
+            "remediation": "training", "note": "Refresher training for the team"}).status_code == 403
+        assert refused("ops_risk_event_update_refused")

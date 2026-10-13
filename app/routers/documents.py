@@ -6,6 +6,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from .. import audit
 from ..config import settings
 from ..db import get_db
 from ..documents import (CHANNELS, DOC_TYPES, FIELD_DOCS, MAX_BYTES, case_documents, doc_dict, mark, reopen,
@@ -40,7 +41,7 @@ def upload(case_id: int, doc_type: str = Form(...), channel: str = Form("portal"
            db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
     if user.role not in OPS + REQUESTERS:
-        raise HTTPException(403, "Operations or the requester adds documents")
+        audit.refuse(db, user, "document_upload", "Operations or the requester adds documents", case_id=case.id)
     if is_closed(case.kind, case.status):
         raise HTTPException(409, "This case is closed")
     if user.role in REQUESTERS:
@@ -93,7 +94,8 @@ def reject(doc_id: int, body: NotInGoodOrder, user: User = Depends(current_user)
         db.commit()
         return doc_dict(doc)
     if user.role not in OPS:
-        raise HTTPException(403, "Operations checks documents")
+        audit.refuse(db, user, "document_check", "Operations checks documents", target_type="document",
+                     target_id=doc.id, case_id=case.id)
     if doc.status != "received":
         raise HTTPException(409, "Only a document waiting to be checked can be marked not in good order")
     mark(db, doc, "not_in_good_order", user.display_name, user, body.reason)
