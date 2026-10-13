@@ -100,7 +100,7 @@ To run it from the repo root:
 
 ```
 pip install -r requirements.txt
-python -m pytest onboarding -v      # 208 tests
+python -m pytest onboarding -v      # 211 tests
 python onboarding/demo.py           # every scenario, printed step by step
 ```
 
@@ -129,7 +129,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 55 API tests
+python -m pytest app/tests -v        # 56 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 

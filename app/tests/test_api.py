@@ -709,3 +709,13 @@ def test_refusals_are_logged_not_just_refused(as_user):
         assert as_user("ops.analyst").post(f"/api/risk-events/{event[0]['id']}", json={
             "remediation": "training", "note": "Refresher training for the team"}).status_code == 403
         assert refused("ops_risk_event_update_refused")
+
+
+def test_intake_reports_how_live_ai_signs_in(as_user, monkeypatch):
+    from app.config import settings
+    ops = as_user("ops.analyst")
+    assert ops.get("/api/intake/status").json()["auth"] == "none"
+    monkeypatch.setattr(settings, "federation_rule_id", "fdrl_test")
+    monkeypatch.setattr(settings, "anthropic_org_id", "org_test")
+    status = ops.get("/api/intake/status").json()
+    assert status["live"] and status["auth"] == "workload identity federation"

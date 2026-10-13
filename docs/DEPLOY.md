@@ -76,6 +76,43 @@ gcloud run deploy ria-custody --source . --region us-central1 \
 
 Leave out `ANTHROPIC_API_KEY=...` if you skipped that secret.
 
+### Live AI without an API key: workload identity federation (recommended)
+
+Instead of storing an API key, the service proves who it is with a Google-signed identity token, and Anthropic
+exchanges it for a Claude API token that lasts minutes. Nothing secret is stored, and only this service can get a
+token. The app uses federation whenever `ANTHROPIC_FEDERATION_RULE_ID` and `ANTHROPIC_ORGANIZATION_ID` are set
+([Anthropic's guide](https://platform.claude.com/docs/en/manage-claude/wif-providers/gcp)).
+
+1. Give the service its own service account (federation doesn't accept the default compute account), and let it
+   read the two secrets:
+
+   ```bash
+   gcloud iam service-accounts create ria-custody-run --display-name="RIA custody Cloud Run service"
+   SA=ria-custody-run@$(gcloud config get-value project).iam.gserviceaccount.com
+   for s in ria-database-url ria-secret-key; do
+     gcloud secrets add-iam-policy-binding $s --member="serviceAccount:$SA" --role=roles/secretmanager.secretAccessor
+   done
+   gcloud iam service-accounts describe $SA --format='value(uniqueId)'    # needed in step 2
+   ```
+
+2. In the Claude Console, open **Settings → Workload identity → Connect workload → Google Cloud**. The issuer is
+   `https://accounts.google.com`. In the federation rule, set the audience to `https://api.anthropic.com` and match
+   both claims: `sub` = the unique ID from step 1, `email` = the service account address. Note the four IDs the
+   wizard shows: federation rule, organization, service account, and workspace.
+
+3. Deploy with the service account and the four IDs. They're identifiers, not secrets, so they go in plain
+   environment variables, and `ANTHROPIC_API_KEY` is left out:
+
+   ```bash
+   gcloud run deploy ria-custody --source . --region us-central1 --allow-unauthenticated \
+     --service-account $SA \
+     --min-instances 0 --max-instances 1 --cpu 1 --memory 512Mi --concurrency 40 --timeout 60 \
+     --set-env-vars COOKIE_SECURE=true,DEMO_MODE=true,AI_DAILY_CAP=50,ANTHROPIC_FEDERATION_RULE_ID=...,ANTHROPIC_ORGANIZATION_ID=...,ANTHROPIC_SERVICE_ACCOUNT_ID=...,ANTHROPIC_WORKSPACE_ID=... \
+     --set-secrets DATABASE_URL=ria-database-url:latest,SECRET_KEY=ria-secret-key:latest
+   ```
+
+The workbench's **New application** page says how live AI signs in ("signed in by workload identity federation").
+
 Cloud Build builds the `Dockerfile` (the React screens, then the Python app). On startup, the container
 applies database migrations and seeds the demo data into the empty database. `--max-instances 1` keeps
 migrations from racing and keeps the AI cap exact.
@@ -128,6 +165,7 @@ because Cloud Run starts the container and Neon resumes the database.
 | `DEMO_MODE` | `true` | Shows demo sign-in by role and allows the demo reset |
 | `SEED_ON_START` | `true` | Seeds an empty database on startup |
 | `ANTHROPIC_API_KEY` | none | Turns on live AI extraction |
+| `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID`, `ANTHROPIC_SERVICE_ACCOUNT_ID`, `ANTHROPIC_WORKSPACE_ID` | none | Turn on live AI through workload identity federation, with no key (preferred on Cloud Run) |
 | `AI_DAILY_CAP` | `50` | Live AI reads per day, across all users |
 | `RIA_EXTRACTION_MODEL` | `claude-haiku-5-5` | Model for live extraction |
 | `SESSION_HOURS` | `8` | Session length |

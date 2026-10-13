@@ -48,7 +48,7 @@ export default function Intake() {
         <section className="panel">
           <h2 style={{ marginTop: 0 }}>Read a package with AI</h2>
           <p className="muted small">
-            {status.data?.live ? `Live: ${status.data.model}, ${status.data.used_today} of ${status.data.cap} reads used today.`
+            {status.data?.live ? `Live: ${status.data.model}, signed in by ${status.data.auth}; ${status.data.used_today} of ${status.data.cap} reads used today.`
               : "Live AI is off on this server. The sample package runs through the controls gate with an illustrative, hand-written model response."}
             {" "}A value is accepted only if the model quotes it from the documents.
           </p>
