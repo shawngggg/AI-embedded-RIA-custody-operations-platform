@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .config import settings
-from .orm import Account, Case, Document, Firm, OpsRiskEvent, User, utcnow
+from .orm import Account, Case, Document, Firm, OpsRiskEvent, User, iso, utcnow
 
 MAX_BYTES = 5 * 1024 * 1024
 CHANNELS = {"portal": "RIA portal", "email": "Email", "fax": "Fax", "mail": "Mail", "intake": "Intake package"}
@@ -366,14 +366,11 @@ def reopen(db: Session, case: Case, doc: Document, user: User, reason: str) -> O
             account.application = {**account.application, field: value}
     event = None
     if was_open:
-        event = OpsRiskEvent(category="Document accepted in error", case_id=case.id, target_id=case.target_id,
-                             summary=f"{DOC_TYPES[doc.doc_type]['label']} ({doc.filename}) was accepted by "
-                                     f"{doc.reviewed_by_name or 'operations'} and later found not in good order: {reason}",
-                             detected_by=user.display_name, owner="ops_supervisor")
-        db.add(event)
-        db.flush()
-        audit.record(db, user, "ops_risk_event_logged", "ops_risk_event", event.id, case_id=case.id,
-                     category=event.category)
+        from .risk_register import log_event
+        event = log_event(db, user, category="Document accepted in error", risk_type="operational", source="document",
+                          summary=f"{DOC_TYPES[doc.doc_type]['label']} ({doc.filename}) was accepted by "
+                                  f"{doc.reviewed_by_name or 'operations'} and later found not in good order: {reason}",
+                          owner="ops_supervisor", detected_by=user.display_name, case=case)
     return event
 
 
@@ -382,8 +379,8 @@ def doc_dict(d: Document) -> dict:
             "filename": d.filename, "content_type": d.content_type, "size": d.size, "sha256": d.sha256,
             "channel": d.channel, "channel_label": CHANNELS.get(d.channel, d.channel),
             "received_on": d.received_on.isoformat(), "uploaded_by": d.uploaded_by_name,
-            "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None, "status": d.status,
-            "reviewed_by": d.reviewed_by_name, "reviewed_at": d.reviewed_at.isoformat() if d.reviewed_at else None,
+            "uploaded_at": iso(d.uploaded_at), "status": d.status,
+            "reviewed_by": d.reviewed_by_name, "reviewed_at": iso(d.reviewed_at),
             "review_note": d.review_note, "checks": d.checks or [], "checks_passed": checks_pass(d.checks or []),
             "synthetic": d.synthetic}
 

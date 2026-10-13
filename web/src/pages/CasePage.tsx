@@ -4,6 +4,7 @@ import { api, type CaseDetail, type Correction, type Doc } from "../api";
 import { isInternal, useAuth } from "../auth";
 import { Checks, DocList, DocStatus, DocUpload } from "../docs";
 import { LANES, Loading, slaText, Status, useLoad, when } from "../util";
+import { type Message, MessageBody } from "./Messages";
 
 const DOC_CHOICES = [
   ["account_application", "Client-signed account application"], ["lpoa", "Limited power of attorney (LPOA)"],
@@ -77,11 +78,13 @@ export default function CasePage() {
       <div className="tabs" role="tablist">
         {[["steps", "Steps"], ["documents", `Documents (${d.documents.length})`], ["findings", "Rule findings"], ["risk", "Risk"],
           ["transfer", "Transfer"], ["extraction", "AI extraction"], ["codes", "Codes"], ["audit", "Audit trail"],
-          ["data", "Application"]]
-          .filter(([k]) => (k !== "transfer" || r.transfer) && (k !== "extraction" || d.extra?.extraction) && (k !== "risk" || r.risk))
+          ["data", "Application"], ["discussion", "Discussion"]]
+          .filter(([k]) => (k !== "transfer" || r.transfer) && (k !== "extraction" || d.extra?.extraction) && (k !== "risk" || r.risk)
+            && (k !== "discussion" || user.capabilities?.messages))
           .map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
       </div>
 
+      {tab === "discussion" && <Discussion caseId={d.id} queue={d.queue} />}
       {tab === "steps" && (
         <ol className="steps">
           {(r.steps ?? []).map((s: any, i: number) => (
@@ -456,5 +459,25 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
       ))}
       {canSubmit && <button onClick={submit}>Record items and re-run</button>}
     </div>
+  );
+}
+
+
+const QUEUE_CHANNEL: Record<string, string> = { items_requested: "onboarding", rework: "onboarding", verification: "cip",
+  confirmation: "client-service", edd_review: "aml-compliance", compliance_review: "aml-compliance",
+  sanctions_review: "sanctions", principal_acceptance: "ria-service" };
+
+function Discussion({ caseId, queue }: { caseId: number; queue: string | null }) {
+  const about = useLoad(() => api<Message[]>(`/api/messages/about?case_id=${caseId}`), [caseId]);
+  const channel = QUEUE_CHANNEL[queue ?? ""] ?? "general";
+  return (
+    <>
+      <p className="muted small">Messages in the team channels that reference this case.{" "}
+        <Link to={`/messages?c=${channel}&draft=${encodeURIComponent(`Case #${caseId}: `)}`}>Discuss it in #{channel}</Link></p>
+      {!about.data ? <Loading /> : about.data.length ? about.data.map((m) => (
+        <article key={m.id} className="msg"><div className="msg-head"><strong>{m.author}</strong> in{" "}
+          <Link to={`/messages?c=${m.channel}`}>#{m.channel_name}</Link> <span className="muted small">{when(m.created_at)}</span></div>
+          <MessageBody m={m} /></article>)) : <div className="empty">No one has discussed this case yet.</div>}
+    </>
   );
 }

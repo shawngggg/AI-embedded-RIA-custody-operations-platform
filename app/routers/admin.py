@@ -21,7 +21,7 @@ from account_changes import CHANGE_RULES
 from .. import audit
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..orm import (DECISION_ROLES, LICENSED_ROLES, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
+from ..orm import (DECISION_ROLES, LICENSED_ROLES, OPS_ROLES, OPS_TEAMS, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
                    Account, Firm, RoleGrant, User, utcnow)
 from ..security import current_user, hash_password, require_roles
 from ..views import iso, user_dict
@@ -101,6 +101,37 @@ class NewUser(BaseModel):
     client_account_id: str | None = None
     registrations: list[str] = Field(default_factory=list)   # FINRA registrations, RIA service team only
     individual_crd: str | None = None
+    team: str | None = None                                    # operations team (OPS_TEAMS), operations only
+
+
+def _check_team(role: str, team: str | None) -> None:
+    if role in OPS_ROLES and team not in OPS_TEAMS:
+        raise HTTPException(422, "Operations users belong to a team: " + ", ".join(OPS_TEAMS.values()))
+    if role not in OPS_ROLES and team:
+        raise HTTPException(422, "Only operations users have a team")
+
+
+@router.get("/teams")
+def teams(user: User = Depends(admins)):
+    return [{"team": k, "label": v} for k, v in OPS_TEAMS.items()]
+
+
+class TeamChange(BaseModel):
+    team: str
+
+
+@router.post("/users/{user_id}/team")
+def change_team(user_id: int, body: TeamChange, actor: User = Depends(require_roles("platform_admin")),
+                db: Session = Depends(get_db)):
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "No such user")
+    _check_team(target.role, body.team)
+    before, target.team = target.team, body.team
+    audit.record(db, actor, "team_changed", "user", target.id, username=target.username, team=body.team,
+                 previous=before)
+    db.commit()
+    return user_dict(db, target)
 
 
 @router.post("/users")
@@ -126,10 +157,11 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
             raise HTTPException(403, "Only accounts under your firm")
     _scope(db, actor, role=body.role, firm_id=firm_id if body.role in ("ria_user", "ria_admin") else None)
     _check_registrations(body.role, body.registrations, body.individual_crd)
+    _check_team(body.role, body.team)
     decision = body.role in DECISION_ROLES
     u = User(username=body.username, display_name=body.display_name, email=body.email, role=body.role,
              password_hash=hash_password(body.password), firm_id=firm_id, client_account_id=body.client_account_id,
-             active=not decision)
+             active=not decision, team=body.team if body.role in OPS_ROLES else None)
     db.add(u)
     db.flush()
     grant = None

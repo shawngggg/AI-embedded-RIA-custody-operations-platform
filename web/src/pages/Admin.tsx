@@ -11,8 +11,9 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   const grants = useLoad(() => platform ? api<any[]>("/api/admin/grants") : Promise.resolve([]), []);
   const rules = useLoad<Record<string, any[]>>(() => platform ? api<Record<string, any[]>>("/api/admin/rules") : Promise.resolve({}), []);
   const regCatalog = useLoad(() => platform ? api<{ code: string; label: string }[]>("/api/admin/registrations") : Promise.resolve([]), []);
+  const teams = useLoad(() => platform ? api<{ team: string; label: string }[]>("/api/admin/teams") : Promise.resolve([]), []);
   const [form, setForm] = useState({ username: "", display_name: "", email: "", role: portal ? "ria_user" : "ops_analyst",
-    password: "", firm_crd: "", client_account_id: "", individual_crd: "" });
+    password: "", firm_crd: "", client_account_id: "", individual_crd: "", team: "onboarding" });
   const [regs, setRegs] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [lib, setLib] = useState("Firm rules");
@@ -21,8 +22,9 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   const create = (e: React.FormEvent) => {
     e.preventDefault();
     const licensed = ["ria_service", "ria_service_lead"].includes(form.role);
+    const ops = ["ops_analyst", "ops_supervisor"].includes(form.role);
     const body = { ...form, email: form.email || null, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null,
-      registrations: licensed ? regs : [], individual_crd: licensed ? form.individual_crd || null : null };
+      registrations: licensed ? regs : [], individual_crd: licensed ? form.individual_crd || null : null, team: ops ? form.team : null };
     api<any>("/api/admin/users", { body }).then((r) => {
       setMsg({ ok: r.grant ? `${r.user.display_name} added; the ${r.grant.role_label} role waits for a second administrator.` : `${r.user.display_name} added.` });
       reload();
@@ -30,6 +32,9 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   };
   const decide = (id: number, approve: boolean) => api(`/api/admin/grants/${id}/${approve ? "approve" : "reject"}`, { body: {} })
     .then(() => { setMsg({ ok: approve ? "Grant approved" : "Grant rejected" }); reload(); }).catch((e) => setMsg({ error: e.message }));
+  const setTeam = (u: User, team: string) => api(`/api/admin/users/${u.id}/team`, { body: { team } })
+    .then(() => { setMsg({ ok: `${u.display_name} moved to ${teams.data?.find((t) => t.team === team)?.label}` }); reload(); })
+    .catch((e) => setMsg({ error: e.message }));
   const deactivate = (u: User) => api(`/api/admin/users/${u.id}/deactivate`, { body: {} })
     .then(() => { setMsg({ ok: `${u.display_name} deactivated` }); reload(); }).catch((e) => setMsg({ error: e.message }));
   const reset = () => api("/api/admin/reset", { body: {} }).then(() => { setMsg({ ok: "Demo data reset. Sign in again." }); setTimeout(() => location.assign("/"), 800); })
@@ -64,7 +69,12 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
               <thead><tr><th>User</th><th>Role</th><th>Firm or account</th><th>Status</th><th></th></tr></thead>
               <tbody>{users.data.map((u) => (
                 <tr key={u.id}><td>{u.display_name}<br /><span className="mono muted">{u.username}</span></td>
-                  <td>{u.role_label}{u.registrations.length > 0 && <div className="muted small">{u.registrations.map((r) => r.label.split(" (")[0]).join(", ")}{u.can_accept_accounts ? " · accepts accounts" : ""}</div>}</td>
+                  <td>{u.role_label}{u.registrations.length > 0 && <div className="muted small">{u.registrations.map((r) => r.label.split(" (")[0]).join(", ")}{u.can_accept_accounts ? " · accepts accounts" : ""}</div>}
+                    {platform && ["ops_analyst", "ops_supervisor"].includes(u.role) && (
+                      <select aria-label={`Team for ${u.display_name}`} className="small" value={u.team ?? ""} onChange={(e) => setTeam(u, e.target.value)}>
+                        {!u.team && <option value="">Choose a team</option>}
+                        {(teams.data ?? []).map((t) => <option key={t.team} value={t.team}>{t.label}</option>)}
+                      </select>)}</td>
                   <td className="small">{u.firm?.name ?? u.client_account_id ?? ""}</td>
                   <td>{u.active ? <span className="pill t-clear">Active</span> : <span className="pill t-quiet">Inactive</span>}{u.is_demo ? <span className="muted small"> demo</span> : null}</td>
                   <td>{u.active && u.id !== user.id && <button className="small secondary" onClick={() => deactivate(u)}>Deactivate</button>}</td></tr>
@@ -80,6 +90,12 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
               {(roles.data ?? []).map((r) => <option key={r.role} value={r.role}>{r.label}{r.decision_role ? " (needs second approval)" : ""}</option>)}
             </select></div>
           {platform && ["ria_user", "ria_admin"].includes(form.role) && f("firm_crd", "Firm CRD")}
+          {["ops_analyst", "ops_supervisor"].includes(form.role) && (
+            <div className="field"><label htmlFor="f-team">Operations team</label>
+              <select id="f-team" value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })}>
+                {(teams.data ?? []).map((t) => <option key={t.team} value={t.team}>{t.label}</option>)}
+              </select></div>
+          )}
           {form.role === "client" && f("client_account_id", "Client's self-directed account id")}
           {["ria_service", "ria_service_lead"].includes(form.role) && (
             <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type CaseSummary } from "../api";
 import { useAuth } from "../auth";
 import { Loading, slaText, Status, useLoad, when } from "../util";
@@ -10,17 +10,23 @@ export default function Queues() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queues = useLoad(() => api<{ queues: Q[] }>("/api/queues"), []);
-  const [selected, setSelected] = useState<string | null>(null);
-  const list = queues.data?.queues.filter((q) => q.key !== "reviews") ?? [];
-  const active = selected ?? list.find((q) => q.mine && q.count)?.key ?? list.find((q) => q.count)?.key ?? "items_requested";
+  const [params] = useSearchParams();
+  const submitted = useLoad(() => params.get("case") ? api<CaseSummary>(`/api/cases/${params.get("case")}`) : Promise.resolve(null), [params.get("case")]);
+  const [selected, setSelected] = useState<string | null>(params.get("queue"));
+  const list = [...(queues.data?.queues.filter((q) => q.key !== "reviews") ?? [])].sort((a, b) => Number(b.mine) - Number(a.mine));
+  const active = selected ?? submitted.data?.queue ?? list.find((q) => q.mine && q.count)?.key ?? list.find((q) => q.count)?.key ?? "items_requested";
   const cases = useLoad(() => api<CaseSummary[]>(`/api/cases?queue=${active}`), [active]);
   const allOpen = useLoad(() => api<CaseSummary[]>("/api/cases"), []);
 
   return (
     <>
       <h1>Work queues</h1>
+      {submitted.data && (
+        <p className="ok" role="status">Submitted: <Link to={`/cases/${submitted.data.id}`}>#{submitted.data.id} {submitted.data.title}</Link> is in{" "}
+          <strong>{submitted.data.queue_label ?? "no queue (it needs no one right now)"}</strong>.</p>
+      )}
       <p className="muted">Cases wait here where their process map waits for a person. Oldest SLA first.{" "}
-        {queues.data && <>Your role: <strong>{user.role_label}</strong>; queues you work are marked.</>}</p>
+        {queues.data && <>You're <strong>{user.role_label}</strong>{user.team_label ? <> on the <strong>{user.team_label}</strong> team</> : null}; your queues come first and are marked.</>}</p>
       {queues.loading && !queues.data ? <Loading /> : (
         <div className="grid tiles" role="tablist" aria-label="Queues">
           {list.map((q) => (

@@ -186,6 +186,8 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
         db.add(CaseTransition(case_id=case.id, from_status=previous, to_status=res.status, at=now))
         if queue == "items_requested":
             case.nigo_count += 1
+        from .mail import notify_transition
+        notify_transition(db, case, previous, res.status)
     if is_closed(case.kind, res.status):
         case.closed_at = case.closed_at or now
     else:

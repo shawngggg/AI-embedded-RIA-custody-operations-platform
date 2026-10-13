@@ -13,7 +13,8 @@ from .. import audit
 from ..config import settings
 from ..db import get_db
 from ..orm import Restriction, Review, User, utcnow
-from ..security import require_internal, require_roles
+from ..access import require_capability
+from ..security import require_roles
 from ..views import review_dict
 
 router = APIRouter(prefix="/api/reviews", tags=["reviews"])
@@ -21,7 +22,7 @@ reviewer = require_roles("periodic_review", "ops_supervisor")
 
 
 @router.get("")
-def list_reviews(user: User = Depends(require_internal), db: Session = Depends(get_db)):
+def list_reviews(user: User = Depends(require_capability("reviews")), db: Session = Depends(get_db)):
     today = settings.today()
     rows = db.scalars(select(Review).order_by(Review.next_review)).all()
     return [review_dict(r, today) for r in rows]

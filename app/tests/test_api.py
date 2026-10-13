@@ -100,7 +100,7 @@ def test_wrong_role_attempts_are_refused_and_logged(as_user):
     cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
     as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={"decision_type": "sanctions",
                                                                   "value": "true_match", "reference": "X-1"})
-    log = as_user("ops.analyst").get("/api/audit?action=decision_refused").json()
+    log = as_user("ops.supervisor").get("/api/audit?action=decision_refused").json()
     assert log and log[0]["detail"]["reason"] == "wrong role"
 
 
@@ -147,7 +147,7 @@ def test_only_a_registered_principal_accepts_an_account(as_user):
     assert detail["status"] == "OPEN"
     entry = [d for d in detail["decision_log"] if d["decision_type"] == "acceptance"][0]
     assert entry["reference"] == "Avery Collins (Series 24, CRD 7700101)"
-    log = as_user("ops.analyst").get("/api/audit?action=acceptance_refused").json()
+    log = as_user("ops.supervisor").get("/api/audit?action=acceptance_refused").json()
     assert log and log[0]["actor"] == "Noah Brennan"
 
 
@@ -190,7 +190,7 @@ def test_items_received_need_the_document_and_operations(as_user):
     assert detail["status"] == "PENDING_ACCEPTANCE" and not detail["result"]["requested_items"]
     docs = {d["doc_type"]: d for d in detail["documents"]}
     assert docs["lpoa"]["status"] == "in_good_order" and docs["lpoa"]["reviewed_by"] == "Jamie Ortiz"
-    event = as_user("ops.analyst").get("/api/audit?action=items_received").json()[0]
+    event = as_user("ops.supervisor").get("/api/audit?action=items_received").json()[0]
     assert {d["sha256"] for d in event["detail"]["documents"]} == {lpoa["sha256"], w9["sha256"]}
     detail = accept(as_user("rs.principal"), cid)
     assert detail["status"] == "OPEN" and not [r for r in detail["restrictions"] if r["active"]]
@@ -367,8 +367,9 @@ def test_rescission_restricts_at_once_and_needs_the_team_lead(as_user):
     detail = as_user("rs.lead").post(f"/api/decisions/{pending['id']}/approve").json()
     assert detail["status"] == "PENDING_REWORK" and detail["account"]["status"] == "PENDING"
     assert not [r for r in detail["restrictions"] if r["active"]]
-    events = as_user("rs.lead").get("/api/risk-events").json()["events"]
+    events = [e for e in as_user("rs.lead").get("/api/risk-events").json()["events"] if e["source"] == "rescission"]
     assert events[0]["category"] == "Principal acceptance rescinded" and events[0]["approved_by"] == "Renee Alvarez"
+    assert events[0]["risk_type"] == "regulatory"
     # Operations reworks and sends it back; the principal accepts again
     ops = as_user("ops.analyst")
     detail = ops.post(f"/api/cases/{cid}/rework-complete", json={"note": "Replaced the ID; CIP re-verified"}).json()
@@ -383,7 +384,9 @@ def test_rejected_rescission_lifts_the_hold_and_the_acceptance_stands(as_user):
     pending = [d for d in detail["decision_log"] if d["decision_type"] == "rescission"][0]
     detail = as_user("rs.lead").post(f"/api/decisions/{pending['id']}/reject").json()
     assert detail["status"] == "OPEN" and not [r for r in detail["restrictions"] if r["active"] and r["code"] == "RSCN"]
-    assert as_user("rs.lead").get("/api/risk-events").json()["events"] == []
+    events = as_user("rs.lead").get("/api/risk-events").json()["events"]
+    rejected = [e for e in events if e["source"] == "rescission"]
+    assert len(rejected) == 1 and rejected[0]["category"] == "Rescission rejected"   # every request is logged
 
 
 def test_a_firm_with_open_accounts_cant_be_unopened(as_user):
@@ -403,7 +406,7 @@ def test_reopening_a_non_regulatory_document_keeps_the_account_open_but_restrict
     detail = ops.get(f"/api/cases/{cid}").json()
     assert detail["status"] == "OPEN_RESTRICTED" and detail["account"]["status"] == "OPEN"
     assert [r["code"] for r in detail["restrictions"] if r["active"]] == ["DOCS"]
-    event = as_user("ops.supervisor").get("/api/risk-events").json()["events"][0]
+    event = [e for e in as_user("ops.supervisor").get("/api/risk-events").json()["events"] if e["source"] == "document"][0]
     assert event["category"] == "Document accepted in error" and event["owner"] == "ops_supervisor"
     # A team lead records the remediation path and closes it; an analyst can't
     assert as_user("ops.analyst").post(f"/api/risk-events/{event['id']}", json={
@@ -582,7 +585,7 @@ def test_ria_admin_manages_only_their_firms_users(as_user):
                                             "role": "ria_user", "password": "long-password-1"})
     assert ok.status_code == 200 and ok.json()["user"]["firm"]["crd"] == "310001"
     refused = ria.post("/api/admin/users", json={"username": "g.ops", "display_name": "Gil Ops",
-                                                 "role": "ops_analyst", "password": "long-password-1"})
+                                                 "role": "ops_analyst", "team": "onboarding", "password": "long-password-1"})
     assert refused.status_code == 403
     assert {u["firm"]["crd"] for u in ria.get("/api/admin/users").json()} == {"310001"}
 
@@ -593,7 +596,7 @@ def test_licensed_team_registrations_are_checked_and_need_a_second_admin(as_user
     assert admin.post("/api/admin/users", json=base).status_code == 422                       # no registrations
     assert admin.post("/api/admin/users", json={**base, "registrations": ["S24"],
                                                 "individual_crd": "7700150"}).status_code == 422  # no Series 7
-    assert admin.post("/api/admin/users", json={**base, "role": "ops_analyst", "username": "p.ops",
+    assert admin.post("/api/admin/users", json={**base, "role": "ops_analyst", "team": "onboarding", "username": "p.ops",
                                                 "registrations": ["S7"], "individual_crd": "7700151"}).status_code == 422
     out = admin.post("/api/admin/users", json={**base, "registrations": ["S7", "S63", "S24"],
                                                "individual_crd": "7700150"}).json()
@@ -659,13 +662,14 @@ def test_audit_log_records_runs_and_exports(as_user):
     actions = [e["action"] for e in events]
     assert actions[0] == "case_created" and "document_uploaded" in actions
     assert actions.index("case_run") < actions.index("restriction_placed")
-    export = ops.get("/api/audit/export")
+    assert ops.get("/api/audit/export").status_code == 403         # the whole log is for oversight roles
+    export = as_user("ops.supervisor").get("/api/audit/export")
     assert export.status_code == 200 and "attachment" in export.headers["content-disposition"]
 
 
 def test_demo_reset(as_user):
     admin = as_user("admin.platform")
-    admin.post("/api/admin/users", json={"username": "temp.user", "display_name": "Temp", "role": "ops_analyst",
+    admin.post("/api/admin/users", json={"username": "temp.user", "display_name": "Temp", "role": "ops_analyst", "team": "onboarding",
                                          "password": "long-password-1"})
     assert admin.post("/api/admin/reset").json() == {"ok": True}
     admin = as_user("admin.platform")
@@ -680,14 +684,14 @@ def test_every_decision_event_carries_its_basis(as_user):
     d = as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
         "decision_type": "sanctions", "value": "false_positive", "reference": "DET-T-1"}).json()
     as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
-    event = as_user("ops.analyst").get("/api/audit?action=decision_approved").json()[0]["detail"]
+    event = as_user("ops.supervisor").get("/api/audit?action=decision_approved").json()[0]["detail"]
     assert event["policy_version"] == "2026.10"
     sanctions = [b for b in event["basis"] if b["rule_id"] == "SCR-001"][0]
     assert "31 CFR Chapter V" in sanctions["source"] and sanctions["flagged_entries"]
     lena = case_id(as_user("ops.analyst"), "Lena Park")
     accepted = accept(as_user("rs.principal"), lena)
     assert accepted["status"] == "OPEN"
-    event = as_user("ops.analyst").get("/api/audit?action=principal_accepted").json()[0]["detail"]
+    event = as_user("ops.supervisor").get("/api/audit?action=principal_accepted").json()[0]["detail"]
     assert event["policy_version"] and any(b["rule_id"] == "FINRA-4512" for b in event["basis"])
     assert all(b["source"] and b["rule_version"] for b in event["basis"])
 
@@ -719,3 +723,158 @@ def test_intake_reports_how_live_ai_signs_in(as_user, monkeypatch):
     monkeypatch.setattr(settings, "anthropic_org_id", "org_test")
     status = ops.get("/api/intake/status").json()
     assert status["live"] and status["auth"] == "workload identity federation"
+
+
+# --- Walkthrough feedback (Oct. 13): teams, menus by role, the Work page ------------------
+
+
+def test_menus_follow_role_and_team(as_user):
+    def caps(u):
+        return as_user(u).get("/api/auth/me").json()["capabilities"]
+    jamie, taylor, priya = caps("ops.analyst"), caps("ops.cip"), caps("ops.supervisor")
+    assert jamie["intake"] and not jamie["approvals"] and not jamie["audit"] and not jamie["dashboard"]
+    assert not taylor["intake"]                                   # CIP, not onboarding
+    assert priya["approvals"] and priya["dashboard"]
+    assert as_user("ops.analyst").get("/api/decisions").status_code == 403
+    assert as_user("ops.cip").get("/api/intake/status").status_code == 403
+    refused = as_user("ops.supervisor").get("/api/audit?action=access_refused").json()
+    assert {e["actor"] for e in refused} >= {"Jamie Ortiz", "Taylor Brooks"}
+
+
+def test_queues_are_marked_by_team(as_user):
+    def mine(u):
+        return {q["key"] for q in as_user(u).get("/api/queues").json()["queues"] if q["mine"]}
+    assert mine("ops.analyst") == {"items_requested", "rework"}
+    assert mine("ops.cip") == {"verification"}
+    assert mine("ops.service") == {"confirmation"}
+    assert {"items_requested", "confirmation", "verification", "rework"} <= mine("ops.supervisor")
+
+
+def test_work_page_shows_what_needs_each_person(as_user):
+    jamie = as_user("ops.analyst").get("/api/work").json()
+    assert any("Rosa Delgado" in c["title"] for c in jamie["needs_you"]) and jamie["to_approve"] == []
+    avery = as_user("rs.principal").get("/api/work").json()
+    assert {c["status"] for c in avery["needs_you"]} == {"PENDING_ACCEPTANCE"}
+    cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
+    as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-W-1"})
+    sam = as_user("sanctions.checker").get("/api/work").json()
+    assert [d["case_id"] for d in sam["to_approve"]] == [cid]
+    alex = as_user("sanctions.maker").get("/api/work").json()
+    assert alex["to_approve"] == [] and [d["case_id"] for d in alex["my_proposals"]] == [cid]
+
+
+def test_a_submitted_package_lands_in_a_queue(as_user):
+    detail = _upload_sample(as_user("ops.analyst"))
+    assert detail["queue"] == "items_requested"
+    assert any(c["id"] == detail["id"] for c in as_user("ops.analyst").get("/api/work").json()["needs_you"])
+
+
+def test_restricted_accounts_lists_each_account_once(as_user):
+    ops = as_user("ops.analyst")
+    ops.post("/api/restrictions", json={"target_id": "ACC-2001", "code": "CIPV", "reason": "Returned mail"})
+    rows = {r["target_id"]: r for r in ops.get("/api/restrictions/accounts").json()}
+    maria = rows["ACC-2001"]
+    assert maria["name"] == "Maria Chen" and maria["kind"] == "account" and "CIPV" in [c["code"] for c in maria["codes"]]
+    assert maria["blocks"] and maria["firm"] == "Granite Peak Advisors LLC"
+    assert any(r["kind"] == "firm" for r in rows.values())                  # Meridian Gate's sanctions hold
+    assert as_user("admin.platform").get("/api/restrictions/accounts").status_code == 403
+
+
+def test_risk_register_covers_operational_regulatory_and_financial(as_user):
+    events = as_user("ops.analyst").get("/api/risk-events").json()["events"]
+    sla = [e for e in events if e["source"] == "sla"]
+    assert any("Rosa Delgado" in (e["case_title"] or "") for e in sla) and all(e["risk_type"] == "operational" for e in sla)
+    meridian = case_id(as_user("ops.analyst"), "Meridian Gate")
+    d = as_user("sanctions.maker").post(f"/api/cases/{meridian}/decisions", json={
+        "decision_type": "sanctions", "value": "true_match", "reference": "DET-R-1"}).json()
+    as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
+    true_match = [e for e in as_user("ops.analyst").get("/api/risk-events?risk_type=regulatory").json()["events"]
+                  if e["source"] == "sanctions"][0]
+    assert true_match["owner"] == "sanctions" and "31 CFR 501.603" in true_match["summary"]
+    lena = case_id(as_user("ops.analyst"), "Lena Park")
+    accept(as_user("rs.principal"), lena)
+    as_user("rs.principal").post(f"/api/cases/{lena}/rescission", json={
+        "kind": "accepted_before_review", "return_to": "review", "reason": "Accepted before opening the documents"})
+    requested = [e for e in as_user("ops.analyst").get("/api/risk-events").json()["events"] if e["source"] == "rescission"]
+    assert requested[0]["category"] == "Rescission requested" and requested[0]["status"] == "open"
+    fin = as_user("ops.analyst").post("/api/risk-events", json={
+        "category": "Fee debited twice", "risk_type": "financial", "owner": "ops_supervisor",
+        "summary": "A client reported two identical advisory fee debits this quarter.", "target_id": "ACC-2001"}).json()
+    assert fin["risk_type_label"] == "Financial" and fin["source"] == "manual" and not fin["can_update"]
+    assert as_user("sanctions.checker").post(f"/api/risk-events/{true_match['id']}", json={
+        "remediation": "report", "note": "Rejected-transaction report filed with OFAC", "close": True}).json()["status"] == "closed"
+    assert as_user("ops.analyst").post(f"/api/risk-events/{fin['id']}", json={
+        "remediation": "procedure", "note": "Add a duplicate-debit check"}).status_code == 403
+
+
+def test_team_channels_link_cases_accounts_and_people(as_user):
+    jamie = as_user("ops.analyst")
+    chans = jamie.get("/api/channels").json()
+    keys = [c["key"] for c in chans["channels"]]
+    assert "onboarding" in keys and "sanctions" not in keys                 # sanctions data stays with that team
+    assert chans["channels"][keys.index("onboarding")]["unread"] >= 1       # Priya mentioned Jamie
+    seeded = jamie.get("/api/channels/onboarding/messages").json()
+    assert any(m["mentions_me"] for m in seeded)
+    assert jamie.get("/api/channels/unread").json()["by_channel"]["onboarding"] == 0   # reading marks them read
+    rosa = case_id(jamie, "Rosa Delgado")
+    msg = jamie.post("/api/channels/onboarding/messages", json={
+        "body": f"Case #{rosa}: LPOA received; @ops.supervisor please review. Also see ACC-2001."}).json()
+    assert {(r["type"], r["id"]) for r in msg["refs"]} == {("case", rosa), ("account", "ACC-2001")}
+    assert msg["mentions"] == [{"username": "ops.supervisor", "name": "Priya Raman"}]
+    about = jamie.get(f"/api/messages/about?case_id={rosa}").json()
+    assert {m["id"] for m in about} >= {msg["id"]}
+    assert jamie.get("/api/channels/sanctions/messages").status_code == 403
+    assert as_user("sanctions.maker").get("/api/channels/sanctions/messages").json()
+    assert as_user("granite.advisor").get("/api/channels").status_code == 403
+
+
+def test_portal_home_welcomes_the_firm(as_user):
+    home = as_user("bonneville.advisor").get("/api/portal/home").json()
+    assert home["firm"]["name"] == "Bonneville Planning Group" or home["firm"]["crd"] == "310003"
+    assert any("Rosa Delgado" in a["title"] for a in home["attention"])          # the LPOA Bonneville owes
+    assert home["contact"]["name"] == "Renee Alvarez" and home["accounts"]["total"] >= 1
+    farid = as_user("client.farid").get("/api/portal/home").json()
+    assert farid["accounts"]["total"] == 1 and farid["name"] == "Farid"
+    assert as_user("ops.analyst").get("/api/portal/home").status_code == 404
+
+
+def test_notices_go_through_the_outbox(as_user):
+    box = as_user("ops.analyst").get("/api/outbox").json()
+    assert box["connection"]["provider"] == "outbox" and box["connection"]["demo_hold"]
+    rosa = [e for e in box["emails"] if e["template"] == "items_requested" and "Rosa Delgado" in e["subject"]]
+    assert rosa and rosa[0]["to"] == "sam.okafor@bonneville.example" and rosa[0]["status"] == "held"
+    assert "Client-signed LPOA" in rosa[0]["body"]
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    accept(as_user("rs.principal"), cid)
+    opened = [e for e in as_user("ops.analyst").get("/api/outbox").json()["emails"] if e["case_id"] == cid]
+    assert {e["template"] for e in opened} == {"account_opened"}
+    assert {e["to"] for e in opened} == {"dana.whitfield@granitepeak.example", "marcus.lee@granitepeak.example"}
+    assert as_user("aml.maker").get("/api/outbox").status_code == 403
+
+
+def test_microsoft_365_sends_through_graph(monkeypatch):
+    from app import mail
+    from app.orm import OutboundEmail
+    monkeypatch.setenv("MS_TENANT_ID", "tenant-1"); monkeypatch.setenv("MS_CLIENT_ID", "client-1")
+    monkeypatch.setenv("MS_CLIENT_SECRET", "secret-1"); monkeypatch.setenv("MAIL_SENDER", "notices@custodian.example")
+    calls = []
+
+    class Resp:
+        def __init__(self, code, body=None): self.status_code, self._body, self.text = code, body or {}, ""
+        def json(self): return self._body
+        def raise_for_status(self): pass
+
+    class Http:
+        def post(self, url, **kw):
+            calls.append((url, kw))
+            return Resp(200, {"access_token": "graph-token"}) if "login.microsoftonline.com" in url else Resp(202)
+    e = OutboundEmail(to_address="ops@ria.example", to_name="RIA Ops", subject="Hi", body="Body", template="t")
+    mail.send_m365(e, http=Http())
+    token_url, token_kw = calls[0]
+    send_url, send_kw = calls[1]
+    assert token_url == "https://login.microsoftonline.com/tenant-1/oauth2/v2.0/token"
+    assert token_kw["data"]["scope"] == "https://graph.microsoft.com/.default" and token_kw["data"]["grant_type"] == "client_credentials"
+    assert send_url == "https://graph.microsoft.com/v1.0/users/notices@custodian.example/sendMail"
+    assert send_kw["headers"]["Authorization"] == "Bearer graph-token"
+    assert send_kw["json"]["message"]["toRecipients"][0]["emailAddress"]["address"] == "ops@ria.example"

@@ -106,20 +106,24 @@ python onboarding/demo.py           # every scenario, printed step by step
 
 ## MVP web app
 
-`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed. Transfers, trading, and fee billing appear in the portal as planned pages marked with their release (2 or 3); they need the ledger, which comes first.
+`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed. Each internal person sees only the pages their role and team use, and the API refuses (and logs) the rest. Transfers, trading, and fee billing appear in the portal, and as the operations teams' workbenches, as planned pages marked with their release (2 or 3); they need the ledger, which comes first.
 
 What each role can do:
 
-- **Operations analyst:** work queues with SLA clocks, take in a new RIA firm by form or by having AI read the application package, check each document that arrives and record the item it satisfies, and confirm suspicious account changes.
+- **Operations analyst:** start from the Work page (what needs you, unread messages, open risk events, restricted accounts), work your team's queues with SLA clocks, check each document that arrives and record the item it satisfies, and confirm suspicious account changes. Operations is split into teams (onboarding, CIP, client service, and so on); only the onboarding team takes in new applications, by form or by having AI read the package, and the submitted case lands in its queue.
 - **Sanctions team, AML compliance, and supervisors:** decide escalated cases under maker-checker. One person proposes, a second person with the approving role approves, and the app refuses self-approval and logs the attempt.
 - **RIA service team (FINRA-licensed):** a registered principal accepts every new account and RIA relationship before it opens (FINRA Rule 4512), after confirming the review. The custodian runs the trading platform, so it's a FINRA member broker-dealer. The app checks the person's registration, not just their role, and a principal can't accept a case they prepared. Operations needs no license.
-- **RIA service team lead:** approves a principal's request to rescind an acceptance. The request restricts the account at once; an approved rescission un-opens it, sends the case back for review or rework, and is logged as an operational risk event for the team to agree a remediation path: training, a technology change, or a procedure update.
+- **RIA service team lead:** approves a principal's request to rescind an acceptance. The request restricts the account at once; an approved rescission un-opens it and sends the case back for review or rework. Every request is logged in the risk register (as a regulatory event when the issue found was regulatory) for the team to agree a remediation path: training, a technology change, or a procedure update.
 - **Periodic review:** rolling reviews by risk tier. A missed refresh deadline places a KYCR code.
 - **RIA user:** submit account applications and account changes for the firm's pure RIA accounts. Self-directed accounts are view-only for the RIA.
 - **Client:** make changes on their own self-directed account.
+
+RIA users and clients sign in to a portal home page that welcomes them by name and firm, shows their relationship and service team, and lists what needs their attention.
 - **Platform administrator:** add team members, assign roles, and record the RIA service team's FINRA registrations. A grant of a decision role or a registration change waits for a second administrator. An RIA administrator manages its own firm's users.
 
 An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even with non-regulatory items outstanding (the fee authorization or tax form), restricted from trading and fee deduction until they arrive. A missing client signature or LPOA holds the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, and automated pre-checks read it for the client's name, tax ID, the right tax form, and a signature line; anything they can't confirm waits for a person. Every case replays through the engine from its stored application and approved decisions, so its result, restriction codes, and audit trail always match the current rules. Restriction codes come off only through their owning function. The operations dashboard reports the straight-through rate, the NIGO rate, queue depth, SLA breaches, and time in each waiting state. The audit log is append-only and exports to JSON.
+
+The risk register logs operational, regulatory, and financial events: the platform raises one on every rescission request, sanctions true match, case past its SLA, and document reopened on an open account, and anyone can report one; the owning team records the remediation and closes it. Team channels let internal staff discuss work chat-style, with `#16` linking a case, `ACC-2001` an account, and `@username` a person; a case's Discussion tab collects every message that references it. Every notice to an RIA or client (items requested, account opened, declined, change applied) goes through the email outbox, and with Microsoft 365 connected it sends through Microsoft Graph from a shared mailbox; demo mode holds it all.
 
 **Stack:** FastAPI, SQLAlchemy, and Alembic on Python 3.13; React and TypeScript built with Vite; Postgres in production (Neon) and SQLite locally; Claude Haiku 5.5 for live extraction, signed-in users only, capped at 50 reads a day. Without an API key, AI intake runs the sample package with an illustrative, hand-written model response.
 
@@ -129,7 +133,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 56 API tests
+python -m pytest app/tests -v        # 66 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 

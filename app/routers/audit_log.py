@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from ..audit import to_dict
 from ..db import get_db
 from ..orm import AuditEvent, User
-from ..security import current_user, require_internal
+from ..access import require_capability
+from ..security import current_user
 from ..views import get_case_for
 
 router = APIRouter(prefix="/api", tags=["audit"])
@@ -21,7 +22,7 @@ def case_audit(case_id: int, user: User = Depends(current_user), db: Session = D
 
 
 @router.get("/audit")
-def audit_log(limit: int = 200, action: str | None = None, user: User = Depends(require_internal),
+def audit_log(limit: int = 200, action: str | None = None, user: User = Depends(require_capability("audit")),
               db: Session = Depends(get_db)):
     q = select(AuditEvent).order_by(AuditEvent.id.desc()).limit(min(limit, 2000))
     if action:
@@ -30,7 +31,7 @@ def audit_log(limit: int = 200, action: str | None = None, user: User = Depends(
 
 
 @router.get("/audit/export")
-def export(user: User = Depends(require_internal), db: Session = Depends(get_db)):
+def export(user: User = Depends(require_capability("audit")), db: Session = Depends(get_db)):
     rows = db.scalars(select(AuditEvent).order_by(AuditEvent.id)).all()
     return JSONResponse([to_dict(e) for e in rows],
                         headers={"Content-Disposition": "attachment; filename=audit-log.json"})

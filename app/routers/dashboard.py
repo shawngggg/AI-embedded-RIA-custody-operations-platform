@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..orm import Case, CaseTransition, Restriction, User
 from ..queues import QUEUES
-from ..security import require_internal
+from ..access import require_capability
 from ..views import sla_state
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -22,7 +22,7 @@ def _aware(dt):
 
 
 @router.get("")
-def dashboard(user: User = Depends(require_internal), db: Session = Depends(get_db)):
+def dashboard(user: User = Depends(require_capability("dashboard")), db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     cases = db.scalars(select(Case)).all()
     by_status = defaultdict(int)

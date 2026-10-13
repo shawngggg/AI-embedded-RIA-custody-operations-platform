@@ -113,6 +113,53 @@ token. The app uses federation whenever `ANTHROPIC_FEDERATION_RULE_ID` and `ANTH
 
 The workbench's **New application** page says how live AI signs in ("signed in by workload identity federation").
 
+### Email through Microsoft 365 (Outlook)
+
+Every notice the platform sends (items requested, account opened, application declined, change applied) is written to
+the **Email outbox** first. With no provider set, it stays there. To send through the custodian's Microsoft 365, the
+app calls Microsoft Graph (`POST /users/{sender}/sendMail`) from one shared mailbox. Demo mode holds every message
+whatever the provider, because the seeded recipients are synthetic.
+
+1. **Shared mailbox.** In the Exchange admin center, create a shared mailbox to send from, for example
+   `notices@yourdomain.com`. A shared mailbox needs no license.
+
+2. **App registration.** In the Microsoft Entra admin center, open **App registrations → New registration** (single
+   tenant). Note the application (client) ID and the directory (tenant) ID, and from **Enterprise applications** the
+   app's object ID.
+
+3. **Let it send from that mailbox only.** Don't add `Mail.Send` under the app's API permissions: granted there, it
+   lets the app send as any mailbox in the tenant. Grant it in Exchange Online instead, scoped to the one mailbox
+   ([RBAC for Applications](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac)):
+
+   ```powershell
+   Connect-ExchangeOnline
+   New-ServicePrincipal -AppId <client-id> -ObjectId <enterprise-app-object-id> -DisplayName "RIA custody notices"
+   New-ManagementScope -Name "RIA custody notices" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'notices@yourdomain.com'"
+   New-ManagementRoleAssignment -App <enterprise-app-object-id> -Role "Application Mail.Send" -CustomResourceScope "RIA custody notices"
+   ```
+
+4. **Sign-in without a secret (recommended).** On the app registration, open **Certificates & secrets → Federated
+   credentials → Add credential → Other issuer**. Issuer `https://accounts.google.com`, subject identifier the
+   unique ID of the Cloud Run service account (the same `ria-custody-run` account and ID as the Anthropic setup above),
+   audience `api://AzureADTokenExchange`
+   ([Microsoft's guide](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust)).
+   The service then presents its Google identity token instead of a stored secret. If you'd rather use a client
+   secret, create one under **Client secrets** and store it in Secret Manager with `read -s`, as in step 3.
+
+5. **Deploy with the mail settings.** Add these to `--set-env-vars` (they're identifiers, not secrets). While
+   testing, `MAIL_ALLOWED_DOMAINS` keeps the app from emailing anyone outside your own domain:
+
+   ```
+   MAIL_PROVIDER=m365,MS_TENANT_ID=<tenant-id>,MS_CLIENT_ID=<client-id>,MS_FEDERATED=true,MAIL_SENDER=notices@yourdomain.com,MAIL_ALLOWED_DOMAINS=yourdomain.com
+   ```
+
+   With a client secret instead, leave out `MS_FEDERATED` and add `--set-secrets ...,MS_CLIENT_SECRET=ria-ms-client-secret:latest`.
+   Real mail goes out only with `DEMO_MODE=false`, so try it on a separate non-demo deployment with your own
+   address as a firm user.
+
+The **Email outbox** page shows the connection, and each message's status: held (and why), sent, or failed with
+Graph's error. A platform administrator can re-send a failed message once the cause is fixed.
+
 Cloud Build builds the `Dockerfile` (the React screens, then the Python app). On startup, the container
 applies database migrations and seeds the demo data into the empty database. `--max-instances 1` keeps
 migrations from racing and keeps the AI cap exact.
@@ -169,6 +216,13 @@ because Cloud Run starts the container and Neon resumes the database.
 | `AI_DAILY_CAP` | `50` | Live AI reads per day, across all users |
 | `RIA_EXTRACTION_MODEL` | `claude-haiku-5-5` | Model for live extraction |
 | `SESSION_HOURS` | `8` | Session length |
+| `MAIL_PROVIDER` | `outbox` | `m365` sends notices through Microsoft 365; `outbox` keeps them in the outbox only |
+| `MS_TENANT_ID`, `MS_CLIENT_ID` | none | The Entra app registration that sends mail |
+| `MS_FEDERATED` | `false` | `true` signs in to Entra with the service's Google identity token (no secret) |
+| `MS_CLIENT_SECRET` | none | The app's client secret, if not federated (from Secret Manager) |
+| `MAIL_SENDER` | none | The mailbox notices are sent from |
+| `MAIL_ALLOWED_DOMAINS` | none | Comma-separated domains a live provider may send to; empty means any |
+| `PORTAL_URL` | the demo's portal URL | Base of the portal links in notices |
 
 ## Updating
 

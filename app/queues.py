@@ -2,23 +2,32 @@
 from __future__ import annotations
 
 QUEUES = {
-    "items_requested": {"label": "Items requested", "owner": "Custody operations (waiting on the RIA)",
-                        "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 120},
+    "items_requested": {"label": "Items requested", "owner": "Onboarding (waiting on the RIA)",
+                        "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120},
     "compliance_review": {"label": "Compliance review", "owner": "AML compliance",
                           "roles": ["aml_compliance"], "sla_hours": 48},
     "sanctions_review": {"label": "Sanctions review", "owner": "Sanctions team",
                          "roles": ["sanctions"], "sla_hours": 24},
     "edd_review": {"label": "EDD pending", "owner": "AML compliance",
                    "roles": ["aml_compliance"], "sla_hours": 120},
-    "confirmation": {"label": "Fraud-pattern confirmation", "owner": "Custody operations",
-                     "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 24},
-    "verification": {"label": "Identity verification", "owner": "Custody operations",
-                     "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 72},
+    "confirmation": {"label": "Fraud-pattern confirmation", "owner": "Client service",
+                     "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 24},
+    "verification": {"label": "Identity verification", "owner": "CIP and identity verification",
+                     "roles": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
                              "roles": ["ria_service", "ria_service_lead"], "sla_hours": 24},
-    "rework": {"label": "Rework after a rescission", "owner": "Custody operations",
-               "roles": ["ops_analyst", "ops_supervisor"], "sla_hours": 24},
+    "rework": {"label": "Rework after a rescission", "owner": "Onboarding",
+               "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 24},
 }
+
+
+def works_queue(user, key: str) -> bool:
+    """Whether this queue is the user's: their role works it, and for operations analysts, their team does.
+    Supervisors oversee every operations queue."""
+    spec = QUEUES[key]
+    if user.role not in spec["roles"]:
+        return False
+    return user.role != "ops_analyst" or not spec.get("teams") or user.team in spec["teams"]
 
 _BY_STATUS = {
     "PENDING_ITEMS": "items_requested",

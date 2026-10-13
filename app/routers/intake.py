@@ -21,13 +21,13 @@ from ..db import get_db
 from ..documents import attach_at_intake, store
 from ..orm import AiUsage, User
 from ..runner import run_case
-from ..security import require_roles
+from ..access import require_capability
 from ..seed import create_firm_case
 from ..serialize import firm_from
 from ..views import case_detail
 
 router = APIRouter(prefix="/api/intake", tags=["intake"])
-ops = require_roles("ops_analyst", "ops_supervisor")
+ops = require_capability("intake")      # the onboarding team takes in new applications
 
 
 def _usage(db: Session, day: date) -> AiUsage:
