@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import audit, portal_view
 from ..config import settings
 from ..db import get_db
 from ..documents import (CHANNELS, DOC_TYPES, FIELD_DOCS, MAX_BYTES, case_documents, doc_dict, mark, reopen,
@@ -18,6 +18,11 @@ from ..security import current_user
 from ..views import get_case_for
 
 router = APIRouter(prefix="/api", tags=["documents"])
+
+
+def _view(db: Session, d: Document, user: User) -> dict:
+    """The portal sees its documents without the custodian's reviewers or automated-check detail."""
+    return portal_view.document(db, d) if portal_view.is_portal(user) else doc_dict(d)
 OPS = ("ops_analyst", "ops_supervisor")
 REQUESTERS = ("ria_admin", "ria_user", "client")
 
@@ -32,7 +37,7 @@ def types(user: User = Depends(current_user)):
 @router.get("/cases/{case_id}/documents")
 def list_documents(case_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
-    return [doc_dict(d) for d in case_documents(db, case)]
+    return [_view(db, d, user) for d in case_documents(db, case)]
 
 
 @router.post("/cases/{case_id}/documents")
@@ -60,7 +65,7 @@ def upload(case_id: int, doc_type: str = Form(...), channel: str = Form("portal"
         filename = file.filename or "document"
     doc = store(db, case, user, doc_type, filename, data, channel, when, synthetic=sample)
     db.commit()
-    return doc_dict(doc)
+    return _view(db, doc, user)
 
 
 @router.get("/documents/{doc_id}/file")

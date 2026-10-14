@@ -10,7 +10,7 @@ from .. import audit
 from ..db import get_db
 from ..access import require_capability
 from ..orm import Account, Firm, Restriction, User, iso, utcnow
-from ..security import current_user, require_internal
+from ..security import require_internal
 from ..views import restriction_dict
 
 router = APIRouter(prefix="/api/restrictions", tags=["restrictions"])
@@ -23,17 +23,14 @@ MANUAL_CODES = ["CIPV", "EDDP", "KYCR", "SANC"]
 
 @router.get("")
 def list_restrictions(active: bool | None = True, target: str | None = None,
-                      user: User = Depends(current_user), db: Session = Depends(get_db)):
+                      user: User = Depends(require_capability("restricted_accounts")), db: Session = Depends(get_db)):
+    """Restriction codes with their owners and reasons: internal. The portal sees its accounts' limits in plain
+    words on each request and on the portal home."""
     q = select(Restriction).order_by(Restriction.placed_at.desc())
     if active is not None:
         q = q.where(Restriction.active.is_(active))
     if target:
         q = q.where(Restriction.target_id == target)
-    if user.role in ("ria_admin", "ria_user", "client"):
-        from ..orm import Account
-        ids = [a.id for a in db.scalars(select(Account).where(
-            Account.firm_id == user.firm_id if user.role != "client" else Account.id == user.client_account_id)).all()]
-        q = q.where(Restriction.target_id.in_(ids))
     return [restriction_dict(r) for r in db.scalars(q).all()]
 
 
@@ -66,7 +63,7 @@ def restricted_accounts(user: User = Depends(require_capability("restricted_acco
 
 
 @router.get("/catalog")
-def catalog(user: User = Depends(current_user)):
+def catalog(user: User = Depends(require_capability("restricted_accounts"))):
     return [{"code": c.code, "description": c.description, "owner": c.owner.value,
              "blocks": sorted(a.value for a in c.blocks), "requires_authorization": c.requires_authorization,
              "source": c.source, "manual": c.code in MANUAL_CODES} for c in CATALOG.values()]

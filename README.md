@@ -118,8 +118,8 @@ What each role can do:
 - **RIA user:** submit account applications and account changes for the firm's pure RIA accounts. Self-directed accounts are view-only for the RIA.
 - **Client:** make changes on their own self-directed account.
 
-RIA users and clients sign in to a portal home page that welcomes them by name and firm, shows their relationship and service team, and lists what needs their attention.
-- **Platform administrator:** add team members, assign roles, and record the RIA service team's FINRA registrations. A grant of a decision role or a registration change waits for a second administrator. An RIA administrator manages its own firm's users.
+RIA users and clients sign in to a portal home page that welcomes them by name and firm, shows their relationship and service team, and lists what needs their attention. The portal shows none of the custodian's operations. Each request has a status in the portal's own words, the items needed, the documents sent, what was submitted, and a history. Every review state reads "In review", so a sanctions or EDD escalation is never disclosed. Engine steps, rule findings, the risk rating, due-diligence flags, restriction owners, staff names, and the audit trail stay inside, and the API refuses and logs any attempt to reach them.
+- **Platform administrator:** add team members, assign roles, and record the RIA service team's FINRA registrations. A grant of a decision role or a registration change waits for a second administrator. The administrator runs users, roles, and rules, not cases, so queues and case files aren't in that menu. An RIA administrator manages its own firm's users.
 
 An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even with non-regulatory items outstanding (the fee authorization or tax form), restricted from trading and fee deduction until they arrive. A missing client signature or LPOA holds the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, and automated pre-checks read it for the client's name, tax ID, the right tax form, and a signature line; anything they can't confirm waits for a person. Every case replays through the engine from its stored application and approved decisions, so its result, restriction codes, and audit trail always match the current rules. Restriction codes come off only through their owning function. The operations dashboard reports the straight-through rate, the NIGO rate, queue depth, SLA breaches, and time in each waiting state. The audit log is append-only and exports to JSON.
 
@@ -133,7 +133,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 66 API tests
+python -m pytest app/tests -v        # 71 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 

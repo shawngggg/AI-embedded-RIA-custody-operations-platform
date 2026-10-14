@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { CaseLink } from "../caselink";
 import { api } from "../api";
 import { Loading, useLoad, when } from "../util";
 
@@ -25,7 +25,7 @@ export default function AuditPage() {
           <tbody>{log.data.map((e) => (
             <tr key={e.id}><td className="small">{when(e.at)}</td><td>{e.actor}<br /><span className="muted small">{e.role}</span></td>
               <td>{e.action.replace(/_/g, " ")}</td>
-              <td>{e.case_id ? <Link to={`/cases/${e.case_id}`}>case #{e.case_id}</Link> : <span className="mono">{e.target_type} {e.target_id}</span>}</td>
+              <td>{e.case_id ? <CaseLink id={e.case_id}>case #{e.case_id}</CaseLink> : <span className="mono">{e.target_type} {e.target_id}</span>}</td>
               <td className="mono">{Object.entries(e.detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join(" · ")}</td></tr>
           ))}</tbody>
         </table></div>

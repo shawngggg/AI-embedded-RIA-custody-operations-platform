@@ -12,8 +12,9 @@ from ..config import settings
 from ..documents import CORRECTABLE, DOC_TYPES, field_docs, mark, supersede_others
 from .. import rescission
 from ..db import get_db
-from ..orm import Case, Document, PendingDecision, Review, User, utcnow
-from ..access import require_capability
+from ..orm import PORTAL_ROLES, Case, Document, PendingDecision, Review, User, utcnow
+from .. import portal_view
+from ..access import capabilities, require_capability
 from ..queues import DECISIONS, QUEUES, works_queue
 from ..risk_register import log_event
 from ..runner import run_case
@@ -26,10 +27,13 @@ router = APIRouter(prefix="/api", tags=["cases"])
 
 
 @router.get("/queues")
-def queues(user: User = Depends(require_internal), db: Session = Depends(get_db)):
+def queues(user: User = Depends(require_capability("cases")), db: Session = Depends(get_db)):
+    """The queues this person works (a supervisor oversees every operations queue), with counts and SLA breaches."""
     now = datetime.now(timezone.utc)
     out = []
     for key, spec in QUEUES.items():
+        if not works_queue(user, key):
+            continue
         cases = db.scalars(select(Case).where(Case.queue == key)).all()
         states = [sla_state(c, now) for c in cases]
         out.append({"key": key, "label": spec["label"], "owner": spec["owner"], "roles": spec["roles"],
@@ -37,10 +41,11 @@ def queues(user: User = Depends(require_internal), db: Session = Depends(get_db)
                     "breached": sum(1 for s in states if s["breached"]), "mine": works_queue(user, key)})
     today = settings.today()
     reviews = [review_dict(r, today) for r in db.scalars(select(Review)).all()]
-    out.append({"key": "reviews", "label": "Reviews due", "owner": "Periodic review team",
-                "roles": ["periodic_review"], "sla_hours": None,
-                "count": sum(1 for r in reviews if r["due"] or r["overdue"] or r["status"] == "restricted"),
-                "breached": sum(1 for r in reviews if r["overdue"]), "mine": user.role == "periodic_review"})
+    if capabilities(user)["reviews"]:
+        out.append({"key": "reviews", "label": "Reviews due", "owner": "Periodic review team",
+                    "roles": ["periodic_review"], "sla_hours": None,
+                    "count": sum(1 for r in reviews if r["due"] or r["overdue"] or r["status"] == "restricted"),
+                    "breached": sum(1 for r in reviews if r["overdue"]), "mine": user.role == "periodic_review"})
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")).all()
     mine = sum(1 for d in pending if user.role in DECISIONS[d.decision_type]["approver"] and d.proposed_by != user.id)
     return {"queues": out, "pending_approvals": mine}
@@ -62,9 +67,14 @@ def list_cases(queue: str | None = None, status: str | None = None, kind: str | 
         q = q.where(Case.firm_id == user.firm_id, Case.kind.in_(["account", "change"]))
     elif user.role == "client":
         q = q.where(Case.account_id == user.client_account_id, Case.kind == "change")
+    elif not capabilities(user)["cases"]:
+        audit.refuse(db, user, "access", "Case files aren't part of your role", target_type="endpoint",
+                     target_id="GET /api/cases")
     rows = db.scalars(q).all()
     if queue:
         rows = sorted(rows, key=lambda c: c.sla_due or c.updated_at)
+    if user.role in PORTAL_ROLES:
+        return [portal_view.summary(db, c) for c in rows]
     return [case_summary(db, c) for c in rows]
 
 

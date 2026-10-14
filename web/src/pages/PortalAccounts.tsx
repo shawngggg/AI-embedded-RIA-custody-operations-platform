@@ -21,10 +21,12 @@ export default function PortalAccounts() {
       <h2>Accounts</h2>
       {!accounts.data ? <Loading /> : accounts.data.length ? (
         <div className="scroll"><table>
-          <thead><tr><th>Account</th><th>Group</th><th>Status</th><th>Path</th><th>Address on file</th><th>Bank instructions</th></tr></thead>
+          <thead><tr><th>Account</th><th>Group</th><th>Status</th><th>Address on file</th><th>Bank instructions</th></tr></thead>
           <tbody>{accounts.data.map((a) => (
             <tr key={a.id}><td>{a.display_name}<br /><span className="mono muted">{a.id}</span></td>
-              <td>{a.group === "self_directed" ? "Self-directed" : "Pure RIA"}</td><td><Status status={a.status} /></td><td>{a.path ?? ""}</td>
+              <td>{a.group === "self_directed" ? "Self-directed" : "Pure RIA"}</td>
+              <td><Status status={a.status} />{(a.restrictions ?? []).map((r: { reason: string; limits: string[] }) => (
+                <div key={r.reason} className="small muted">{r.reason}: no {r.limits.join(", ")}</div>))}</td>
               <td className="small">{a.address}</td>
               <td className="small">{a.bank_instructions.map((b: any, i: number) => <div key={i}>{b.name} ··{b.account_last4} ({b.status.replace(/_/g, " ")})</div>)}</td></tr>
           ))}</tbody>

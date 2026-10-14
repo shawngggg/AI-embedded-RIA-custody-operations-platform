@@ -218,3 +218,16 @@ table.restricted tr.detail > td { background: var(--raised); }
 ul.coming li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 pre.email-body { white-space: pre-wrap; font: inherit; background: var(--raised); padding: 12px; border-radius: 8px; margin: 0 0 6px; }
 tr.detail > td { background: var(--raised); }
+
+/* Portal request view: what was submitted, and its history in the portal's words */
+dl.details { display: grid; grid-template-columns: minmax(140px, max-content) 1fr; gap: 6px 18px; margin: 12px 0; }
+dl.details > div { display: contents; }
+dl.details dt { color: var(--muted); font-size: 0.9rem; }
+dl.details dd { margin: 0; }
+ol.history { list-style: none; padding: 0; margin: 12px 0; border-left: 2px solid var(--line); }
+ol.history li { position: relative; padding: 4px 0 12px 18px; }
+ol.history li::before { content: ""; position: absolute; left: -7px; top: 9px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--line-strong); }
+ol.history li.t-clear::before { border-color: var(--clear); background: var(--clear-bg); }
+ol.history li.t-block::before { border-color: var(--block); background: var(--block-bg); }
+@media (max-width: 640px) { dl.details { grid-template-columns: 1fr; } dl.details dd { margin-bottom: 6px; } }

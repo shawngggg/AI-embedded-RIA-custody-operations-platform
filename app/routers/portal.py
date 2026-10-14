@@ -11,7 +11,8 @@ from models import AccountGroup
 
 from .. import audit
 from ..db import get_db
-from ..orm import Account, Firm, User
+from .. import portal_view
+from ..orm import PORTAL_ROLES, Account, Firm, User
 from ..runner import run_case
 from ..security import current_user
 from ..documents import FIELD_DOCS, attach_at_intake
@@ -22,11 +23,15 @@ from ..views import case_detail
 router = APIRouter(prefix="/api/portal", tags=["portal"])
 
 
-def _account_dict(db: Session, a: Account) -> dict:
+def _account_dict(db: Session, a: Account, user: User) -> dict:
     firm = db.get(Firm, a.firm_id)
     holders = a.application.get("holders", [])
+    internal = user.role not in PORTAL_ROLES
     return {"id": a.id, "display_name": a.display_name, "group": a.group, "registration_type": a.registration_type,
-            "status": a.status, "path": a.path, "risk_tier": a.risk_tier, "firm": firm.legal_name,
+            # The risk rating and due-diligence path are the custodian's; the portal sees status in its own words
+            "status": a.status if internal else portal_view.account_status(a.status),
+            **({"path": a.path, "risk_tier": a.risk_tier} if internal else {}),
+            "restrictions": [] if internal else portal_view.restrictions_for(db, a.id), "firm": firm.legal_name,
             "firm_crd": firm.crd, "address": holders[0].get("address") if holders else None,
             "bank_instructions": a.application.get("bank_instructions", []),
             "beneficiaries": a.application.get("beneficiaries"), "change_history": a.change_history or []}
@@ -39,7 +44,7 @@ def accounts(user: User = Depends(current_user), db: Session = Depends(get_db)):
         q = q.where(Account.firm_id == user.firm_id)
     elif user.role == "client":
         q = q.where(Account.id == user.client_account_id)
-    return [_account_dict(db, a) for a in db.scalars(q).all()]
+    return [_account_dict(db, a, user) for a in db.scalars(q).all()]
 
 
 ATTENTION = {"PENDING_ITEMS": "Items requested from you", "RETURNED": "Returned for correction",

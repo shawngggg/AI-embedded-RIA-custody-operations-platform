@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { CaseLink } from "../caselink";
 import { api } from "../api";
 import { Loading, useLoad, when } from "../util";
 
@@ -67,7 +67,7 @@ export default function RiskEvents() {
           </div>
           <p>{e.summary}</p>
           <p className="muted small">
-            {e.case_id ? <><Link to={`/cases/${e.case_id}`}>#{e.case_id} {e.case_title}</Link> · </> : e.target_id ? <><span className="mono">{e.target_id}</span> · </> : null}
+            {e.case_id ? <><CaseLink id={e.case_id}>#{e.case_id} {e.case_title}</CaseLink> · </> : e.target_id ? <><span className="mono">{e.target_id}</span> · </> : null}
             {e.source_label} · found by {e.detected_by}{e.approved_by ? `, approved by ${e.approved_by}` : ""} · {when(e.created_at)} · owner: {e.owner_label}
           </p>
           {e.remediation && <p className="small"><strong>{e.remediation_label}:</strong> {e.remediation_note} <span className="muted">({e.updated_by}{e.closed_at ? `, closed ${when(e.closed_at)}` : ""})</span></p>}

@@ -37,7 +37,7 @@ export default function App() {
   const [unread, setUnread] = useState(0);
   const refreshCounts = useCallback(() => {
     if (user && isInternal(user)) {
-      api<Counts>("/api/queues").then(setCounts).catch(() => setCounts(null));
+      if (user.capabilities?.cases) api<Counts>("/api/queues").then(setCounts).catch(() => setCounts(null));
       if (user.capabilities?.messages) api<{ unread_total: number }>("/api/channels/unread").then((r) => setUnread(r.unread_total)).catch(() => setUnread(0));
     }
   }, [user]);
@@ -68,12 +68,13 @@ export default function App() {
           {internal ? (
             <>
               <NavLink to="/work">Work</NavLink>
-              <NavLink to="/queues">Queues {total ? <span className={`badge ${breached ? "alert" : ""}`}>{total}</span> : null}</NavLink>
+              {can.queues ? <NavLink to="/queues">Queues {total ? <span className={`badge ${breached ? "alert" : ""}`}>{total}</span> : null}</NavLink>
+                : can.cases && <NavLink to="/queues">Cases</NavLink>}
               {can.approvals && <NavLink to="/approvals">Approvals {counts?.pending_approvals ? <span className="badge alert">{counts.pending_approvals}</span> : null}</NavLink>}
               {can.reviews && <NavLink to="/reviews">Reviews {qcount("reviews")?.count ? <span className="badge">{qcount("reviews")!.count}</span> : null}</NavLink>}
               {can.intake && <NavLink to="/intake">New application</NavLink>}
               {can.messages && <NavLink to="/messages">Messages {unread ? <span className="badge alert">{unread}</span> : null}</NavLink>}
-              <div className="sep" role="separator" />
+              {(can.restricted_accounts || can.risk_events || can.audit) && <div className="sep" role="separator" />}
               {can.restricted_accounts && <NavLink to="/restricted">Restricted accounts</NavLink>}
               {can.risk_events && <NavLink to="/risk-events">Risk events</NavLink>}
               {can.audit && <NavLink to="/audit">Audit trail</NavLink>}
@@ -119,13 +120,13 @@ export default function App() {
             {internal ? (
               <>
                 <Route path="/work" element={<Work />} />
-                <Route path="/queues" element={<Queues />} />
+                {can.cases && <Route path="/queues" element={<Queues />} />}
                 {can.approvals && <Route path="/approvals" element={<Approvals />} />}
                 {can.reviews && <Route path="/reviews" element={<Reviews />} />}
                 {can.intake && <Route path="/intake" element={<Intake />} />}
                 {can.restricted_accounts && <Route path="/restricted" element={<Restrictions />} />}
                 {can.audit && <Route path="/audit" element={<AuditPage />} />}
-                <Route path="/risk-events" element={<RiskEvents />} />
+                {can.risk_events && <Route path="/risk-events" element={<RiskEvents />} />}
                 {can.messages && <Route path="/messages" element={<Messages />} />}
                 {can.dashboard && <Route path="/dashboard" element={<Dashboard />} />}
                 {can.outbox && <Route path="/outbox" element={<Outbox />} />}
@@ -135,7 +136,7 @@ export default function App() {
                   <Route path="/ops/trading" element={<Planned which="trading" audience="ops" />} />
                   <Route path="/ops/billing" element={<Planned which="billing" audience="ops" />} />
                 </>}
-                <Route path="/cases/:id" element={<CasePage />} />
+                {can.cases && <Route path="/cases/:id" element={<CasePage />} />}
                 <Route path="*" element={<Navigate to="/work" replace />} />
               </>
             ) : (

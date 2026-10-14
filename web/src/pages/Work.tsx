@@ -32,10 +32,10 @@ export default function Work() {
       <p className="muted">{user.role_label}{d.team_label ? ` · ${d.team_label} team` : ""} · {today}</p>
 
       <div className="grid tiles work-tiles">
-        <Link className="tile" to="/queues">
+        {can.queues && <Link className="tile" to="/queues">
           <div className="label">Needs you</div><div className="value">{d.needs_you_total}</div>
           <div className={`sub ${d.breached ? "alert" : ""}`}>{d.breached ? `${d.breached} past SLA` : "Nothing past SLA"}</div>
-        </Link>
+        </Link>}
         {can.approvals && <Link className="tile" to="/approvals">
           <div className="label">Waiting for your approval</div><div className="value">{d.to_approve.length}</div>
           <div className="sub">Maker-checker decisions</div></Link>}

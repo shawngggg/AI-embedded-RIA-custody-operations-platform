@@ -204,7 +204,7 @@ def clean_applications(n_a: int = 12, n_b: int = 8) -> list[dict]:
                 "account_purpose": "Long-term investing", "source_of_funds": "Salary", "source_of_wealth": "Salary and savings"}
         r = as_user(advisor).post("/api/portal/accounts", json={"application": app_, "documents": ACCOUNT_DOCS})
         assert r.status_code == 200, r.text
-        d = r.json()
+        d = as_user("ops.analyst").get(f"/api/cases/{r.json()['id']}").json()    # the portal sees none of this
         before = {"status": d["status"], "manual_steps": d["manual_steps"], "path": d["path"]}
         after = accept(d["id"]) if d["status"] == "PENDING_ACCEPTANCE" else d
         with SessionLocal() as db:

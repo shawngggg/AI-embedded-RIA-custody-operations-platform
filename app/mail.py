@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .orm import Account, Case, Firm, OutboundEmail, User, utcnow
+from .orm import Case, OutboundEmail, User, utcnow
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 PORTAL_URL = os.environ.get("PORTAL_URL", "https://ria-custody-1638463558.us-central1.run.app/portal")

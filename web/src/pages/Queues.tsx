@@ -13,33 +13,37 @@ export default function Queues() {
   const [params] = useSearchParams();
   const submitted = useLoad(() => params.get("case") ? api<CaseSummary>(`/api/cases/${params.get("case")}`) : Promise.resolve(null), [params.get("case")]);
   const [selected, setSelected] = useState<string | null>(params.get("queue"));
-  const list = [...(queues.data?.queues.filter((q) => q.key !== "reviews") ?? [])].sort((a, b) => Number(b.mine) - Number(a.mine));
-  const active = selected ?? submitted.data?.queue ?? list.find((q) => q.mine && q.count)?.key ?? list.find((q) => q.count)?.key ?? "items_requested";
-  const cases = useLoad(() => api<CaseSummary[]>(`/api/cases?queue=${active}`), [active]);
+  const list = queues.data?.queues.filter((q) => q.key !== "reviews") ?? [];
+  const hasQueues = !!user.capabilities?.queues;
+  const active = selected ?? (list.some((q) => q.key === submitted.data?.queue) ? submitted.data?.queue : null)
+    ?? list.find((q) => q.count)?.key ?? list[0]?.key ?? null;
+  const cases = useLoad(() => active ? api<CaseSummary[]>(`/api/cases?queue=${active}`) : Promise.resolve([]), [active]);
   const allOpen = useLoad(() => api<CaseSummary[]>("/api/cases"), []);
 
   return (
     <>
-      <h1>Work queues</h1>
+      <h1>{hasQueues ? "Work queues" : "Cases"}</h1>
       {submitted.data && (
         <p className="ok" role="status">Submitted: <Link to={`/cases/${submitted.data.id}`}>#{submitted.data.id} {submitted.data.title}</Link> is in{" "}
           <strong>{submitted.data.queue_label ?? "no queue (it needs no one right now)"}</strong>.</p>
       )}
-      <p className="muted">Cases wait here where their process map waits for a person. Oldest SLA first.{" "}
-        {queues.data && <>You're <strong>{user.role_label}</strong>{user.team_label ? <> on the <strong>{user.team_label}</strong> team</> : null}; your queues come first and are marked.</>}</p>
-      {queues.loading && !queues.data ? <Loading /> : (
+      {hasQueues ? <p className="muted">The queues you work, oldest SLA first.{" "}
+        You're <strong>{user.role_label}</strong>{user.team_label ? <> on the <strong>{user.team_label}</strong> team</> : null}
+        {user.role === "ops_supervisor" ? "; you oversee every operations queue" : ""}.</p>
+        : <p className="muted">Look up any case, for example the opening file of an account you're reviewing. You don't work a case queue.</p>}
+      {!hasQueues ? null : queues.loading && !queues.data ? <Loading /> : (
         <div className="grid tiles" role="tablist" aria-label="Queues">
           {list.map((q) => (
             <button key={q.key} role="tab" aria-selected={q.key === active} className={`tile ${q.key === active ? "selected" : ""}`} onClick={() => setSelected(q.key)}>
-              <div className="label">{q.label}{q.mine ? " · yours" : ""}</div>
+              <div className="label">{q.label}</div>
               <div className="value">{q.count}</div>
               <div className={`sub ${q.breached ? "alert" : ""}`}>{q.breached ? `${q.breached} past SLA` : `${q.owner} · ${q.sla_hours}h SLA`}</div>
             </button>
           ))}
         </div>
       )}
-      <h2>{list.find((q) => q.key === active)?.label}</h2>
-      {cases.loading && !cases.data ? <Loading /> : cases.data && cases.data.length ? (
+      {hasQueues && <h2>{list.find((q) => q.key === active)?.label}</h2>}
+      {!hasQueues ? null : cases.loading && !cases.data ? <Loading /> : cases.data && cases.data.length ? (
         <div className="scroll">
           <table>
             <thead><tr><th>Case</th><th>Firm</th><th>Status</th><th>In queue since</th><th>SLA</th></tr></thead>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type CaseDetail, type Correction, type Doc } from "../api";
+import { api, type CaseDetail, type Correction, type Doc, type PortalCase } from "../api";
 import { isInternal, useAuth } from "../auth";
 import { Checks, DocList, DocStatus, DocUpload } from "../docs";
 import { LANES, Loading, slaText, Status, useLoad, when } from "../util";
@@ -20,9 +20,77 @@ const ROUTE: Record<string, string> = { acats_in_kind: "ACATS in kind", loi: "LO
   product_acceptance: "Product acceptance", review: "Review" };
 
 export default function CasePage() {
+  const { user } = useAuth();
+  return isInternal(user) ? <InternalCase /> : <PortalCase />;
+}
+
+const DOT: Record<string, string> = { OPEN: "clear", APPLIED: "clear", ACTIVE: "clear", DECLINED: "block" };
+
+/** The portal's view of a request: where it stands in plain words, what's needed, and the documents sent. */
+function PortalCase() {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const c = useLoad(() => api<PortalCase>(`/api/cases/${id}`), [id]);
+  const [tab, setTab] = useState("documents");
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  if (c.error) return <p className="error">{c.error}</p>;
+  if (!c.data) return <Loading />;
+  const d = c.data;
+  const refresh = (ok?: string) => api<PortalCase>(`/api/cases/${id}`).then((x) => { c.setData(x); if (ok) setMsg({ ok }); })
+    .catch((e: Error) => setMsg({ error: e.message }));
+  const done = (x: unknown, ok: string) => { c.setData(x as PortalCase); setMsg({ ok }); };
+  const fail = (e: Error) => setMsg({ error: e.message });
+  const STATUS_WORDS: Record<string, string> = { SUBMITTED: "Submitted" };
+  return (
+    <>
+      <p className="small"><Link to="/portal/accounts">← Accounts and requests</Link></p>
+      <h1>{d.title}</h1>
+      <p className="muted small">Request #{d.id}{d.target_id ? ` · ${d.target_id}` : ""}{d.firm ? ` · ${d.firm}` : ""} · submitted {when(d.created_at)}</p>
+      <div className="row" style={{ alignItems: "center", margin: "12px 0" }}><Status status={d.status} stamp /></div>
+      <p>{d.status_note}</p>
+      {d.requested_items.length > 0 && <ul>{d.requested_items.map((i) => <li key={i}>{i}</li>)}</ul>}
+      {d.restrictions_portal.length > 0 && (
+        <div className="panel">
+          <strong>Account restrictions</strong>
+          <ul className="small" style={{ marginBottom: 0 }}>{d.restrictions_portal.map((r) => (
+            <li key={r.reason}>{r.reason}: no {r.limits.join(", ")} for now</li>))}</ul>
+        </div>
+      )}
+      {msg.ok && <p className="ok" role="status">{msg.ok}</p>}
+      {msg.error && <p className="error" role="alert">{msg.error}</p>}
+      {d.corrections.length > 0 && <Corrections d={d as unknown as CaseDetail} onDone={done} onFail={fail} onRefresh={refresh} />}
+
+      <div className="tabs" role="tablist">
+        {[["documents", `Documents (${d.documents.length})`], ["details", "What you submitted"], ["history", "History"]]
+          .map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
+      </div>
+      {tab === "documents" && (
+        <>
+          <DocList docs={d.documents} onChanged={() => refresh()} />
+          {!d.closed_at && (
+            <>
+              <h3>Add a document</h3>
+              <DocUpload caseId={d.id} types={DOC_CHOICES} onUploaded={(doc) => refresh(`${doc.filename} added. We'll check it and let you know if anything's missing.`)} />
+            </>
+          )}
+        </>
+      )}
+      {tab === "details" && (d.details.length ? (
+        <dl className="details">{d.details.map((x, i) => <div key={i}><dt>{x.label}</dt><dd>{x.value}</dd></div>)}</dl>
+      ) : <div className="empty">Nothing to show.</div>)}
+      {tab === "history" && (
+        <ol className="history">{d.history.map((h, i) => (
+          <li key={i} className={`t-${DOT[h.status] ?? "quiet"}`}><span>{STATUS_WORDS[h.status] ?? <Status status={h.status} />}</span> <span className="muted small">{when(h.at)}</span></li>))}
+        </ol>
+      )}
+      <p className="small muted" style={{ marginTop: 24 }}>Questions about this request? {user.role === "client" ? "Contact your RIA, or" : "Contact"} the RIA service team at riaservice@custodian.example.</p>
+    </>
+  );
+}
+
+function InternalCase() {
   const { id } = useParams();
   const { user, refreshCounts } = useAuth();
-  const internal = isInternal(user);
   const c = useLoad(() => api<CaseDetail>(`/api/cases/${id}`), [id]);
   const auditLog = useLoad(() => api<any[]>(`/api/cases/${id}/audit`), [id]);
   const [tab, setTab] = useState("steps");
@@ -43,7 +111,7 @@ export default function CasePage() {
   if (!c.data) return <Loading />;
   const d = c.data;
   const r = d.result ?? {};
-  const back = internal ? "/queues" : "/portal";
+  const back = "/queues";
   const active = d.restrictions.filter((x) => x.active);
 
   return (
@@ -69,10 +137,10 @@ export default function CasePage() {
         <p><strong>Requested:</strong> {r.requested_items.join("; ")}</p>
       )}
 
-      {internal && d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
-      {internal && d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
-      {internal && d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
-      {internal && <Decisions d={d} onDone={done} onFail={fail} />}
+      {d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
+      {d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
+      {d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
+      <Decisions d={d} onDone={done} onFail={fail} />
       {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} onRefresh={refresh} />}
 
       <div className="tabs" role="tablist">
@@ -103,7 +171,7 @@ export default function CasePage() {
           <p className="muted small">Every item marked received points to a document here. Each file keeps its SHA-256 fingerprint,
             so anyone can later prove it wasn't changed. Automated checks read the text; a person in operations confirms good order.</p>
           <DocList docs={d.documents} onChanged={() => refresh("Marked not in good order.")} />
-          {!d.closed_at && ["ops_analyst", "ops_supervisor", "ria_admin", "ria_user", "client"].includes(user.role) && (
+          {!d.closed_at && ["ops_analyst", "ops_supervisor"].includes(user.role) && (
             <>
               <h3>Add a document</h3>
               <DocUpload caseId={d.id} types={DOC_CHOICES} onUploaded={(doc) => refresh(`${doc.filename} added.`)} />
