@@ -12,7 +12,7 @@ from ..config import settings
 from ..db import get_db
 from ..orm import OPS_TEAMS, Case, OpsRiskEvent, PendingDecision, Restriction, Review, RoleGrant, User
 from ..queues import DECISIONS, QUEUES, works_queue
-from ..risk_register import sweep_sla_breaches
+from ..risk_register import sweep_sla_breaches, visible
 from ..views import case_summary, decision_dict, review_dict, sla_state
 
 router = APIRouter(prefix="/api", tags=["work"])
@@ -40,7 +40,8 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
     my_proposals = [d for d in pending if d.proposed_by == user.id]
     if sweep_sla_breaches(db):
         db.commit()
-    events = db.scalars(select(OpsRiskEvent).where(OpsRiskEvent.status != "closed")).all()
+    events = [e for e in db.scalars(select(OpsRiskEvent).where(OpsRiskEvent.status != "closed")).all()
+              if visible(user, e)]
     restricted = {r.target_id for r in db.scalars(select(Restriction).where(Restriction.active.is_(True))).all()}
     out = {
         "greeting_name": user.display_name.split()[0],

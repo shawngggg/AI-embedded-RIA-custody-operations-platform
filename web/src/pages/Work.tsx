@@ -50,7 +50,7 @@ export default function Work() {
           <div className="sub">Team channels</div></Link>}
         <Link className="tile" to="/risk-events">
           <div className="label">Open risk events</div><div className="value">{d.risk_events_open}</div>
-          <div className="sub">{d.risk_events_mine ? `${d.risk_events_mine} owned by your team` : "None owned by your team"}</div></Link>
+          <div className="sub">{d.risk_events_open ? "In your area" : "None in your area"}</div></Link>
         {can.restricted_accounts && <Link className="tile" to="/restricted">
           <div className="label">Restricted accounts</div><div className="value">{d.restricted_targets}</div>
           <div className="sub">Accounts and firms with an active code</div></Link>}

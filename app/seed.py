@@ -355,8 +355,28 @@ def seed(db: Session) -> None:
     db.flush()
     from .risk_register import sweep_sla_breaches
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
+    seed_access_events(db, users)
     seed_messages(db, users)
     db.commit()
+
+
+def seed_access_events(db: Session, users: dict) -> None:
+    """Two synthetic access and authentication events, so the platform administrator's register has history."""
+    from .risk_register import log_access_event
+    now = utcnow()
+    sam = users["bonneville.advisor"]
+    maria = db.scalar(select(Case).where(Case.title.contains("Maria Chen"), Case.kind == "account"))
+    e = log_access_event(db, None, category="Out-of-scope access attempt", target_id=sam.username,
+                         summary=f"{sam.display_name} (RIA user, Bonneville Planning LLC) tried to open case #{maria.id}, "
+                                 "which belongs to another firm. The request was refused with the same answer as a "
+                                 "missing case.",
+                         dedupe_key=f"access:scope:{sam.id}:seed")
+    e.created_at = now - timedelta(hours=30)
+    e = log_access_event(db, None, category="Repeated failed sign-ins", target_id="dana.whitfield",
+                         summary="6 failed password sign-ins for 'dana.whitfield' within 15 minutes. Check whether "
+                                 "it's the person or someone guessing.",
+                         dedupe_key="access:sign-in:dana.whitfield:seed")
+    e.created_at = now - timedelta(hours=7)
 
 
 def seed_messages(db: Session, users: dict) -> None:

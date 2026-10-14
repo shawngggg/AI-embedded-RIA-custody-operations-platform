@@ -532,7 +532,7 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
 
 
 const QUEUE_CHANNEL: Record<string, string> = { items_requested: "onboarding", rework: "onboarding", verification: "cip",
-  confirmation: "client-service", edd_review: "aml-compliance", compliance_review: "aml-compliance",
+  confirmation: "client-service", maintenance_items: "client-service", edd_review: "aml-compliance", compliance_review: "aml-compliance",
   sanctions_review: "sanctions", principal_acceptance: "ria-service" };
 
 function Discussion({ caseId, queue }: { caseId: number; queue: string | null }) {

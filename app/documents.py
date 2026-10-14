@@ -366,11 +366,11 @@ def reopen(db: Session, case: Case, doc: Document, user: User, reason: str) -> O
             account.application = {**account.application, field: value}
     event = None
     if was_open:
-        from .risk_register import log_event
+        from .risk_register import area_for_case, log_event
         event = log_event(db, user, category="Document accepted in error", risk_type="operational", source="document",
                           summary=f"{DOC_TYPES[doc.doc_type]['label']} ({doc.filename}) was accepted by "
                                   f"{doc.reviewed_by_name or 'operations'} and later found not in good order: {reason}",
-                          owner="ops_supervisor", detected_by=user.display_name, case=case)
+                          area=area_for_case(case), detected_by=user.display_name, case=case)
     return event
 
 

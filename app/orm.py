@@ -64,7 +64,7 @@ OPS_TEAMS = {
     "escheatment": "Escheatment",
     "ira": "IRA and retirement",
     "client_reporting": "Client reporting",
-    "client_service": "Client service",
+    "client_service": "Client service and account maintenance",
 }
 
 # FINRA registrations. The custodian runs the trading platform, so it is a FINRA member broker-dealer: the
@@ -285,6 +285,9 @@ class OpsRiskEvent(Base):
     risk_type: Mapped[str] = mapped_column(String(20), default="operational", server_default="operational")
     source: Mapped[str] = mapped_column(String(20), default="manual", server_default="manual")
     dedupe_key: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
+    # The function the risk pertains to (risk_register.AREAS): each person sees their own area's events
+    area: Mapped[str] = mapped_column(String(30), default="onboarding", server_default="onboarding", index=True)
+    reported_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
     target_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
     summary: Mapped[str] = mapped_column(Text)

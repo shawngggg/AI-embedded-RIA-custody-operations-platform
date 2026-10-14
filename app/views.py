@@ -73,7 +73,16 @@ def get_case_for(db: Session, user: User, case_id: int) -> Case:
     if case is None:
         raise HTTPException(404, "No such case")
     if not can_see(db, user, case):
-        # Same answer as a missing case, so nothing leaks; logged, because probing other firms' cases is a signal
+        # Same answer as a missing case, so nothing leaks; logged, because probing other firms' cases is a signal,
+        # and raised once a day per person in the access and authentication risk register
+        from .config import settings
+        from .risk_register import log_access_event
+        who = f"{user.display_name} ({ROLES.get(user.role, user.role)}" + (f", {db.get(Firm, user.firm_id).legal_name}"
+                                                                          if user.firm_id else "") + ")"
+        log_access_event(db, user, category="Out-of-scope access attempt", target_id=user.username,
+                         summary=f"{who} tried to open case #{case.id}, which is outside their firm or account. "
+                                 "The request was refused with the same answer as a missing case.",
+                         dedupe_key=f"access:scope:{user.id}:{settings.today().isoformat()}")
         audit.refuse(db, user, "access", "No such case", status=404, case_id=case.id, scope="outside the user's firm or account")
     return case
 

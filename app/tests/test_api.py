@@ -722,10 +722,10 @@ def test_refusals_are_logged_not_just_refused(as_user):
                                               json={"reason": "Unsigned"}).status_code == 403
     assert refused("document_check_refused")
     event = as_user("rs.lead").get("/api/risk-events").json()["events"]
-    if event:
-        assert as_user("ops.analyst").post(f"/api/risk-events/{event[0]['id']}", json={
-            "remediation": "training", "note": "Refresher training for the team"}).status_code == 403
-        assert refused("ops_risk_event_update_refused")
+    assert event                                     # Juniper Ridge's acceptance is past its SLA
+    assert as_user("ops.analyst").post(f"/api/risk-events/{event[0]['id']}", json={
+        "remediation": "training", "note": "Refresher training for the team"}).status_code == 404   # not their area
+    assert refused("ops_risk_event_update_refused")
 
 
 def test_intake_reports_how_live_ai_signs_in(as_user, monkeypatch):
@@ -759,8 +759,8 @@ def test_queues_are_marked_by_team(as_user):
         return {q["key"] for q in as_user(u).get("/api/queues").json()["queues"] if q["mine"]}
     assert mine("ops.analyst") == {"items_requested", "rework"}
     assert mine("ops.cip") == {"verification"}
-    assert mine("ops.service") == {"confirmation"}
-    assert {"items_requested", "confirmation", "verification", "rework"} <= mine("ops.supervisor")
+    assert mine("ops.service") == {"confirmation", "maintenance_items"}     # account maintenance
+    assert {"items_requested", "confirmation", "verification", "rework", "maintenance_items"} <= mine("ops.supervisor")
 
 
 def test_work_page_shows_what_needs_each_person(as_user):
@@ -802,19 +802,21 @@ def test_risk_register_covers_operational_regulatory_and_financial(as_user):
     d = as_user("sanctions.maker").post(f"/api/cases/{meridian}/decisions", json={
         "decision_type": "sanctions", "value": "true_match", "reference": "DET-R-1"}).json()
     as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
-    true_match = [e for e in as_user("ops.analyst").get("/api/risk-events?risk_type=regulatory").json()["events"]
+    true_match = [e for e in as_user("sanctions.maker").get("/api/risk-events?risk_type=regulatory").json()["events"]
                   if e["source"] == "sanctions"][0]
-    assert true_match["owner"] == "sanctions" and "31 CFR 501.603" in true_match["summary"]
+    assert true_match["owner"] == "sanctions" and true_match["area"] == "sanctions"
+    assert "31 CFR 501.603" in true_match["summary"]
     lena = case_id(as_user("ops.analyst"), "Lena Park")
     accept(as_user("rs.principal"), lena)
     as_user("rs.principal").post(f"/api/cases/{lena}/rescission", json={
         "kind": "accepted_before_review", "return_to": "review", "reason": "Accepted before opening the documents"})
-    requested = [e for e in as_user("ops.analyst").get("/api/risk-events").json()["events"] if e["source"] == "rescission"]
+    requested = [e for e in as_user("rs.lead").get("/api/risk-events").json()["events"] if e["source"] == "rescission"]
     assert requested[0]["category"] == "Rescission requested" and requested[0]["status"] == "open"
     fin = as_user("ops.analyst").post("/api/risk-events", json={
-        "category": "Fee debited twice", "risk_type": "financial", "owner": "ops_supervisor",
+        "category": "Fee debited twice", "risk_type": "financial", "area": "billing",
         "summary": "A client reported two identical advisory fee debits this quarter.", "target_id": "ACC-2001"}).json()
     assert fin["risk_type_label"] == "Financial" and fin["source"] == "manual" and not fin["can_update"]
+    assert fin["owner"] == "ops_supervisor" and fin["reported_by_me"]          # the reporter keeps seeing it
     assert as_user("sanctions.checker").post(f"/api/risk-events/{true_match['id']}", json={
         "remediation": "report", "note": "Rejected-transaction report filed with OFAC", "close": True}).json()["status"] == "closed"
     assert as_user("ops.analyst").post(f"/api/risk-events/{fin['id']}", json={
@@ -895,21 +897,22 @@ def test_microsoft_365_sends_through_graph(monkeypatch):
 
 # --- Who sees what (the per-role sanity check of Oct. 13) ------------------------------------
 
-EXPECTED_CAPABILITIES = {
-    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "restricted_accounts", "outbox",
-                    "planned"},
-    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox", "planned"},
-    "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox", "planned"},
+PLANNED_ALL = {"planned_transfers", "planned_trading", "planned_billing"}
+EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams that will run them
+    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "restricted_accounts", "outbox"},
+    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
+    "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake",
-                       "restricted_accounts", "audit", "dashboard", "outbox", "planned"},
+                       "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
-                  "audit", "planned"},
+                  "audit"},
     "sanctions.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts",
-                        "audit", "planned"},
-    "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts", "planned"},
+                        "audit"},
+    "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},
     "rs.lead": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
-                "dashboard", "outbox", "planned"},
-    "rs.principal": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "planned"},
+                "dashboard", "outbox", "planned_transfers", "planned_trading"},
+    "rs.principal": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "planned_transfers",
+                     "planned_trading"},
     "admin.platform": {"work", "messages", "risk_events", "audit", "outbox", "admin"},
     "granite.admin": {"portal"}, "granite.advisor": {"portal"}, "client.farid": {"portal"},
 }
@@ -926,7 +929,7 @@ def test_queues_show_only_the_queues_a_person_works(as_user):
     keys = {u: {q["key"] for q in as_user(u).get("/api/queues").json()["queues"]}
             for u in ("ops.analyst", "ops.cip", "ops.service", "sanctions.maker", "review.analyst")}
     assert keys["ops.analyst"] == {"items_requested", "rework"}
-    assert keys["ops.cip"] == {"verification"} and keys["ops.service"] == {"confirmation"}
+    assert keys["ops.cip"] == {"verification"} and keys["ops.service"] == {"confirmation", "maintenance_items"}
     assert keys["sanctions.maker"] == {"sanctions_review"} and keys["review.analyst"] == {"reviews"}
 
 
@@ -983,3 +986,58 @@ def test_a_sanctions_escalation_reads_as_in_review_in_the_portal(as_user):
     assert portal["status"] == "IN_REVIEW" and portal["status_note"].startswith("We're reviewing")
     home = as_user("granite.advisor").get("/api/portal/home").json()
     assert ilya not in [a["case_id"] for a in home["attention"]]
+
+
+def test_each_person_sees_only_their_areas_risk_events(as_user):
+    def areas(username):
+        return {e["area"] for e in as_user(username).get("/api/risk-events?status=").json()["events"]}
+    meridian = case_id(as_user("ops.analyst"), "Meridian Gate")
+    d = as_user("sanctions.maker").post(f"/api/cases/{meridian}/decisions", json={
+        "decision_type": "sanctions", "value": "true_match", "reference": "DET-A-1"}).json()
+    as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
+    assert areas("ops.analyst") == {"onboarding"}            # Rosa's items are past their SLA
+    assert areas("sanctions.maker") == {"sanctions"}
+    assert areas("rs.lead") == {"ria_service"}               # Juniper Ridge's acceptance is past its SLA
+    assert areas("admin.platform") == {"access"}             # access and authentication only
+    assert {"onboarding"} <= areas("ops.supervisor") and not areas("ops.supervisor") & {"sanctions", "access"}
+    assert areas("ops.cip") == set() and areas("aml.maker") == set()
+    # A report in another area stays visible to its reporter, and to that area, not to everyone
+    as_user("ops.cip").post("/api/risk-events", json={"category": "Wrong ID type accepted", "risk_type": "operational",
+                                                      "area": "onboarding", "summary": "A library card was accepted as ID."})
+    assert areas("ops.cip") == {"onboarding"} and "Wrong ID type accepted" in str(as_user("ops.analyst").get("/api/risk-events").json())
+    assert "Wrong ID type accepted" not in str(as_user("ops.service").get("/api/risk-events").json())
+    work = as_user("admin.platform").get("/api/work").json()
+    assert work["risk_events_open"] == 2                       # the two seeded access events
+
+
+def test_access_and_authentication_events_reach_the_admin(as_user):
+    rosa = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    assert as_user("granite.advisor").get(f"/api/cases/{rosa}").status_code == 404     # another firm's case
+    assert as_user("granite.advisor").get(f"/api/cases/{rosa}").status_code == 404     # once a day per person
+    for _ in range(5):
+        assert as_user("admin.platform").post("/api/auth/login", json={"username": "dev.mallory", "password": "guess-1234"}).status_code == 401
+    users = as_user("admin.platform").get("/api/admin/users").json()
+    target = next(u for u in users if u["username"] == "review.analyst")
+    grant = as_user("admin.platform").post(f"/api/admin/users/{target['id']}/role", json={"role": "aml_compliance"}).json()
+    assert as_user("admin.platform").post(f"/api/admin/grants/{grant['grant']['id']}/approve", json={}).status_code == 403
+    events = as_user("admin.platform").get("/api/risk-events").json()["events"]
+    cats = [e["category"] for e in events]
+    assert cats.count("Out-of-scope access attempt") == 2      # the seeded one and Marcus's
+    assert "Repeated failed sign-ins" in cats and "Grant self-approval attempt" in cats
+    assert all(e["area"] == "access" and e["owner"] == "platform_admin" for e in events)
+    assert any("Marcus Lee" in e["summary"] for e in events)
+    assert not [e for e in as_user("ops.supervisor").get("/api/risk-events").json()["events"] if e["area"] == "access"]
+
+
+def test_account_changes_are_account_maintenance_with_client_service(as_user):
+    returned = as_user("granite.advisor").post("/api/portal/changes", json={
+        "account_id": "ACC-1990", "change_type": "beneficiary", "details": {"beneficiaries": "Lin Chen 100%"}}).json()
+    assert returned["status"] == "RETURNED"                   # no client signature on an owner-level change
+    case = as_user("ops.service").get(f"/api/cases/{returned['id']}").json()
+    assert case["queue"] == "maintenance_items" and case["queue_label"] == "Account changes: items requested"
+    assert returned["id"] in [c["id"] for c in as_user("ops.service").get("/api/work").json()["needs_you"]]
+    assert returned["id"] not in [c["id"] for c in as_user("ops.analyst").get("/api/work").json()["needs_you"]]
+    change = {"account_id": "ACC-2001", "change_type": "address", "details": {"new_address": "9 Elm St, Ogden, UT 84401"},
+              "documents": [{"doc_type": "change_form", "sample": True}]}
+    assert as_user("ops.analyst").post("/api/portal/changes", json=change).status_code == 403    # onboarding
+    assert as_user("ops.service").post("/api/portal/changes", json=change).status_code == 200    # client service

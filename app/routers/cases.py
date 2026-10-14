@@ -300,7 +300,7 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
                   summary=f"{case.title}: the sanctions team confirmed a true match ({d.reference}). The case is "
                           "blocked; the sanctions team decides whether a blocked-property or rejected-transaction "
                           "report to OFAC is due within 10 business days (31 CFR 501.603 and 501.604).",
-                  owner="sanctions", detected_by=proposer.display_name if proposer else "Sanctions team",
+                  area="sanctions", detected_by=proposer.display_name if proposer else "Sanctions team",
                   approved_by=user.display_name, case=case, dedupe_key=f"sanctions:{d.id}")
     if d.decision_type == "rescission":
         (rescission.approve if approve else rescission.reject)(db, d, case, user)

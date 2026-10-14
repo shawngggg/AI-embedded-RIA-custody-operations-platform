@@ -157,9 +157,11 @@ def new_change(body: NewChange, user: User = Depends(current_user), db: Session 
         raise HTTPException(404, "No open account with that id")
     if user.role == "client" and account.id != user.client_account_id:
         raise HTTPException(404, "No open account with that id")
-    if user.role not in ("ria_admin", "ria_user", "client", "ops_analyst"):
-        audit.refuse(db, user, "account_change", "RIA users, the client, or operations submit changes",
-                     target_type="account", target_id=account.id)
+    if user.role not in ("ria_admin", "ria_user", "client", "ops_analyst", "ops_supervisor") \
+            or (user.role == "ops_analyst" and user.team != "client_service"):
+        # Account maintenance sits with client service: a change arriving by mail is entered there
+        audit.refuse(db, user, "account_change", "RIA users, the client, or client service (account maintenance) "
+                     "submit changes", target_type="account", target_id=account.id)
     try:
         ChangeType(body.change_type)
     except ValueError:
@@ -178,7 +180,7 @@ def new_change(body: NewChange, user: User = Depends(current_user), db: Session 
         "recent_changes": account.change_history or [], "path": account.path or "B",
     }
     case = create_change_case(db, change, account, user)
-    _apply_document_fields(db, case, user, body.documents, "mail" if user.role == "ops_analyst" else "portal")
+    _apply_document_fields(db, case, user, body.documents, "portal" if user.role in PORTAL_ROLES else "mail")
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)

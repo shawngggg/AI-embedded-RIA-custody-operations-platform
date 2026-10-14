@@ -19,6 +19,17 @@ REVIEWERS = {"periodic_review", "aml_compliance", "ops_supervisor"}
 OVERSIGHT = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service_lead", "platform_admin"}
 TEAM_LEADS = {"ops_supervisor", "ria_service_lead"}     # the operations dashboard is for the people who run queues
 QUEUE_ROLES = {r for spec in QUEUES.values() for r in spec["roles"]}
+# The planned workbenches (release 2 and 3) show only to the people who will run them: the operations team for that
+# function, the operations supervisor who oversees every team, and the RIA service team, which works with RIAs on
+# trading and transfers (Shawn, Oct. 13, 2026)
+PLANNED = {"transfers": ("asset_transfer", {"ria_service", "ria_service_lead"}),
+           "trading": ("trade", {"ria_service", "ria_service_lead"}),
+           "billing": ("billing", set())}
+
+
+def _planned(u: User, which: str) -> bool:
+    team, roles = PLANNED[which]
+    return u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team == team) or u.role in roles
 
 
 def capabilities(u: User) -> dict[str, bool]:
@@ -35,7 +46,8 @@ def capabilities(u: User) -> dict[str, bool]:
         "audit": u.role in OVERSIGHT,
         "dashboard": u.role in TEAM_LEADS,
         "outbox": u.role in OPS_ROLES | {"platform_admin", "ria_service_lead"},
-        "planned": internal and u.role != "platform_admin",
+        "planned_transfers": _planned(u, "transfers"), "planned_trading": _planned(u, "trading"),
+        "planned_billing": _planned(u, "billing"),
         "admin": u.role == "platform_admin",
         "portal": u.role in PORTAL_ROLES,
     }

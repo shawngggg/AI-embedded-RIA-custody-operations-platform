@@ -184,7 +184,7 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
         case.sla_due = now + timedelta(hours=QUEUES[queue]["sla_hours"]) if queue else None
     if previous != res.status:
         db.add(CaseTransition(case_id=case.id, from_status=previous, to_status=res.status, at=now))
-        if queue == "items_requested":
+        if queue in ("items_requested", "maintenance_items"):    # returned for items: a NIGO
             case.nigo_count += 1
         from .mail import notify_transition
         notify_transition(db, case, previous, res.status)
