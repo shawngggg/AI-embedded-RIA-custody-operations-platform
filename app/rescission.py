@@ -82,7 +82,7 @@ def request(db: Session, case: Case, user: User, kind: str, reason: str, return_
                  return_to=return_to, reason=reason.strip(), **stamp(case, "rescission"))
     log_event(db, user, category="Rescission requested",
               risk_type="regulatory" if kind == "regulatory_issue" else "operational", source="rescission",
-              summary=f"{ref}: {KINDS[kind]}. {reason.strip()}", owner="ria_service_lead",
+              summary=f"{ref}: {KINDS[kind]}. {reason.strip()}", area="ria_service",
               detected_by=user.display_name, case=case, dedupe_key=f"rescission:{ref}")
     return d
 
@@ -115,7 +115,7 @@ def approve(db: Session, d: PendingDecision, case: Case, lead: User) -> None:
     _release_hold(db, case, lead, d.reference, f"Rescission approved; the {case.kind} is no longer open")
     event = by_key(db, f"rescission:{d.reference}") or log_event(
         db, lead, category="Rescission requested", risk_type="operational", source="rescission",
-        summary=f"{d.reference}: {d.note}", owner="ria_service_lead", detected_by=requester.display_name, case=case,
+        summary=f"{d.reference}: {d.note}", area="ria_service", detected_by=requester.display_name, case=case,
         dedupe_key=f"rescission:{d.reference}")
     event.category, event.approved_by = "Principal acceptance rescinded", lead.display_name
     audit.record(db, lead, "acceptance_rescinded", "case", case.id, case_id=case.id, reference=d.reference,

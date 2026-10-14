@@ -91,3 +91,11 @@ export type CaseDetail = CaseSummary & {
   rescission: { can_request: boolean; reason: string | null; kinds: Record<string, string>; return_to: Record<string, string> } | null;
   rework: { reason: string; reference: string; requested_by: string; approved_by: string; at: string } | null;
 };
+
+/** What RIA users and clients get for a case (app/portal_view.py): none of the custodian's internal work. */
+export type PortalCase = Pick<CaseSummary, "id" | "kind" | "title" | "status" | "firm" | "account_id" | "target_id" | "created_at" | "updated_at"> & {
+  portal: true; status_note: string; requested_items: string[]; corrections: Correction[]; documents: Doc[];
+  restrictions_portal: { reason: string; limits: string[] }[];
+  account: { id: string; status: string; group: string; display_name: string } | null;
+  details: { label: string; value: string }[]; history: { status: string; at: string }[]; closed_at: string | null;
+};

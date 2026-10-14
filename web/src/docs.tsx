@@ -113,6 +113,7 @@ export function DocUpload({ caseId, types, onUploaded, compact }: {
 export function DocList({ docs, onChanged }: { docs: Doc[]; onChanged: () => void }) {
   const { user } = useAuth();
   const ops = ["ops_analyst", "ops_supervisor"].includes(user.role);
+  const portal = ["ria_admin", "ria_user", "client"].includes(user.role);   // no automated-check detail in the portal
   const reject = (d: Doc) => {
     const reason = window.prompt(d.status === "in_good_order"
       ? `Reopen ${d.filename}? It was accepted; the item it satisfied comes back as outstanding. On an open account, ` +
@@ -124,7 +125,7 @@ export function DocList({ docs, onChanged }: { docs: Doc[]; onChanged: () => voi
   if (!docs.length) return <div className="empty">No documents on this case yet.</div>;
   return (
     <div className="scroll"><table>
-      <thead><tr><th>Document</th><th>Received</th><th>Status</th><th>Automated checks</th><th>Fingerprint (SHA-256)</th><th></th></tr></thead>
+      <thead><tr><th>Document</th><th>Received</th><th>Status</th>{!portal && <th>Automated checks</th>}<th>Fingerprint (SHA-256)</th>{!portal && <th></th>}</tr></thead>
       <tbody>{docs.map((d) => (
         <tr key={d.id}>
           <td><strong>{d.type_label}</strong><br />
@@ -133,11 +134,11 @@ export function DocList({ docs, onChanged }: { docs: Doc[]; onChanged: () => voi
           <td className="small">{d.received_on} via {d.channel_label}<br /><span className="muted">added by {d.uploaded_by}</span></td>
           <td><DocStatus d={d} />{d.reviewed_by && <div className="muted small">{d.reviewed_by}, {when(d.reviewed_at)}</div>}
             {d.review_note && <div className="small">“{d.review_note}”</div>}</td>
-          <td className="small"><Checks d={d} /></td>
+          {!portal && <td className="small"><Checks d={d} /></td>}
           <td className="mono small" title={d.sha256}>{d.sha256.slice(0, 16)}…</td>
-          <td>{ops && d.status === "received" && <button className="small secondary" onClick={() => reject(d)}>Not in good order</button>}
+          {!portal && <td>{ops && d.status === "received" && <button className="small secondary" onClick={() => reject(d)}>Not in good order</button>}
             {d.status === "in_good_order" && d.reopen_refusal === null && <button className="small secondary" onClick={() => reject(d)}>Reopen</button>}
-            {d.status === "in_good_order" && d.reopen_refusal?.startsWith("This document backs") && <span className="muted small">Regulatory item: rescind the acceptance to reopen</span>}</td>
+            {d.status === "in_good_order" && d.reopen_refusal?.startsWith("This document backs") && <span className="muted small">Regulatory item: rescind the acceptance to reopen</span>}</td>}
         </tr>
       ))}</tbody>
     </table></div>

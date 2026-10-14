@@ -13,7 +13,7 @@ from . import audit
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .access import capabilities
-from .orm import OPS_TEAMS, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
+from .orm import OPS_TEAMS, PORTAL_ROLES, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .queues import DECISIONS, QUEUES
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
@@ -67,11 +67,22 @@ def can_see(db: Session, user: User, case: Case) -> bool:
 
 
 def get_case_for(db: Session, user: User, case_id: int) -> Case:
+    if user.role not in PORTAL_ROLES and not capabilities(user)["cases"]:
+        audit.refuse(db, user, "access", "Case files aren't part of your role", case_id=case_id)
     case = db.get(Case, case_id)
     if case is None:
         raise HTTPException(404, "No such case")
     if not can_see(db, user, case):
-        # Same answer as a missing case, so nothing leaks; logged, because probing other firms' cases is a signal
+        # Same answer as a missing case, so nothing leaks; logged, because probing other firms' cases is a signal,
+        # and raised once a day per person in the access and authentication risk register
+        from .config import settings
+        from .risk_register import log_access_event
+        who = f"{user.display_name} ({ROLES.get(user.role, user.role)}" + (f", {db.get(Firm, user.firm_id).legal_name}"
+                                                                          if user.firm_id else "") + ")"
+        log_access_event(db, user, category="Out-of-scope access attempt", target_id=user.username,
+                         summary=f"{who} tried to open case #{case.id}, which is outside their firm or account. "
+                                 "The request was refused with the same answer as a missing case.",
+                         dedupe_key=f"access:scope:{user.id}:{settings.today().isoformat()}")
         audit.refuse(db, user, "access", "No such case", status=404, case_id=case.id, scope="outside the user's firm or account")
     return case
 
@@ -159,6 +170,9 @@ def rescission_state(db: Session, c: Case, user: User) -> dict | None:
 
 
 def case_detail(db: Session, c: Case, user: User) -> dict:
+    if user.role in PORTAL_ROLES:
+        from . import portal_view
+        return portal_view.detail(db, c, user)
     data = case_summary(db, c)
     restrictions = db.scalars(select(Restriction).where(Restriction.target_id == c.target_id)
                               .order_by(Restriction.placed_at.desc())).all()

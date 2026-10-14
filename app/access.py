@@ -10,27 +10,44 @@ from sqlalchemy.orm import Session
 from . import audit
 from .db import get_db
 from .orm import INTERNAL_ROLES, OPS_ROLES, PORTAL_ROLES, User
-from .queues import DECISIONS
+from .queues import DECISIONS, QUEUES
 from .security import current_user
 
 # Maker-checker approvers (acceptance is a principal's direct act, so it isn't an approval)
 APPROVERS = {r for spec in DECISIONS.values() if not spec.get("direct") for r in spec["approver"]}
 REVIEWERS = {"periodic_review", "aml_compliance", "ops_supervisor"}
 OVERSIGHT = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service_lead", "platform_admin"}
+TEAM_LEADS = {"ops_supervisor", "ria_service_lead"}     # the operations dashboard is for the people who run queues
+QUEUE_ROLES = {r for spec in QUEUES.values() for r in spec["roles"]}
+# The planned workbenches (release 2 and 3) show only to the people who will run them: the operations team for that
+# function, the operations supervisor who oversees every team, and the RIA service team, which works with RIAs on
+# trading and transfers (Shawn, Oct. 13, 2026)
+PLANNED = {"transfers": ("asset_transfer", {"ria_service", "ria_service_lead"}),
+           "trading": ("trade", {"ria_service", "ria_service_lead"}),
+           "billing": ("billing", set())}
+
+
+def _planned(u: User, which: str) -> bool:
+    team, roles = PLANNED[which]
+    return u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team == team) or u.role in roles
 
 
 def capabilities(u: User) -> dict[str, bool]:
     internal = u.role in INTERNAL_ROLES
+    # The platform administrator runs users, roles, and rules, not cases: no client data in queues or case files
+    cases = internal and u.role != "platform_admin"
     return {
-        "work": internal, "queues": internal, "messages": internal, "risk_events": internal,
+        "work": internal, "messages": internal, "risk_events": internal,
+        "cases": cases, "queues": cases and u.role in QUEUE_ROLES,
         "approvals": u.role in APPROVERS,
         "reviews": u.role in REVIEWERS,
         "intake": u.role in OPS_ROLES and u.team == "onboarding",
         "restricted_accounts": internal and u.role != "platform_admin",
         "audit": u.role in OVERSIGHT,
-        "dashboard": u.role in OVERSIGHT,
+        "dashboard": u.role in TEAM_LEADS,
         "outbox": u.role in OPS_ROLES | {"platform_admin", "ria_service_lead"},
-        "planned": internal and u.role != "platform_admin",
+        "planned_transfers": _planned(u, "transfers"), "planned_trading": _planned(u, "trading"),
+        "planned_billing": _planned(u, "billing"),
         "admin": u.role == "platform_admin",
         "portal": u.role in PORTAL_ROLES,
     }

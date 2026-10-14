@@ -23,7 +23,8 @@ from ..config import settings
 from ..db import SessionLocal, get_db
 from ..orm import (DECISION_ROLES, LICENSED_ROLES, OPS_ROLES, OPS_TEAMS, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
                    Account, Firm, RoleGrant, User, utcnow)
-from ..security import current_user, hash_password, require_roles
+from ..security import hash_password, require_internal, require_roles
+from ..risk_register import log_access_event
 from ..views import iso, user_dict
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -63,7 +64,7 @@ def roles(user: User = Depends(admins)):
 
 
 @router.get("/registrations")
-def registrations(user: User = Depends(admins)):
+def registrations(user: User = Depends(require_roles("platform_admin"))):
     return [{"code": k, "label": v, "needs_series_7": k in NEEDS_SERIES_7} for k, v in REGISTRATIONS.items()]
 
 
@@ -112,7 +113,7 @@ def _check_team(role: str, team: str | None) -> None:
 
 
 @router.get("/teams")
-def teams(user: User = Depends(admins)):
+def teams(user: User = Depends(require_roles("platform_admin"))):
     return [{"team": k, "label": v} for k, v in OPS_TEAMS.items()]
 
 
@@ -255,6 +256,12 @@ def _decide_grant(grant_id: int, approve: bool, actor: User, db: Session):
     if g.requested_by == actor.id:
         audit.record(db, actor, "role_grant_refused", "user", g.user_id, role=g.role,
                      reason="requester cannot approve")
+        target = db.get(User, g.user_id)
+        log_access_event(db, actor, category="Grant self-approval attempt", target_id=target.username if target else None,
+                         summary=f"{actor.display_name} tried to approve a grant they requested "
+                                 f"({ROLES.get(g.role, g.role)} for {target.display_name if target else 'a user'}). "
+                                 "Refused: a second administrator approves every grant of a decision role.",
+                         dedupe_key=f"access:grant-self:{g.id}")
         db.commit()
         raise HTTPException(403, "A second administrator must approve a grant you requested")
     g.status, g.decided_by, g.decided_at = ("approved" if approve else "rejected"), actor.id, utcnow()
@@ -305,8 +312,9 @@ def _rule(r: dict) -> dict:
             "disposition": r["disposition"].value if "disposition" in r else None, "points": r.get("points")}
 
 
-@router.get("/rules", dependencies=[Depends(current_user)])
+@router.get("/rules", dependencies=[Depends(require_internal)])
 def rule_library():
+    """The custodian's rule library, risk factors included: internal teams only."""
     return {
         "Firm rules": [_rule(r) for r in FIRM_RULES],
         "Account rules": [_rule(r) for r in ACCOUNT_RULES],

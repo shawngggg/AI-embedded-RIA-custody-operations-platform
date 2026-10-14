@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { CaseLink } from "../caselink";
 import { api } from "../api";
 import { Loading, useLoad, when } from "../util";
 
@@ -8,9 +8,10 @@ type Event = {
   case_id: number | null; case_title: string | null; target_id: string | null;
   summary: string; detected_by: string; approved_by: string | null; owner: string; owner_label: string; status: string; status_label: string;
   remediation: string | null; remediation_label: string | null; remediation_note: string | null; created_at: string;
-  updated_by: string | null; closed_at: string | null; can_update: boolean;
+  updated_by: string | null; closed_at: string | null; can_update: boolean; area: string; area_label: string; reported_by_me: boolean;
 };
-type Register = { events: Event[]; remediation: Record<string, string>; risk_types: Record<string, string>; owners: Record<string, string> };
+type Register = { events: Event[]; remediation: Record<string, string>; risk_types: Record<string, string>; owners: Record<string, string>;
+  areas: Record<string, string>; my_areas: { area: string; label: string }[] };
 
 const TYPE_TONE: Record<string, string> = { operational: "t-refer", regulatory: "t-escalate", financial: "t-block" };
 
@@ -35,8 +36,10 @@ export default function RiskEvents() {
         <h1 style={{ margin: 0 }}>Risk events</h1>
         <button className="secondary" onClick={() => setReporting(!reporting)}>{reporting ? "Cancel" : "Report a risk event"}</button>
       </div>
-      <p className="muted">Operational, regulatory, and financial events. The platform logs rescission requests, documents reopened on an
-        open account, sanctions true matches, and cases past their SLA; anyone can report one. The owning team records the
+      <p className="muted">Operational, regulatory, and financial events in your area
+        {all.data?.my_areas.length ? <>: <strong>{all.data.my_areas.map((a) => a.label).join(", ")}</strong></> : null}, plus any you
+        reported. The platform logs rescission requests, documents reopened on an open account, sanctions true matches, cases past
+        their SLA, and access and authentication events; anyone can report one in any area. The owning team records the
         remediation path and closes the event.</p>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       {reporting && all.data && <ReportForm reg={all.data} onDone={(ref) => { setReporting(false); setMsg({ ok: `${ref} reported.` }); reload(); }}
@@ -61,13 +64,14 @@ export default function RiskEvents() {
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ margin: 0 }}>{e.ref} · {e.category}</h3>
             <span>
+              <span className="pill t-quiet">{e.area_label}</span>{" "}
               <span className={`pill ${TYPE_TONE[e.risk_type] ?? "t-quiet"}`}>{e.risk_type_label}</span>{" "}
               <span className={`pill ${e.status === "closed" ? "t-clear" : e.status === "open" ? "t-escalate" : "t-refer"}`}>{e.status_label}</span>
             </span>
           </div>
           <p>{e.summary}</p>
           <p className="muted small">
-            {e.case_id ? <><Link to={`/cases/${e.case_id}`}>#{e.case_id} {e.case_title}</Link> · </> : e.target_id ? <><span className="mono">{e.target_id}</span> · </> : null}
+            {e.case_id ? <><CaseLink id={e.case_id}>#{e.case_id} {e.case_title}</CaseLink> · </> : e.target_id ? <><span className="mono">{e.target_id}</span> · </> : null}
             {e.source_label} · found by {e.detected_by}{e.approved_by ? `, approved by ${e.approved_by}` : ""} · {when(e.created_at)} · owner: {e.owner_label}
           </p>
           {e.remediation && <p className="small"><strong>{e.remediation_label}:</strong> {e.remediation_note} <span className="muted">({e.updated_by}{e.closed_at ? `, closed ${when(e.closed_at)}` : ""})</span></p>}
@@ -79,7 +83,7 @@ export default function RiskEvents() {
 }
 
 function ReportForm({ reg, onDone, onError }: { reg: Register; onDone: (ref: string) => void; onError: (m: string) => void }) {
-  const [f, setF] = useState({ category: "", risk_type: "operational", owner: "ops_supervisor", summary: "", case_id: "", target_id: "" });
+  const [f, setF] = useState({ category: "", risk_type: "operational", area: reg.my_areas[0]?.area ?? "onboarding", summary: "", case_id: "", target_id: "" });
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     api<Event>("/api/risk-events", { body: { ...f, case_id: f.case_id ? Number(f.case_id) : null, target_id: f.target_id || null } })
@@ -93,9 +97,9 @@ function ReportForm({ reg, onDone, onError }: { reg: Register; onDone: (ref: str
         <div className="field" style={{ flex: "0 1 180px" }}><label htmlFor="rt">Type</label>
           <select id="rt" value={f.risk_type} onChange={(e) => setF({ ...f, risk_type: e.target.value })}>
             {Object.entries(reg.risk_types).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-        <div className="field" style={{ flex: "0 1 220px" }}><label htmlFor="ro">Team that owns it</label>
-          <select id="ro" value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })}>
-            {Object.entries(reg.owners).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+        <div className="field" style={{ flex: "0 1 260px" }}><label htmlFor="ro">Area it pertains to</label>
+          <select id="ro" value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })}>
+            {Object.entries(reg.areas).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
       </div>
       <div className="field"><label htmlFor="rsum">Details</label><textarea id="rsum" value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></div>
       <div className="row">

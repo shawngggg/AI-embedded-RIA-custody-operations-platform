@@ -10,8 +10,12 @@ QUEUES = {
                          "roles": ["sanctions"], "sla_hours": 24},
     "edd_review": {"label": "EDD pending", "owner": "AML compliance",
                    "roles": ["aml_compliance"], "sla_hours": 120},
-    "confirmation": {"label": "Fraud-pattern confirmation", "owner": "Client service",
+    "confirmation": {"label": "Fraud-pattern confirmation", "owner": "Client service (account maintenance)",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 24},
+    # Account maintenance sits with client service (Shawn, Oct. 13, 2026): a change returned to the RIA or client
+    # for correction waits here, not in onboarding's queue
+    "maintenance_items": {"label": "Account changes: items requested", "owner": "Client service (account maintenance)",
+                          "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 120},
     "verification": {"label": "Identity verification", "owner": "CIP and identity verification",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
@@ -45,8 +49,8 @@ CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIR
 
 
 def queue_for(kind: str, status: str) -> str | None:
-    if kind == "change" and status == "RETURNED":
-        return "items_requested"
+    if kind == "change" and status in ("RETURNED", "PENDING_ITEMS"):
+        return "maintenance_items"
     return _BY_STATUS.get(status)
 
 

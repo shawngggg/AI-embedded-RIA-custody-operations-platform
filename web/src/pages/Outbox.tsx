@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { Link } from "react-router-dom";
+import { CaseLink } from "../caselink";
 import { api } from "../api";
 import { Loading, useLoad, when } from "../util";
 
@@ -42,7 +42,7 @@ export default function Outbox() {
               <tr className="link" onClick={() => setOpen(open === e.id ? null : e.id)}>
                 <td className="small">{e.to_name}<div className="mono muted">{e.to}</div></td>
                 <td>{e.subject}</td>
-                <td className="small">{e.case_id ? <Link to={`/cases/${e.case_id}`} onClick={(x) => x.stopPropagation()}>#{e.case_id}</Link> : ""}</td>
+                <td className="small">{e.case_id ? <CaseLink id={e.case_id} onClick={(x) => x.stopPropagation()}>#{e.case_id}</CaseLink> : ""}</td>
                 <td><span className={`pill ${TONE[e.status] ?? "t-quiet"}`} title={e.error ?? ""}>{e.status_label}</span></td>
                 <td className="small">{when(e.sent_at ?? e.created_at)}</td>
               </tr>

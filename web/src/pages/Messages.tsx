@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { CaseLink } from "../caselink";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Loading, when } from "../util";
@@ -22,14 +23,14 @@ export function MessageBody({ m }: { m: Message }) {
       const num = p.match(/(\d{1,6})$/)?.[1];
       if (/^(case|#)/i.test(p) && num) {
         const ref = m.refs.find((r) => r.type === "case" && String(r.id) === num);
-        return ref ? <Link key={i} to={`/cases/${num}`} title={ref.label}>{p}</Link> : <Fragment key={i}>{p}</Fragment>;
+        return ref ? <CaseLink key={i} id={Number(num)} title={ref.label}>{p}</CaseLink> : <Fragment key={i}>{p}</Fragment>;
       }
       if (p.startsWith("@")) {
         const who = m.mentions.find((x) => x.username === p.slice(1).toLowerCase());
         return who ? <strong key={i} className="mention" title={who.name}>@{who.name}</strong> : <Fragment key={i}>{p}</Fragment>;
       }
       const ref = m.refs.find((r) => String(r.id) === p.toUpperCase());
-      return ref?.case_id ? <Link key={i} to={`/cases/${ref.case_id}`} title={ref.label}>{p}</Link> : <Fragment key={i}>{p}</Fragment>;
+      return ref?.case_id ? <CaseLink key={i} id={ref.case_id} title={ref.label}>{p}</CaseLink> : <Fragment key={i}>{p}</Fragment>;
     })}</p>
   );
 }

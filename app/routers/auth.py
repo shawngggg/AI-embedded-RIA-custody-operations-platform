@@ -49,10 +49,31 @@ def demo_sign_in(body: DemoSignIn, response: Response, db: Session = Depends(get
     return user_dict(db, user)
 
 
+def _failed_sign_in(db: Session, username: str) -> None:
+    """Log the failure; repeated failures for one username raise an access and authentication risk event."""
+    from datetime import timedelta
+    from ..orm import AuditEvent, utcnow
+    from ..risk_register import FAILED_SIGN_INS, FAILED_WINDOW_MINUTES, log_access_event
+    name = username[:60]
+    audit.record(db, None, "sign_in_failed", "user", name, username=name)
+    db.flush()
+    since = utcnow() - timedelta(minutes=FAILED_WINDOW_MINUTES)
+    recent = [e for e in db.scalars(select(AuditEvent).where(AuditEvent.action == "sign_in_failed",
+                                                             AuditEvent.target_id == name)).all()
+              if (e.at if e.at.tzinfo else e.at.replace(tzinfo=since.tzinfo)) >= since]
+    if len(recent) >= FAILED_SIGN_INS:
+        log_access_event(db, None, category="Repeated failed sign-ins", target_id=name,
+                         summary=f"{len(recent)} failed password sign-ins for '{name}' within {FAILED_WINDOW_MINUTES} "
+                                 "minutes. Check whether it's the person or someone guessing.",
+                         dedupe_key=f"access:sign-in:{name}:{since:%Y-%m-%d}")
+    db.commit()
+
+
 @router.post("/login")
 def login(body: Login, response: Response, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.username == body.username))
     if user is None or not user.active or not verify_password(body.password, user.password_hash):
+        _failed_sign_in(db, body.username)
         raise HTTPException(401, "Username or password is wrong")
     _set_cookie(response, user)
     audit.record(db, user, "signed_in", "user", user.id, method="password")

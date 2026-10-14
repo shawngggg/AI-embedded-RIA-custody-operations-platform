@@ -8,14 +8,14 @@ from ..audit import to_dict
 from ..db import get_db
 from ..orm import AuditEvent, User
 from ..access import require_capability
-from ..security import current_user
 from ..views import get_case_for
 
 router = APIRouter(prefix="/api", tags=["audit"])
 
 
 @router.get("/cases/{case_id}/audit")
-def case_audit(case_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def case_audit(case_id: int, user: User = Depends(require_capability("cases")), db: Session = Depends(get_db)):
+    """A case's audit trail is the custodian's record: internal teams only, never the portal."""
     get_case_for(db, user, case_id)
     rows = db.scalars(select(AuditEvent).where(AuditEvent.case_id == case_id).order_by(AuditEvent.id)).all()
     return [to_dict(e) for e in rows]

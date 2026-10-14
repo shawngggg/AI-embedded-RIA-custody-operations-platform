@@ -9,6 +9,9 @@ export const STATUS: Record<string, [string, string]> = {
   PENDING_ACCEPTANCE: ["Principal acceptance", "refer"], OPEN_RESTRICTED: ["Open, restricted", "refer"],
   PENDING_REWORK: ["Rework", "escalate"],
   DECLINED: ["Declined", "block"], BLOCKED: ["Blocked", "block"], REJECTED: ["Rejected", "block"],
+  // The portal's own words (app/portal_view.py): every review state is "In review"
+  IN_REVIEW: ["In review", "refer"], CONFIRMING: ["Confirming with you", "refer"], SUBMITTED: ["Submitted", "quiet"],
+  PENDING: ["Opening", "quiet"],
 };
 
 export function Status({ status, stamp }: { status: string; stamp?: boolean }) {
