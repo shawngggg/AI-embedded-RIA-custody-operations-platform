@@ -21,13 +21,13 @@ from ..db import get_db
 from ..documents import attach_at_intake, store
 from ..orm import AiUsage, User
 from ..runner import run_case
-from ..security import require_roles
+from ..access import require_capability
 from ..seed import create_firm_case
 from ..serialize import firm_from
 from ..views import case_detail
 
 router = APIRouter(prefix="/api/intake", tags=["intake"])
-ops = require_roles("ops_analyst", "ops_supervisor")
+ops = require_capability("intake")      # the onboarding team takes in new applications
 
 
 def _usage(db: Session, day: date) -> AiUsage:
@@ -43,7 +43,7 @@ def _usage(db: Session, day: date) -> AiUsage:
 def status(user: User = Depends(ops), db: Session = Depends(get_db)):
     used = _usage(db, settings.today()).count
     db.commit()
-    return {"live": bool(settings.anthropic_api_key), "model": DEFAULT_MODEL, "used_today": used,
+    return {"live": settings.ai_live, "auth": settings.ai_auth, "model": DEFAULT_MODEL, "used_today": used,
             "cap": settings.ai_daily_cap, "sample_text": FIRM_PACKAGE_TEXT}
 
 
@@ -69,7 +69,7 @@ def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
         raise HTTPException(413, "Keep packages under 60,000 characters for the demo")
     usage = _usage(db, settings.today())
     is_sample = " ".join(document.split()) == " ".join(FIRM_PACKAGE_TEXT.split())
-    if settings.anthropic_api_key and usage.count < settings.ai_daily_cap:
+    if settings.ai_live and usage.count < settings.ai_daily_cap:
         usage.count += 1
         result = extract_firm_application(document)
         mode = "live"
@@ -78,7 +78,7 @@ def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
         result = gate(ILLUSTRATIVE_EXTRACTION, document, "end_turn", "illustrative output")
         mode = "illustrative"
     else:
-        reason = "the daily cap is reached" if settings.anthropic_api_key else "no API key is configured"
+        reason = "the daily cap is reached" if settings.ai_live else "no API key or workload identity is configured"
         raise HTTPException(503, f"Live AI isn't available ({reason}). Try the sample package, or enter the "
                                  "application by form.")
     from sqlalchemy import select

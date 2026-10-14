@@ -21,6 +21,15 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(microsecond=0)
 
 
+def iso(dt) -> str | None:
+    """ISO 8601 with the UTC offset. SQLite hands back naive datetimes; they were stored in UTC."""
+    if not dt:
+        return None
+    if isinstance(dt, datetime) and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 # Roles. Internal teams work in the workbench; RIA users and clients in the portal.
 ROLES = {
     "ops_analyst": "Operations analyst",
@@ -41,6 +50,22 @@ PORTAL_ROLES = {"ria_admin", "ria_user", "client"}
 # Granting one of these needs a second platform administrator to approve
 DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "ria_service_lead", "platform_admin"}
 LICENSED_ROLES = {"ria_service", "ria_service_lead"}
+OPS_ROLES = {"ops_analyst", "ops_supervisor"}
+
+# Teams inside custody operations (Shawn, Oct. 13, 2026). Each operations user belongs to one: it decides which
+# queues are theirs and who takes in new applications. EDD sits with AML compliance and rolling review is its own
+# team (separate roles); the relationship team, legal, sales, and engineering are outside the workbench for now.
+OPS_TEAMS = {
+    "onboarding": "Onboarding",
+    "cip": "CIP and identity verification",
+    "asset_transfer": "Asset transfer",
+    "trade": "Trade",
+    "billing": "Billing",
+    "escheatment": "Escheatment",
+    "ira": "IRA and retirement",
+    "client_reporting": "Client reporting",
+    "client_service": "Client service",
+}
 
 # FINRA registrations. The custodian runs the trading platform, so it is a FINRA member broker-dealer: the
 # RIA service team, which works with RIAs on trading, transfers, and account acceptance, is licensed.
@@ -76,6 +101,7 @@ class User(Base):
     registrations: Mapped[list] = mapped_column(JSON, default=list,          # e.g. ["S7", "S63", "S24"]
                                                 server_default=text("'[]'"))
     individual_crd: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    team: Mapped[str | None] = mapped_column(String(40), nullable=True)       # OPS_TEAMS key, operations only
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -250,12 +276,15 @@ class Document(Base):
 
 class OpsRiskEvent(Base):
     """
-    An operational risk event: a control that let an error through, logged so the team agrees a remediation
-    path (training, a technology change, or a procedure update) and closes it.
+    A risk event (operational, regulatory, or financial): logged so the owning team agrees a remediation path
+    (training, a technology change, a procedure update, or a regulatory report) and closes it. See risk_register.
     """
     __tablename__ = "ops_risk_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     category: Mapped[str] = mapped_column(String(60))
+    risk_type: Mapped[str] = mapped_column(String(20), default="operational", server_default="operational")
+    source: Mapped[str] = mapped_column(String(20), default="manual", server_default="manual")
+    dedupe_key: Mapped[str | None] = mapped_column(String(80), nullable=True, unique=True)
     case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
     target_id: Mapped[str | None] = mapped_column(String(60), nullable=True)
     summary: Mapped[str] = mapped_column(Text)
@@ -268,6 +297,58 @@ class OpsRiskEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Channel(Base):
+    """A team channel. `roles` limits who can read it (sanctions data stays with the sanctions team); empty means
+    every internal team member."""
+    __tablename__ = "channels"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str] = mapped_column(String(200), default="")
+    roles: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ChannelMessage(Base):
+    """A message in a channel. Kept as written: messages are never edited or deleted (business records)."""
+    __tablename__ = "channel_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    refs: Mapped[list] = mapped_column(JSON, default=list)        # [{"type": "case", "id": 16}, {"type": "account", ...}]
+    mentions: Mapped[list] = mapped_column(JSON, default=list)    # user ids
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class ChannelRead(Base):
+    """How far each person has read each channel, for unread counts."""
+    __tablename__ = "channel_reads"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    last_read_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class OutboundEmail(Base):
+    """Every notice the custodian emails goes through this outbox first; a provider (Microsoft 365) sends it.
+    In the demo, mail is held here: the recipients are synthetic."""
+    __tablename__ = "outbound_emails"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    to_address: Mapped[str] = mapped_column(String(200))
+    to_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    subject: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    template: Mapped[str] = mapped_column(String(40))
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="queued")     # held | queued | sent | failed
+    provider: Mapped[str] = mapped_column(String(20), default="outbox")   # outbox | m365
+    provider_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AiUsage(Base):

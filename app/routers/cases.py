@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import audit
@@ -13,7 +13,9 @@ from ..documents import CORRECTABLE, DOC_TYPES, field_docs, mark, supersede_othe
 from .. import rescission
 from ..db import get_db
 from ..orm import Case, Document, PendingDecision, Review, User, utcnow
-from ..queues import DECISIONS, QUEUES
+from ..access import require_capability
+from ..queues import DECISIONS, QUEUES, works_queue
+from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
@@ -31,16 +33,17 @@ def queues(user: User = Depends(require_internal), db: Session = Depends(get_db)
         cases = db.scalars(select(Case).where(Case.queue == key)).all()
         states = [sla_state(c, now) for c in cases]
         out.append({"key": key, "label": spec["label"], "owner": spec["owner"], "roles": spec["roles"],
-                    "sla_hours": spec["sla_hours"], "count": len(cases),
-                    "breached": sum(1 for s in states if s["breached"]), "mine": user.role in spec["roles"]})
+                    "teams": spec.get("teams", []), "sla_hours": spec["sla_hours"], "count": len(cases),
+                    "breached": sum(1 for s in states if s["breached"]), "mine": works_queue(user, key)})
     today = settings.today()
     reviews = [review_dict(r, today) for r in db.scalars(select(Review)).all()]
     out.append({"key": "reviews", "label": "Reviews due", "owner": "Periodic review team",
                 "roles": ["periodic_review"], "sla_hours": None,
                 "count": sum(1 for r in reviews if r["due"] or r["overdue"] or r["status"] == "restricted"),
                 "breached": sum(1 for r in reviews if r["overdue"]), "mine": user.role == "periodic_review"})
-    pending = db.scalar(select(func.count()).select_from(PendingDecision).where(PendingDecision.status == "pending"))
-    return {"queues": out, "pending_approvals": pending}
+    pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")).all()
+    mine = sum(1 for d in pending if user.role in DECISIONS[d.decision_type]["approver"] and d.proposed_by != user.id)
+    return {"queues": out, "pending_approvals": mine}
 
 
 @router.get("/cases")
@@ -192,7 +195,7 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
 
 
 @router.get("/decisions")
-def pending_decisions(status: str = "pending", user: User = Depends(require_internal),
+def pending_decisions(status: str = "pending", user: User = Depends(require_capability("approvals")),
                       db: Session = Depends(get_db)):
     rows = db.scalars(select(PendingDecision).where(PendingDecision.status == status)
                       .order_by(PendingDecision.proposed_at)).all()
@@ -281,6 +284,14 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     audit.record(db, user, "decision_approved" if approve else "decision_rejected", "case", case.id,
                  case_id=case.id, decision_type=d.decision_type, value=d.value, reference=d.reference, note=body.note,
                  proposed_by=d.proposed_by, **stamp(case, d.decision_type))
+    if d.decision_type == "sanctions" and approve and d.value == "true_match":
+        proposer = db.get(User, d.proposed_by)
+        log_event(db, user, category="Sanctions true match", risk_type="regulatory", source="sanctions",
+                  summary=f"{case.title}: the sanctions team confirmed a true match ({d.reference}). The case is "
+                          "blocked; the sanctions team decides whether a blocked-property or rejected-transaction "
+                          "report to OFAC is due within 10 business days (31 CFR 501.603 and 501.604).",
+                  owner="sanctions", detected_by=proposer.display_name if proposer else "Sanctions team",
+                  approved_by=user.display_name, case=case, dedupe_key=f"sanctions:{d.id}")
     if d.decision_type == "rescission":
         (rescission.approve if approve else rescission.reject)(db, d, case, user)
     elif approve:

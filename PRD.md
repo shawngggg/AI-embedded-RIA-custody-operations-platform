@@ -138,8 +138,8 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 
 | User | Job in the MVP | First screen |
 | --- | --- | --- |
-| Operations analyst (first line) | Work intake and NIGO, run checks, request items, escalate | Own queue, oldest SLA first |
-| Operations supervisor (first line) | Approve as checker, rebalance queues, watch aging | Team queues and SLA breaches |
+| Operations analyst (first line) | Work their team's queue: intake and NIGO (onboarding), identity verification (CIP), account changes (client service); run checks, request items, escalate | Work page: what needs them from their team's queues, oldest SLA first |
+| Operations supervisor (first line) | Approve as checker, rebalance queues across the operations teams, watch aging | Work page, with approvals waiting and SLA breaches |
 | AML compliance | Decide EDD cases and compliance reviews | EDD and review queue |
 | Sanctions team | Decide flagged-list escalations: release or block | Escalations with evidence packages |
 | Periodic review team | Work reviews that come due by risk tier | Reviews due and overdue |
@@ -147,8 +147,8 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 | RIA service team lead (FINRA-licensed) | Approve or reject rescissions of an acceptance; agree remediation for operational risk events | Approvals and risk events |
 | Platform administrator | Maintain rule versions and demo data | Rule library and data reset |
 | RIA administrator | Add the firm's users and grant their entitlements | Firm users and their entitlements |
-| RIA user | Submit applications, documents, NIGO responses, and account changes for pure RIA accounts; track status | The firm's open requests and their status |
-| Client | View the self-directed account and submit changes on it | The self-directed account and its requests |
+| RIA user | Submit applications, documents, NIGO responses, and account changes for pure RIA accounts; track status | Portal home: a welcome to the firm, its relationship and service team, and what needs the firm's attention |
+| Client | View the self-directed account and submit changes on it | Portal home: the self-directed account and anything waiting on them |
 
 **MVP requirements**
 
@@ -164,11 +164,21 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 - MVP-10 Operations dashboard: queue counts, SLA breaches, straight-through rate, NIGO rate, and time spent in each waiting state.
 - MVP-11 Synthetic data: seeded scenarios, more generated on demand, and a demo reset.
 - MVP-12 User and entitlement administration. The platform administrator adds team members and assigns roles; an RIA administrator adds the firm's users and grants entitlements within the RIA's own permissions. Every grant is logged, and a grant of a decision role needs a second approver.
-- MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status. Transfers, trading, and fee billing show in the portal menu as planned pages, marked with their release, that describe what each will do.
+- MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status. Transfers, trading, and fee billing show in the portal menu as planned pages, marked with their release, that describe what each will do. The workbench shows the same three as the operations teams' planned workbenches (asset transfer, trade, billing), so operations sees what's coming.
 - MVP-14 Account changes along map 04: the RIA submits changes to pure RIA accounts, including beneficial owner updates, with the client's signature on owner-level changes; the client submits changes on the self-directed account. Each change runs the authority, fraud-pattern, and flagged-list checks and re-runs due diligence when ownership changes.
 - MVP-15 Principal acceptance. The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it opens, an RIA's master account included, is accepted by a registered principal (FINRA Rule 4512(a)(1)(D)). The RIA service team, which works with RIAs on trading, transfers, and account acceptance, holds the FINRA registrations; operations prepares the case and needs none. The app checks the person's registration (Series 24 or Series 9/10), not just the role, and the principal can't be someone who prepared the case. Straight-through means no manual work before acceptance. An account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with non-regulatory items outstanding (the fee authorization or the tax form), restricted from trading and fee deduction until they arrive. The client's signature and the LPOA are regulatory and hold the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account or see the client's information.
 - MVP-16 Documents as evidence. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, channel, and who added it. Automated pre-checks read the text for the client's name, tax ID, the right tax form, and a signature line; a document that passes every check is in good order by rule, and anything else waits for operations, who confirms good order or records why a failed check is acceptable.
-- MVP-17 Undoing an acceptance. Accepting needs the principal to confirm the review. A principal can ask to rescind an acceptance with a written reason: the account is restricted at once (no activity), and the RIA service team lead, never the requester, approves or rejects it. An approved rescission withdraws the acceptance, takes the account out of open status, sends the case back to the principal or to operations for rework, and logs an operational risk event; the lead records the remediation path (training, a technology enhancement, or a procedure update) and closes it. A non-regulatory issue needs no rescission: reopening the document keeps the account open, restricted from trading and fee deduction. A firm with open accounts can't be un-opened; it is restricted instead.
+- MVP-17 Undoing an acceptance. Accepting needs the principal to confirm the review. A principal can ask to rescind an acceptance with a written reason: the account is restricted at once (no activity), and the RIA service team lead, never the requester, approves or rejects it. An approved rescission withdraws the acceptance, takes the account out of open status, and sends the case back to the principal or to operations for rework. Every rescission request is logged in the risk register (MVP-21), as a regulatory event when the issue found was regulatory; the lead records the remediation path (training, a technology enhancement, or a procedure update) and closes it. A non-regulatory issue needs no rescission: reopening the document keeps the account open, restricted from trading and fee deduction. A firm with open accounts can't be un-opened; it is restricted instead.
+
+Added after the first walkthrough (Oct. 13, 2026):
+
+- MVP-18 Operations teams and menus by role. Operations is organized into teams: onboarding, CIP and identity verification, client service, asset transfer, trade, billing, escheatment, IRA and retirement, and client reporting. EDD sits with AML compliance, and rolling review is its own team. Each person's menu shows only what their role and team use, and the API gives the same answer: a page reached directly is refused, and the refusal logged. Approvals show only to roles that approve. Only the onboarding team takes in new applications, and a submitted package lands in its queue.
+- MVP-19 Work page. Every internal user lands on a page with what needs them from their team's queues (oldest SLA first), approvals waiting, their own proposals, unread messages, open risk events, and restricted accounts.
+- MVP-20 Restricted accounts. One list of every account and firm with an active restriction code: what's blocked, which team owns each code, and since when, with placing and owner-only removal (MVP-7) on the same page.
+- MVP-21 Risk register for operational, regulatory, and financial events. The platform logs one on every rescission request, sanctions true match, case past its SLA, and document reopened on an open account, each once; anyone internal can report one. The owning team records the remediation path and closes it.
+- MVP-22 Team channels. Internal staff discuss work chat-style in one channel per team, plus a general channel; the sanctions channel is the sanctions team's only. Writing `#16` links a case, `ACC-2001` an account, `FIRM-310001` a firm, and `@username` mentions a person. A case's Discussion tab collects every message that references it. Messages aren't edited or deleted.
+- MVP-23 Portal home. RIA users and clients sign in to a welcome page in the custodian's name: the firm, its custody relationship and service team contact, its accounts, what needs its attention, and what's coming to the portal.
+- MVP-24 Email notices. Every notice to an RIA or client (items requested, returned for correction, account opened or opened restricted, declined, change applied, redirected) is written to an email outbox, and sent through the custodian's Microsoft 365 (Outlook) by Microsoft Graph from one shared mailbox. The app signs in to Microsoft Entra ID with its Google identity (no stored secret) or a client secret, and holds Mail.Send for that mailbox only. Demo mode holds every message, and an allowed-domains setting limits live sending while testing.
 
 Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
 
@@ -432,7 +442,7 @@ RIAs and their technology vendors reach every RIA-channel action through APIs, a
 
 ## Core data model
 
-Thirteen entities carry the platform; release 1 needs all but entitlements and ledger entries, which arrive in release 2.
+Sixteen entities carry the platform; release 1 needs all but entitlements and ledger entries, which arrive in release 2.
 
 | Entity | Key fields | Relates to |
 | --- | --- | --- |
@@ -449,6 +459,9 @@ Thirteen entities carry the platform; release 1 needs all but entitlements and l
 | AI suggestion | Model, prompt version, output, confidence, reviewer action | Case, decision |
 | Ledger entry and position | Layer (client, RIA master, GL), bucket (pending, settled, restricted), location (depository, suspense, bank), amount or quantity | Account, transfer |
 | Integration message | Adapter, direction, format, status, acknowledgment | Case, ledger entry |
+| Risk event | Type (operational, regulatory, financial), source, owner, status, remediation path and note | Case, account or firm |
+| Team message | Channel, author, text, referenced cases, accounts, firms, and people | Cases, accounts, users |
+| Outbound notice | Recipient, template, status (held, sent, failed), provider and its reference | Case, user |
 
 ## Non-functional requirements
 
@@ -514,10 +527,10 @@ Five of the eight release 1 metrics are measured on synthetic data: four meet th
 | AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |
 | Reviewer walkthrough | Under 5 minutes | Not measured: needs a first-time reviewer, timed from sign-in to open account | Open |
-| Role enforcement | 100% | 131 of 131 wrong-role attempts refused and logged | Met |
+| Role enforcement | 100% | 155 of 155 wrong-role attempts refused and logged (rerun Oct. 13 with the walkthrough's new controls) | Met |
 | Build health | 100% | 3 of 3 merges to main passed CI | Met |
 
-The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips.
+The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips. On Oct. 13 it gained 24 attempts from the walkthrough's changes: applications from outside the onboarding team, posts to the sanctions channel, and email re-sends by anyone but the platform administrator.
 
 ## Release plan
 

@@ -19,7 +19,8 @@ export default function Intake() {
   const [docs, setDocs] = useState<Record<string, DocChoice>>({ formation_documents: null, ownership_chart: null,
     bo_certification: null, custodial_agreement: null, reliance_contract: null });
 
-  const go = (c: CaseDetail) => { refreshCounts(); navigate(`/cases/${c.id}`); };
+  // Submitted packages land in a work queue; show it there, with the case highlighted
+  const go = (c: CaseDetail) => { refreshCounts(); navigate(`/queues?case=${c.id}`); };
   const extract = () => {
     const fd = new FormData();
     if (file) fd.append("file", file); else fd.append("text", text);
@@ -48,7 +49,7 @@ export default function Intake() {
         <section className="panel">
           <h2 style={{ marginTop: 0 }}>Read a package with AI</h2>
           <p className="muted small">
-            {status.data?.live ? `Live: ${status.data.model}, ${status.data.used_today} of ${status.data.cap} reads used today.`
+            {status.data?.live ? `Live: ${status.data.model}, signed in by ${status.data.auth}; ${status.data.used_today} of ${status.data.cap} reads used today.`
               : "Live AI is off on this server. The sample package runs through the controls gate with an illustrative, hand-written model response."}
             {" "}A value is accepted only if the model quotes it from the documents.
           </p>

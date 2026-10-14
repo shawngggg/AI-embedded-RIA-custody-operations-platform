@@ -13,9 +13,13 @@ import Dashboard from "./pages/Dashboard";
 import AuditPage from "./pages/AuditPage";
 import Admin from "./pages/Admin";
 import PortalHome from "./pages/PortalHome";
+import PortalAccounts from "./pages/PortalAccounts";
 import NewAccount from "./pages/NewAccount";
 import NewChange from "./pages/NewChange";
 import RiskEvents from "./pages/RiskEvents";
+import Work from "./pages/Work";
+import Messages from "./pages/Messages";
+import Outbox from "./pages/Outbox";
 import Planned from "./pages/Planned";
 import { Loading } from "./util";
 
@@ -30,19 +34,28 @@ export default function App() {
     api<{ user: User | null }>("/api/auth/session").then((s) => setUser(s.user)).catch(() => setUser(null));
   }, []);
 
+  const [unread, setUnread] = useState(0);
   const refreshCounts = useCallback(() => {
-    if (user && isInternal(user)) api<Counts>("/api/queues").then(setCounts).catch(() => setCounts(null));
+    if (user && isInternal(user)) {
+      api<Counts>("/api/queues").then(setCounts).catch(() => setCounts(null));
+      if (user.capabilities?.messages) api<{ unread_total: number }>("/api/channels/unread").then((r) => setUnread(r.unread_total)).catch(() => setUnread(0));
+    }
   }, [user]);
-  useEffect(() => { refreshCounts(); }, [refreshCounts]);
+  useEffect(() => {
+    refreshCounts();
+    const t = window.setInterval(refreshCounts, 30000);      // queue counts and unread messages stay current
+    return () => window.clearInterval(t);
+  }, [refreshCounts]);
 
   const signOut = () => {
     api("/api/auth/logout", { method: "POST" }).finally(() => { setUser(null); setCounts(null); navigate("/"); });
   };
 
   if (user === undefined) return <div className="signin"><Loading what="Waking the server" /></div>;
-  if (user === null) return <SignIn onSignedIn={(u) => { setUser(u); navigate(u.workspace === "portal" ? "/portal" : "/queues"); }} />;
+  if (user === null) return <SignIn onSignedIn={(u) => { setUser(u); navigate(u.workspace === "portal" ? "/portal" : "/work"); }} />;
 
   const internal = isInternal(user);
+  const can = user.capabilities ?? {};
   const qcount = (key: string) => counts?.queues.find((q) => q.key === key);
   const total = counts ? counts.queues.reduce((n, q) => n + q.count, 0) : 0;
   const breached = counts ? counts.queues.reduce((n, q) => n + q.breached, 0) : 0;
@@ -54,26 +67,34 @@ export default function App() {
           <div className="brand">Custody Operations<span>{internal ? "Workbench" : "RIA and client portal"} · synthetic data</span></div>
           {internal ? (
             <>
-              <div className="group">Work</div>
+              <NavLink to="/work">Work</NavLink>
               <NavLink to="/queues">Queues {total ? <span className={`badge ${breached ? "alert" : ""}`}>{total}</span> : null}</NavLink>
-              <NavLink to="/approvals">Approvals {counts?.pending_approvals ? <span className="badge alert">{counts.pending_approvals}</span> : null}</NavLink>
-              <NavLink to="/reviews">Reviews {qcount("reviews")?.count ? <span className="badge">{qcount("reviews")!.count}</span> : null}</NavLink>
-              <NavLink to="/intake">New application</NavLink>
-              <div className="group">Controls</div>
-              <NavLink to="/restrictions">Restriction codes</NavLink>
-              <NavLink to="/audit">Audit trail</NavLink>
-              <NavLink to="/risk-events">Risk events</NavLink>
-              <NavLink to="/dashboard">Dashboard</NavLink>
-              {user.role === "platform_admin" && <><div className="group">Admin</div><NavLink to="/admin">Users and rules</NavLink></>}
+              {can.approvals && <NavLink to="/approvals">Approvals {counts?.pending_approvals ? <span className="badge alert">{counts.pending_approvals}</span> : null}</NavLink>}
+              {can.reviews && <NavLink to="/reviews">Reviews {qcount("reviews")?.count ? <span className="badge">{qcount("reviews")!.count}</span> : null}</NavLink>}
+              {can.intake && <NavLink to="/intake">New application</NavLink>}
+              {can.messages && <NavLink to="/messages">Messages {unread ? <span className="badge alert">{unread}</span> : null}</NavLink>}
+              <div className="sep" role="separator" />
+              {can.restricted_accounts && <NavLink to="/restricted">Restricted accounts</NavLink>}
+              {can.risk_events && <NavLink to="/risk-events">Risk events</NavLink>}
+              {can.audit && <NavLink to="/audit">Audit trail</NavLink>}
+              {can.dashboard && <NavLink to="/dashboard">Dashboard</NavLink>}
+              {can.outbox && <NavLink to="/outbox">Email outbox</NavLink>}
+              {can.planned && <>
+                <div className="sep" role="separator" />
+                <NavLink to="/ops/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>
+                <NavLink to="/ops/trading" className="planned">Trading <span className="badge">R3</span></NavLink>
+                <NavLink to="/ops/billing" className="planned">Billing <span className="badge">R3</span></NavLink>
+              </>}
+              {can.admin && <><div className="sep" role="separator" /><NavLink to="/admin">Users and rules</NavLink></>}
             </>
           ) : (
             <>
-              <div className="group">Portal</div>
-              <NavLink to="/portal" end>Accounts and requests</NavLink>
+              <NavLink to="/portal" end>Home</NavLink>
+              <NavLink to="/portal/accounts">Accounts and requests</NavLink>
               {user.role !== "client" && <NavLink to="/portal/new-account">New account</NavLink>}
               <NavLink to="/portal/change">Account change</NavLink>
               {user.role === "ria_admin" && <NavLink to="/portal/users">Firm users</NavLink>}
-              <div className="group">Later releases</div>
+              <div className="sep" role="separator" />
               <NavLink to="/portal/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>
               <NavLink to="/portal/trading" className="planned">Trading <span className="badge">R3</span></NavLink>
               {user.role !== "client" && <NavLink to="/portal/billing" className="planned">Billing <span className="badge">R3</span></NavLink>}
@@ -97,21 +118,30 @@ export default function App() {
           <Routes>
             {internal ? (
               <>
+                <Route path="/work" element={<Work />} />
                 <Route path="/queues" element={<Queues />} />
-                <Route path="/approvals" element={<Approvals />} />
-                <Route path="/reviews" element={<Reviews />} />
-                <Route path="/intake" element={<Intake />} />
-                <Route path="/restrictions" element={<Restrictions />} />
-                <Route path="/audit" element={<AuditPage />} />
+                {can.approvals && <Route path="/approvals" element={<Approvals />} />}
+                {can.reviews && <Route path="/reviews" element={<Reviews />} />}
+                {can.intake && <Route path="/intake" element={<Intake />} />}
+                {can.restricted_accounts && <Route path="/restricted" element={<Restrictions />} />}
+                {can.audit && <Route path="/audit" element={<AuditPage />} />}
                 <Route path="/risk-events" element={<RiskEvents />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/admin" element={<Admin />} />
+                {can.messages && <Route path="/messages" element={<Messages />} />}
+                {can.dashboard && <Route path="/dashboard" element={<Dashboard />} />}
+                {can.outbox && <Route path="/outbox" element={<Outbox />} />}
+                {can.admin && <Route path="/admin" element={<Admin />} />}
+                {can.planned && <>
+                  <Route path="/ops/transfers" element={<Planned which="transfers" audience="ops" />} />
+                  <Route path="/ops/trading" element={<Planned which="trading" audience="ops" />} />
+                  <Route path="/ops/billing" element={<Planned which="billing" audience="ops" />} />
+                </>}
                 <Route path="/cases/:id" element={<CasePage />} />
-                <Route path="*" element={<Navigate to="/queues" replace />} />
+                <Route path="*" element={<Navigate to="/work" replace />} />
               </>
             ) : (
               <>
                 <Route path="/portal" element={<PortalHome />} />
+                <Route path="/portal/accounts" element={<PortalAccounts />} />
                 <Route path="/portal/new-account" element={<NewAccount />} />
                 <Route path="/portal/change" element={<NewChange />} />
                 <Route path="/portal/users" element={<Admin portal />} />

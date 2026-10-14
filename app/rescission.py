@@ -24,6 +24,7 @@ from restrictions import CATALOG
 from . import audit
 from .acceptance import holds_principal
 from .orm import LICENSED_ROLES, Account, Case, Firm, OpsRiskEvent, PendingDecision, Restriction, User, utcnow
+from .risk_register import by_key, log_event
 from .runner import run_case
 from .traceability import stamp
 
@@ -79,6 +80,10 @@ def request(db: Session, case: Case, user: User, kind: str, reason: str, return_
                  target=case.target_id, owner=hold.owner, reason=hold.reason)
     audit.record(db, user, "rescission_requested", "case", case.id, case_id=case.id, reference=ref, kind=kind,
                  return_to=return_to, reason=reason.strip(), **stamp(case, "rescission"))
+    log_event(db, user, category="Rescission requested",
+              risk_type="regulatory" if kind == "regulatory_issue" else "operational", source="rescission",
+              summary=f"{ref}: {KINDS[kind]}. {reason.strip()}", owner="ria_service_lead",
+              detected_by=user.display_name, case=case, dedupe_key=f"rescission:{ref}")
     return d
 
 
@@ -108,17 +113,23 @@ def approve(db: Session, d: PendingDecision, case: Case, lead: User) -> None:
         firm = db.get(Firm, case.firm_id)
         firm.status, firm.activated_at = "ONBOARDING", None
     _release_hold(db, case, lead, d.reference, f"Rescission approved; the {case.kind} is no longer open")
-    event = OpsRiskEvent(category="Principal acceptance rescinded", case_id=case.id, target_id=case.target_id,
-                         summary=f"{d.reference}: {d.note}", detected_by=requester.display_name,
-                         approved_by=lead.display_name, owner="ria_service_lead")
-    db.add(event)
-    db.flush()
+    event = by_key(db, f"rescission:{d.reference}") or log_event(
+        db, lead, category="Rescission requested", risk_type="operational", source="rescission",
+        summary=f"{d.reference}: {d.note}", owner="ria_service_lead", detected_by=requester.display_name, case=case,
+        dedupe_key=f"rescission:{d.reference}")
+    event.category, event.approved_by = "Principal acceptance rescinded", lead.display_name
     audit.record(db, lead, "acceptance_rescinded", "case", case.id, case_id=case.id, reference=d.reference,
                  returned=RETURN_TO[d.value], requested_by=requester.display_name)
-    audit.record(db, lead, "ops_risk_event_logged", "ops_risk_event", event.id, case_id=case.id,
+    audit.record(db, lead, "ops_risk_event_updated", "ops_risk_event", event.id, case_id=case.id,
                  category=event.category)
     run_case(db, case, lead)
 
 
 def reject(db: Session, d: PendingDecision, case: Case, lead: User) -> None:
     _release_hold(db, case, lead, d.reference, "Rescission rejected by the RIA service team lead; the acceptance stands")
+    event = by_key(db, f"rescission:{d.reference}")
+    if event is not None:
+        event.category = "Rescission rejected"
+        event.summary += f" Rejected by {lead.display_name}: the acceptance stands."
+        audit.record(db, lead, "ops_risk_event_updated", "ops_risk_event", event.id, case_id=case.id,
+                     category=event.category)

@@ -112,11 +112,44 @@ def build_prompt(document_text: str) -> str:
             f"person, and principals in 'people'.\n\n<document>\n{document_text}\n</document>")
 
 
+# Workload identity federation: on Google Cloud the workload proves who it is with a Google-signed identity token,
+# exchanged for a short-lived Claude API token, so no API key is stored anywhere. Set ANTHROPIC_FEDERATION_RULE_ID,
+# ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID, and ANTHROPIC_WORKSPACE_ID (identifiers, not secrets).
+FEDERATION_ENV = ("ANTHROPIC_FEDERATION_RULE_ID", "ANTHROPIC_ORGANIZATION_ID")
+AUDIENCE = "https://api.anthropic.com"
+METADATA_IDENTITY_URL = ("http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/"
+                         f"identity?audience={AUDIENCE}&format=full")
+
+
+def federation_configured() -> bool:
+    return all(os.environ.get(k) for k in FEDERATION_ENV)
+
+
+def google_identity_token(http=None) -> str:
+    """A Google-signed identity token for the attached service account, from the metadata server."""
+    import httpx
+    r = (http or httpx).get(METADATA_IDENTITY_URL, headers={"Metadata-Flavor": "Google"}, timeout=5)
+    r.raise_for_status()
+    return r.text.strip()
+
+
+def make_client():
+    """The Claude client: workload identity federation when it's configured, otherwise ANTHROPIC_API_KEY."""
+    import anthropic  # only needed for a live call
+    if federation_configured():
+        return anthropic.Anthropic(credentials=anthropic.WorkloadIdentityCredentials(
+            identity_token_provider=google_identity_token,
+            federation_rule_id=os.environ["ANTHROPIC_FEDERATION_RULE_ID"],
+            organization_id=os.environ["ANTHROPIC_ORGANIZATION_ID"],
+            service_account_id=os.environ.get("ANTHROPIC_SERVICE_ACCOUNT_ID") or None,
+            workspace_id=os.environ.get("ANTHROPIC_WORKSPACE_ID") or None))
+    return anthropic.Anthropic()
+
+
 def call_model(document_text: str, client=None, model: str | None = None) -> tuple[dict, str]:
     """One structured-output call. Returns (parsed JSON, stop_reason)."""
     if client is None:
-        import anthropic  # only needed for a live call
-        client = anthropic.Anthropic()
+        client = make_client()
     response = client.messages.create(
         model=model or DEFAULT_MODEL,
         max_tokens=4096,

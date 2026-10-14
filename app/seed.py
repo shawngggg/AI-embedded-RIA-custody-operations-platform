@@ -11,6 +11,7 @@ import dataclasses
 import uuid
 from datetime import date, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from account_changes import ChangeType
@@ -25,12 +26,14 @@ from .acceptance import accept_case
 from .config import settings
 from .documents import AUTOMATED_REVIEWER, FIELD_DOCS, checks_pass, mark, sample_document, store
 from .db import Base, engine
-from .orm import Account, Case, Firm, Review, User
+from .orm import Account, Case, Firm, Review, User, utcnow
 from .runner import run_case
 from .serialize import shift_dates, to_json
 
 DEMO_USERS = [
-    ("ops.analyst", "Jamie Ortiz", "ops_analyst", None, None, "Works intake, NIGO, and escalations"),
+    ("ops.analyst", "Jamie Ortiz", "ops_analyst", None, None, "Onboarding: works intake, NIGO, and escalations"),
+    ("ops.cip", "Taylor Brooks", "ops_analyst", None, None, "CIP: verifies the identity of new parties"),
+    ("ops.service", "Elliot Shaw", "ops_analyst", None, None, "Client service: confirms account changes"),
     ("ops.supervisor", "Priya Raman", "ops_supervisor", None, None, "Approves operations decisions as checker"),
     ("aml.maker", "Dev Patel", "aml_compliance", None, None, "Proposes EDD and compliance decisions"),
     ("aml.checker", "Morgan Lee", "aml_compliance", None, None, "Approves EDD and compliance decisions"),
@@ -50,6 +53,14 @@ DEMO_USERS = [
     ("bonneville.advisor", "Sam Okafor", "ria_user", "310003", None, "Bonneville Planning: requests and changes"),
     ("client.farid", "Farid Hosseini", "client", None, "ACC-2003", "Client with a self-directed account"),
 ]
+
+# Synthetic addresses on reserved example domains (RFC 2606): notices to them are held in the outbox
+SEED_EMAILS = {"granite.admin": "dana.whitfield@granitepeak.example", "granite.advisor": "marcus.lee@granitepeak.example",
+               "bonneville.advisor": "sam.okafor@bonneville.example", "client.farid": "farid.hosseini@client.example"}
+
+# Operations teams (orm.OPS_TEAMS)
+SEED_TEAMS = {"ops.analyst": "onboarding", "ops.cip": "cip", "ops.service": "client_service",
+              "ops.supervisor": "onboarding"}
 
 # Synthetic FINRA registrations and individual CRD numbers for the licensed RIA service team
 SEED_REGISTRATIONS = {"rs.lead": (["S7", "S63", "S24"], "7700100"),
@@ -82,8 +93,10 @@ AGE_HOURS = {
 
 def backdate(db: Session, case: Case, hours: float) -> None:
     """Move a freshly seeded case, its history, and what it touched back in time by `hours`."""
-    from .orm import AuditEvent, CaseTransition, Document, Restriction
+    from .orm import AuditEvent, CaseTransition, Document, OutboundEmail, Restriction
     shift = timedelta(hours=hours)
+    for row in db.query(OutboundEmail).filter(OutboundEmail.case_id == case.id):
+        row.created_at -= shift
     for row in db.query(Document).filter(Document.case_id == case.id):
         row.uploaded_at -= shift
         row.received_on = row.uploaded_at.date()
@@ -240,7 +253,8 @@ def seed(db: Session) -> None:
     for username, name, role, crd, account_id, note in DEMO_USERS:
         regs, individual_crd = SEED_REGISTRATIONS.get(username, ([], None))
         u = User(username=username, display_name=name, role=role, is_demo=True, demo_note=note,
-                 registrations=regs, individual_crd=individual_crd)
+                 registrations=regs, individual_crd=individual_crd, team=SEED_TEAMS.get(username),
+                 email=SEED_EMAILS.get(username))
         db.add(u)
         users[username] = u
     db.flush()
@@ -261,6 +275,12 @@ def seed(db: Session) -> None:
         accept_if_seeded(case, key)
         db.flush()
         backdate(db, case, AGE_HOURS[key])
+
+    # RIA users belong to their firms before their accounts are seeded, so the account notices reach them
+    for username, _name, _role, crd, _account, _note in DEMO_USERS:
+        if crd:
+            users[username].firm_id = firms_by_crd[crd].id
+    db.flush()
 
     for key in ACCOUNT_SEEDS:
         if key == "farid_hosseini_pure":
@@ -332,7 +352,41 @@ def seed(db: Session) -> None:
             review.history = list(review.history or []) + [
                 {"on": review.requested_on.isoformat(), "event": "refresh requested",
                  "response_due": review.response_due.isoformat()}]
+    db.flush()
+    from .risk_register import sweep_sla_breaches
+    sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
+    seed_messages(db, users)
     db.commit()
+
+
+def seed_messages(db: Session, users: dict) -> None:
+    """Team channels, with a few synthetic conversations about the seeded cases."""
+    from .orm import Channel, ChannelMessage
+    from .routers.messages import ensure_channels, parse_refs
+    ensure_channels(db)
+    def cid(part: str) -> int:
+        return db.scalar(select(Case.id).where(Case.title.contains(part)))
+    rosa, lena, juniper, meridian = cid("Rosa Delgado"), cid("Lena Park"), cid("Juniper Ridge"), cid("Meridian Gate")
+    now = utcnow()
+    script = [
+        ("general", "admin.platform", 26, "Welcome to team channels. Reference a case with its number (#12), an account "
+                                          "or firm by its id (ACC-2001, FIRM-310001), and a person with @username."),
+        ("onboarding", "ops.supervisor", 5, f"Rosa Delgado's application is past its 5-day window: case #{rosa}. "
+                                            "@ops.analyst can you chase Bonneville for the LPOA and the W-9?"),
+        ("onboarding", "ops.analyst", 4, "Called Sam Okafor at Bonneville this morning. The client signed the LPOA "
+                                         "yesterday; it comes through the portal today."),
+        ("ria-service", "rs.lead", 3, f"Lena Park (case #{lena}) and Juniper Ridge (case #{juniper}) are waiting for "
+                                      "acceptance. @rs.principal can you take both today?"),
+        ("sanctions", "sanctions.maker", 2, f"Meridian Gate (case #{meridian}): exact name and date-of-birth match on a "
+                                            "55% owner against FL-001. I'll propose a true match once the evidence "
+                                            "package is complete."),
+    ]
+    channels = {c.key: c for c in db.scalars(select(Channel)).all()}
+    for key, username, hours_ago, body in script:
+        refs, mentions = parse_refs(db, body)
+        db.add(ChannelMessage(channel_id=channels[key].id, author_id=users[username].id, body=body, refs=refs,
+                              mentions=mentions, created_at=now - timedelta(hours=hours_ago)))
+    db.flush()
 
 
 def ensure_seeded(db: Session) -> bool:

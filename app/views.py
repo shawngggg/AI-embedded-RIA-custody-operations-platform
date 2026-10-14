@@ -12,7 +12,8 @@ from restrictions import CATALOG
 from . import audit
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
-from .orm import REGISTRATIONS, ROLES, Account, Case, Firm, PendingDecision, Restriction, Review, User
+from .access import capabilities
+from .orm import OPS_TEAMS, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .queues import DECISIONS, QUEUES
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
@@ -43,10 +44,6 @@ CORRECTIONS = {
 }
 
 
-def iso(dt) -> str | None:
-    return dt.isoformat() if dt else None
-
-
 def user_dict(db: Session, u: User) -> dict:
     firm = db.get(Firm, u.firm_id) if u.firm_id else None
     return {"id": u.id, "username": u.username, "display_name": u.display_name, "email": u.email,
@@ -56,6 +53,8 @@ def user_dict(db: Session, u: User) -> dict:
             "registrations": [{"code": r, "label": REGISTRATIONS.get(r, r)} for r in (u.registrations or [])],
             "individual_crd": u.individual_crd,
             "can_accept_accounts": u.role in ("ria_service", "ria_service_lead") and holds_principal(u),
+            "team": u.team, "team_label": OPS_TEAMS.get(u.team) if u.team else None,
+            "capabilities": capabilities(u),
             "workspace": "portal" if u.role in ("ria_admin", "ria_user", "client") else "workbench"}
 
 

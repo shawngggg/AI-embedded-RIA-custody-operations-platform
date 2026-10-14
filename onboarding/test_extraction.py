@@ -133,3 +133,48 @@ def test_extracted_draft_goes_through_the_firm_rules():
     # REG-002: registration status is unknown until the IAPD lookup fills it in
     assert ev.rule_ids == ["REG-002", "KYB-003", "KYB-005"] and ev.disposition is Disposition.REFER
     assert firm_reliance(app, TODAY).reasons == ["No reliance contract", "No annual AML certification on file"]
+
+
+# --- Workload identity federation -------------------------------------------------------
+
+FED_ENV = {"ANTHROPIC_FEDERATION_RULE_ID": "fdrl_test", "ANTHROPIC_ORGANIZATION_ID": "org_test",
+           "ANTHROPIC_SERVICE_ACCOUNT_ID": "svac_test", "ANTHROPIC_WORKSPACE_ID": "wrkspc_test"}
+
+
+def test_client_uses_workload_identity_when_configured(monkeypatch):
+    import anthropic
+    from extraction import make_client
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    for k, v in FED_ENV.items():
+        monkeypatch.setenv(k, v)
+    seen = {}
+    real = anthropic.Anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: seen.update(kw) or real(**kw))
+    make_client()
+    creds = seen["credentials"]
+    assert isinstance(creds, anthropic.WorkloadIdentityCredentials) and "api_key" not in seen
+
+
+def test_client_falls_back_to_the_api_key(monkeypatch):
+    import anthropic
+    from extraction import make_client
+    for k in FED_ENV:
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    seen = {}
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: seen.update(kw) or object())
+    make_client()
+    assert "credentials" not in seen
+
+
+def test_identity_token_comes_from_the_metadata_server():
+    from extraction import AUDIENCE, google_identity_token
+
+    class Http:
+        def get(self, url, headers, timeout):
+            self.url, self.headers = url, headers
+            return type("R", (), {"text": "eyJ.token.sig\n", "raise_for_status": lambda self: None})()
+    http = Http()
+    assert google_identity_token(http) == "eyJ.token.sig"
+    assert http.headers == {"Metadata-Flavor": "Google"}
+    assert f"audience={AUDIENCE}" in http.url and "format=full" in http.url   # format=full carries the email claim

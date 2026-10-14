@@ -42,6 +42,44 @@ def accounts(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return [_account_dict(db, a) for a in db.scalars(q).all()]
 
 
+ATTENTION = {"PENDING_ITEMS": "Items requested from you", "RETURNED": "Returned for correction",
+             "OPEN_RESTRICTED": "Open, restricted until items arrive"}
+CLOSED_STATES = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED"}
+
+
+@router.get("/home")
+def home(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The portal's landing page: the firm's (or client's) relationship with the custodian, and what needs them."""
+    from ..orm import Case, Restriction
+    from ..views import iso
+    if user.role not in ("ria_admin", "ria_user", "client"):
+        raise HTTPException(404, "The portal home is for RIA users and clients")
+    if user.role == "client":
+        accounts = [a for a in [db.get(Account, user.client_account_id)] if a]
+        cases = db.scalars(select(Case).where(Case.account_id == user.client_account_id, Case.kind == "change")).all()
+    else:
+        accounts = db.scalars(select(Account).where(Account.firm_id == user.firm_id)).all()
+        cases = db.scalars(select(Case).where(Case.firm_id == user.firm_id, Case.kind.in_(("account", "change")))).all()
+    firm = db.get(Firm, user.firm_id) if user.firm_id else (db.get(Firm, accounts[0].firm_id) if accounts else None)
+    restricted = {r.target_id for r in db.scalars(select(Restriction).where(
+        Restriction.active.is_(True), Restriction.target_id.in_([a.id for a in accounts]))).all()}
+    attention = [{"case_id": c.id, "title": c.title, "status": c.status, "why": ATTENTION[c.status],
+                  "items": (c.result or {}).get("requested_items") or [], "since": iso(c.queue_entered_at or c.updated_at)}
+                 for c in sorted(cases, key=lambda c: c.id) if c.status in ATTENTION]
+    lead = db.scalar(select(User).where(User.role == "ria_service_lead", User.active.is_(True)).order_by(User.id))
+    return {
+        "name": user.display_name.split()[0], "role": user.role,
+        "firm": {"name": firm.legal_name, "crd": firm.crd, "status": firm.status, "since": iso(firm.activated_at),
+                 "reliance_eligible": firm.reliance_eligible} if firm else None,
+        "accounts": {"total": len(accounts), "open": sum(a.status == "OPEN" for a in accounts),
+                     "pending": sum(a.status == "PENDING" for a in accounts), "restricted": len(restricted)},
+        "requests_open": sum(c.status not in CLOSED_STATES for c in cases),
+        "attention": attention,
+        "contact": {"team": "RIA service team", "name": lead.display_name if lead else None,
+                    "email": "riaservice@custodian.example", "hours": "Business days, 7 a.m. to 7 p.m. Eastern"},
+    }
+
+
 class NewAccount(BaseModel):
     application: dict
     firm_crd: str | None = None      # internal users name the firm; RIA users use their own
@@ -64,6 +102,9 @@ def new_account(body: NewAccount, user: User = Depends(current_user), db: Sessio
     if user.role in ("ria_admin", "ria_user"):
         firm = db.get(Firm, user.firm_id)
     elif user.role in ("ops_analyst", "ops_supervisor"):
+        if user.team != "onboarding":
+            audit.refuse(db, user, "account_application", "The onboarding team takes in new applications",
+                         target_type="firm", target_id=body.firm_crd or "-")
         firm = db.scalar(select(Firm).where(Firm.crd == body.firm_crd))
     else:
         audit.refuse(db, user, "account_application", "RIA users and operations submit account applications",

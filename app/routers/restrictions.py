@@ -8,7 +8,8 @@ from restrictions import CATALOG
 
 from .. import audit
 from ..db import get_db
-from ..orm import Restriction, User, utcnow
+from ..access import require_capability
+from ..orm import Account, Firm, Restriction, User, iso, utcnow
 from ..security import current_user, require_internal
 from ..views import restriction_dict
 
@@ -34,6 +35,34 @@ def list_restrictions(active: bool | None = True, target: str | None = None,
             Account.firm_id == user.firm_id if user.role != "client" else Account.id == user.client_account_id)).all()]
         q = q.where(Restriction.target_id.in_(ids))
     return [restriction_dict(r) for r in db.scalars(q).all()]
+
+
+@router.get("/accounts")
+def restricted_accounts(user: User = Depends(require_capability("restricted_accounts")), db: Session = Depends(get_db)):
+    """Accounts and firms with at least one active code: what's blocked, by whom, and since when."""
+    rows = db.scalars(select(Restriction).where(Restriction.active.is_(True)).order_by(Restriction.placed_at)).all()
+    by_target: dict[str, list[Restriction]] = {}
+    for r in rows:
+        by_target.setdefault(r.target_id, []).append(r)
+    out = []
+    for target, codes in by_target.items():
+        item = {"target_id": target, "kind": "account", "name": target, "firm": None, "status": None, "group": None}
+        if target.startswith("FIRM-"):
+            firm = db.scalar(select(Firm).where(Firm.crd == target[5:]))
+            item.update(kind="firm", name=firm.legal_name if firm else target, status=firm.status if firm else None)
+        else:
+            account = db.get(Account, target)
+            if account:
+                firm = db.get(Firm, account.firm_id)
+                item.update(name=account.display_name, firm=firm.legal_name if firm else None, status=account.status,
+                            group="Self-directed" if account.group == "self_directed" else "Pure RIA")
+        blocks = sorted({a.value for r in codes for a in CATALOG[r.code].blocks})
+        case_ids = sorted({r.case_id for r in codes if r.case_id})
+        out.append({**item, "codes": [restriction_dict(r) for r in codes], "blocks": blocks,
+                    "owners": sorted({r.owner for r in codes}), "since": iso(codes[0].placed_at),
+                    "case_ids": case_ids})
+    out.sort(key=lambda x: x["since"], reverse=True)
+    return out
 
 
 @router.get("/catalog")

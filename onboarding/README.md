@@ -27,7 +27,7 @@ RIA firm onboarding and client account opening for the RIA custody operations pl
 | `pipeline.py` | All | Firm onboarding and account opening in map order, with a step trace and audit record |
 | `sample_data.py` | All | Synthetic firms, accounts, flagged list, and an application package |
 | `demo.py` | All | Command-line demo and the browser console's entry point |
-| `test_*.py` | All | 208 tests |
+| `test_*.py` | All | 211 tests |
 
 ## Run it
 
@@ -39,7 +39,7 @@ python -m pytest onboarding -v
 python onboarding/demo.py
 ```
 
-Live AI extraction needs an `ANTHROPIC_API_KEY`. The model defaults to `claude-haiku-5-5`; set `RIA_EXTRACTION_MODEL` to change it.
+Live AI extraction signs in with workload identity federation when `ANTHROPIC_FEDERATION_RULE_ID` and `ANTHROPIC_ORGANIZATION_ID` are set (no key stored; see docs/DEPLOY.md), or with an `ANTHROPIC_API_KEY`. The model defaults to `claude-haiku-5-5`; set `RIA_EXTRACTION_MODEL` to change it.
 
 From inside `onboarding/`:
 

@@ -177,6 +177,18 @@ def work_the_seeded_cases() -> None:
     grant = as_user("admin.platform").post(f"/api/admin/users/{target['id']}/role", json={"role": "aml_compliance"}).json()
     attempt("role grant: requester approves own", "admin.platform", "post", f"/api/admin/grants/{grant['grant']['id']}/approve")
 
+    # From the Oct. 13 walkthrough: only the onboarding team takes in applications, #sanctions is the sanctions
+    # team's, and only the platform admin re-sends a held or failed email
+    application = {"group": "pure_ria", "registration_type": "individual", "holders": [{"name": "Probe Person"}]}
+    for u in ("ops.cip", "ops.service", "aml.maker", "rs.associate"):
+        attempt("new application from outside onboarding", u, "post", "/api/portal/accounts",
+                {"application": application, "documents": []})
+    for u in wrong_roles({"sanctions"}):
+        attempt("post in #sanctions", u, "post", "/api/channels/sanctions/messages", {"body": "Any update on #16?"})
+    held = as_user("admin.platform").get("/api/outbox").json()["emails"][0]
+    for u in wrong_roles({"platform_admin"}):
+        attempt("email re-send", u, "post", f"/api/outbox/{held['id']}/retry")
+
 
 # --------------------------------------------------------------------------- straight-through opening
 def clean_applications(n_a: int = 12, n_b: int = 8) -> list[dict]:

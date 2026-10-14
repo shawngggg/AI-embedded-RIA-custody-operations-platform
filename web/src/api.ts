@@ -39,6 +39,7 @@ export type User = {
   active: boolean; is_demo: boolean; note: string | null; workspace: "workbench" | "portal";
   firm: { id: number; crd: string; name: string } | null; client_account_id: string | null;
   registrations: { code: string; label: string }[]; individual_crd: string | null; can_accept_accounts: boolean;
+  team: string | null; team_label: string | null; capabilities: Record<string, boolean>;
 };
 
 export type Check = { check: string; result: "pass" | "fail" | "manual"; detail: string };
