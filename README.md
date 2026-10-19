@@ -100,7 +100,7 @@ To run it from the repo root:
 
 ```
 pip install -r requirements.txt
-python -m pytest onboarding -v      # 211 tests
+python -m pytest onboarding -v      # 234 tests
 python onboarding/demo.py           # every scenario, printed step by step
 ```
 
@@ -125,7 +125,7 @@ An account whose KYC, CDD, EDD, CIP, and AML requirements are met opens even wit
 
 The risk register logs operational, regulatory, and financial events: the platform raises one on every rescission request, sanctions true match, case past its SLA, document reopened on an open account, and access and authentication event (an attempt to open another firm's case, repeated failed sign-ins, an administrator approving their own grant), and anyone can report one. Each event belongs to the area it pertains to, and each person sees only their own area's events plus any they reported: an onboarding analyst sees onboarding's, the platform administrator sees access and authentication. The owning team records the remediation and closes it. Team channels let internal staff discuss work chat-style, with `#16` linking a case, `ACC-2001` an account, and `@username` a person; a case's Discussion tab collects every message that references it. Every notice to an RIA or client (items requested, account opened, declined, change applied) goes through the email outbox, and with Microsoft 365 connected it sends through Microsoft Graph from a shared mailbox; demo mode holds it all.
 
-**Stack:** FastAPI, SQLAlchemy, and Alembic on Python 3.13; React and TypeScript built with Vite; Postgres in production (Neon) and SQLite locally; Claude Haiku 5.5 for live extraction, signed-in users only, capped at 50 reads a day. Without an API key, AI intake runs the sample package with an illustrative, hand-written model response.
+**Stack:** FastAPI, SQLAlchemy, and Alembic on Python 3.13; React and TypeScript built with Vite; Postgres in production (Neon) and SQLite locally; Claude Haiku 5.5 for live extraction, signed-in users only, capped at 50 reads a day. Without an API key, AI intake runs the sample package with an illustrative, hand-written model response. Before any prompt or model change goes live, the platform administrator runs the AI evaluation (Users and rules): 20 synthetic firm packages with 19 seeded defects, traps and clean packages included, read by the live model and scored for NIGO detection recall and false NIGOs. Each package has an answer key, and the tests and the gate check confirm the set itself.
 
 To run it locally from the repo root:
 
@@ -133,7 +133,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 74 API tests
+python -m pytest app/tests -v        # 75 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 

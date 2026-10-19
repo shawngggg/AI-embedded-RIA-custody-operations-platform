@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AiEvaluation from "./AiEvaluation";
 import { api, type User } from "../api";
 import { useAuth } from "../auth";
 import { Loading, useLoad, when } from "../util";
@@ -124,6 +125,7 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
                 <td>{r.reason}{r.points ? ` (+${r.points})` : ""}</td><td className="small">{r.source}</td></tr>
             ))}</tbody>
           </table></div>
+          <AiEvaluation />
           <h2>Demo data</h2>
           <p className="muted small">Put every case, user, and code back to the seeded starting point.</p>
           <button className="danger" onClick={reset}>Reset the demo</button>
