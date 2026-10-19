@@ -1041,3 +1041,29 @@ def test_account_changes_are_account_maintenance_with_client_service(as_user):
               "documents": [{"doc_type": "change_form", "sample": True}]}
     assert as_user("ops.analyst").post("/api/portal/changes", json=change).status_code == 403    # onboarding
     assert as_user("ops.service").post("/api/portal/changes", json=change).status_code == 200    # client service
+
+
+def test_the_ai_evaluation_runs_the_nigo_test_set_for_the_admin(as_user, monkeypatch):
+    from app.config import settings
+    from app.routers import ai_eval
+    from extraction import gate
+    from nigo_eval import PACKAGES, answer_key, package_text
+    admin = as_user("admin.platform")
+    ev = admin.get("/api/ai-evaluation").json()
+    assert len(ev["packages"]) == 20 and not ev["can_run"] and "isn't configured" in ev["why_not"] and ev["latest"] is None
+    assert admin.post("/api/ai-evaluation", json={}).status_code == 503              # no live AI in the tests
+    for u in ("ops.supervisor", "aml.maker", "granite.admin"):
+        assert as_user(u).get("/api/ai-evaluation").status_code == 403
+    # With a stand-in model that reads like the answer key, the run is scored, logged, and counted against the cap
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    by_text = {package_text(p): p for p in PACKAGES}
+    monkeypatch.setattr(ai_eval, "extract_firm_application",
+                        lambda text: gate(answer_key(by_text[text]), text, "end_turn", "stand-in"))
+    admin = as_user("admin.platform")
+    run = admin.post("/api/ai-evaluation", json={}).json()
+    assert run["recall"] == 1.0 and run["false_nigo"] == 0 and run["met"] and run["by"] == "Jordan Blake"
+    assert run["prompt_version"] and len(run["rows"]) == 20
+    assert admin.get("/api/ai-evaluation").json()["latest"]["recall"] == 1.0
+    assert admin.post("/api/ai-evaluation", json={}).status_code == 200              # 40 of 50 calls used
+    assert admin.post("/api/ai-evaluation", json={}).status_code == 409              # a third run would pass the cap
+    assert admin.get("/api/audit?action=ai_evaluation_run").json()[0]["detail"]["model"]

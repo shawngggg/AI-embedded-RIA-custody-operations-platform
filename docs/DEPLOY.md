@@ -113,6 +113,10 @@ token. The app uses federation whenever `ANTHROPIC_FEDERATION_RULE_ID` and `ANTH
 
 The workbench's **New application** page says how live AI signs in ("signed in by workload identity federation").
 
+Then sign in as the platform administrator and open **Users and rules → AI evaluation → Run the evaluation**. It reads
+the 20 test packages with the live model (20 calls, about a cent with Claude Haiku 5.5, counted against
+`AI_DAILY_CAP`) and records NIGO detection recall and false NIGOs: the MVP gate's measure.
+
 ### Email through Microsoft 365 (Outlook)
 
 Every notice the platform sends (items requested, account opened, application declined, change applied) is written to

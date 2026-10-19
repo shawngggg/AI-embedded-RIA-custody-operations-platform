@@ -231,3 +231,4 @@ ol.history li::before { content: ""; position: absolute; left: -7px; top: 9px; w
 ol.history li.t-clear::before { border-color: var(--clear); background: var(--clear-bg); }
 ol.history li.t-block::before { border-color: var(--block); background: var(--block-bg); }
 @media (max-width: 640px) { dl.details { grid-template-columns: 1fr; } dl.details dd { margin-bottom: 6px; } }
+.tile .value.small-value { font-size: 1.15rem; line-height: 1.6; }

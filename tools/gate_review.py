@@ -271,6 +271,15 @@ def build_health() -> dict:
                        for r in done if r.get("conclusion") != "success"]}
 
 
+def nigo_test_set() -> dict:
+    """The NIGO test set read by its answer key: proves the set and the rules agree before the model is measured."""
+    from extraction import gate
+    from nigo_eval import PACKAGES, answer_key, package_text, run
+    by_text = {package_text(p): p for p in PACKAGES}
+    out = run(lambda text: gate(answer_key(by_text[text]), text, "end_turn", "answer key"))
+    return {k: out[k] for k in ("packages", "seeded", "caught", "false_nigo", "recall")}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json")
@@ -300,8 +309,9 @@ def main() -> None:
                                                    if a["refused"] and not a["logged"]})},
         "escalation_sla": sla_adherence(),
         "build_health": {"measured": False, "why": "skipped"} if args.no_github else build_health(),
+        "nigo_test_set": nigo_test_set(),
         "not_measured": {
-            "nigo_detection_recall": "Needs live AI (an Anthropic API key) and a seeded NIGO test set",
+            "nigo_detection_recall": "Needs the live model: run Users and rules → AI evaluation in the deployed app",
             "ai_suggestion_acceptance": "Needs live AI in use; the demo runs an illustrative extraction",
             "reviewer_walkthrough": "Needs a person: a first-time reviewer, timed from sign-in to open account"},
     }
@@ -318,6 +328,9 @@ def main() -> None:
     print(f"Escalation SLA        : {e['within']}/{e['escalations']} sanctions escalations decided within {e['sla_hours']} hours")
     b = report["build_health"]
     print(f"Build health          : " + (f"{b['passed']}/{b['runs']} CI runs on main passed {b['failed']}" if b["measured"] else f"not measured ({b['why']})"))
+    n = report["nigo_test_set"]
+    print(f"NIGO test set         : {n['packages']} packages, {n['seeded']} seeded defects; the answer key flags "
+          f"{n['caught']}/{n['seeded']} with {n['false_nigo']} false NIGO (checks the set, not the model)")
     for k, v in report["not_measured"].items():
         print(f"Not measured          : {k}: {v}")
     if args.json:
@@ -326,7 +339,8 @@ def main() -> None:
         missed = [name for name, ok in (
             ("decision traceability 100%", t["share"] == 1.0),
             ("straight-through opening 70% or higher", s["share"] >= 0.70),
-            ("role enforcement 100% refused and logged", r["share"] == 1.0)) if not ok]
+            ("role enforcement 100% refused and logged", r["share"] == 1.0),
+            ("NIGO test set consistent with its answer key", n["recall"] == 1.0 and n["false_nigo"] == 0)) if not ok]
         print("\nGate check: " + ("all measured targets met" if not missed else "MISSED: " + "; ".join(missed)))
         sys.exit(1 if missed else 0)
 

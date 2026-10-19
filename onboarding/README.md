@@ -24,10 +24,11 @@ RIA firm onboarding and client account opening for the RIA custody operations pl
 | `risk.py` | 5 | Firm and account risk factors, FATF lists by date, tiers, EDD requirements, review dates |
 | `transferability.py` | 6 | Security master and per-position transfer routes; full, partial, or held release |
 | `extraction.py` | 7 | Claude structured-output extraction and the controls gate (grounding check) |
+| `nigo_eval.py` | 7 | The NIGO detection test set: 20 synthetic firm packages with 19 seeded defects (traps and clean packages included), each with an answer key, and the scoring (recall and false NIGO) |
 | `pipeline.py` | All | Firm onboarding and account opening in map order, with a step trace and audit record |
 | `sample_data.py` | All | Synthetic firms, accounts, flagged list, and an application package |
 | `demo.py` | All | Command-line demo and the browser console's entry point |
-| `test_*.py` | All | 211 tests |
+| `test_*.py` | All | 234 tests |
 
 ## Run it
 

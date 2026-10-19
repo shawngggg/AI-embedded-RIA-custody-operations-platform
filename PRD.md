@@ -156,7 +156,7 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 - MVP-2 Cases persist. Each application becomes a case that stops where its map waits and resumes when the item, review, or decision arrives.
 - MVP-3 Work queues by status (items requested, compliance review, sanctions review, EDD pending, review due), each with an owner, an SLA clock, and aging.
 - MVP-4 Case view: the step trace along maps 01 and 02, rule findings with citations, documents, restriction codes, risk factors, and transfer routes.
-- MVP-5 Intake by form, or by uploading a package that AI extracts behind the controls gate. Live Claude API calls are for signed-in users only, with a daily cap.
+- MVP-5 Intake by form, or by uploading a package that AI extracts behind the controls gate. Live Claude API calls are for signed-in users only, with a daily cap. Before any prompt or model change goes live, the platform administrator runs the AI evaluation: synthetic firm packages with seeded defects, traps and clean packages included, scored for NIGO detection recall and false NIGOs (guardrail 5).
 - MVP-6 Decisions are role-gated: only compliance signs off reviews, only the sanctions team records determinations, and only AML compliance approves EDD. Approvals need a second person (maker-checker).
 - MVP-7 Restriction codes can be placed, viewed, and removed, with owner-only removal and the reason and authorization recorded.
 - MVP-8 Rolling review: reviews come due by risk tier, and a missed refresh deadline places the no-new-activity code.
@@ -522,7 +522,7 @@ Five of the eight release 1 metrics are measured on synthetic data: four meet th
 | Metric | Target | Result | Status |
 | --- | --- | --- | --- |
 | Decision traceability | 100% | 41 of 41 decisions carry the approver, rule version, and citation | Met |
-| NIGO detection recall | 90% or higher | Not measured: needs live AI and a seeded NIGO test set | Open |
+| NIGO detection recall | 90% or higher | Not measured yet: the seeded test set is built (20 packages, 19 defects, answer key 19 of 19); it needs a run with the live model | Open |
 | Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
 | AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |
