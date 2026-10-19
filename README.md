@@ -110,7 +110,7 @@ python onboarding/demo.py           # every scenario, printed step by step
 
 What each role can do:
 
-- **Operations analyst:** start from the Work page (what needs you, unread messages, open risk events, restricted accounts), work your team's queues with SLA clocks, check each document that arrives and record the item it satisfies, and confirm suspicious account changes. Operations is split into teams (onboarding, CIP, client service, and so on); only the onboarding team takes in new applications, by form or by having AI read the package, and the submitted case lands in its queue. Account maintenance sits with client service: account changes that need a confirmation or come back for items wait in client service's queues, and a change arriving by mail is entered there.
+- **Operations analyst:** start from the Work page (what needs you, unread messages, open risk events, restricted accounts), work your team's queues with SLA clocks, check each document that arrives and record the item it satisfies, and confirm suspicious account changes. Operations is split into teams (onboarding, CIP, client service, and so on); only the onboarding team takes in new applications, by form or by having AI read the package, and the submitted case lands in its queue. Account maintenance sits with client service: account changes that need a confirmation or come back for items wait in client service's queues, and a change arriving by mail is entered there. The asset transfer, trade, and billing teams have demo users too; their workbenches arrive in releases 2 and 3, so for now they see their team channel, restricted accounts, their area's risk events, case lookup, and the planned page for their function. Every team that works with accounts sees a case's decisions, sanctions determinations included; the platform administrator, whose job is access, and the portal don't.
 - **Sanctions team, AML compliance, and supervisors:** decide escalated cases under maker-checker. One person proposes, a second person with the approving role approves, and the app refuses self-approval and logs the attempt.
 - **RIA service team (FINRA-licensed):** a registered principal accepts every new account and RIA relationship before it opens (FINRA Rule 4512), after confirming the review. The custodian runs the trading platform, so it's a FINRA member broker-dealer. The app checks the person's registration, not just their role, and a principal can't accept a case they prepared. Operations needs no license.
 - **RIA service team lead:** approves a principal's request to rescind an acceptance. The request restricts the account at once; an approved rescission un-opens it and sends the case back for review or rework. Every request is logged in the risk register (as a regulatory event when the issue found was regulatory) for the team to agree a remediation path: training, a technology change, or a procedure update.
@@ -133,7 +133,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 75 API tests
+python -m pytest app/tests -v        # 77 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 

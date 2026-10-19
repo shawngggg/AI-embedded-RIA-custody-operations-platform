@@ -12,6 +12,11 @@ type WorkData = {
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
 };
 
+// The planned workbenches, for teams whose function arrives in a later release (and has no queue yet)
+const WORKBENCH: [string, string, string, number][] = [
+  ["planned_transfers", "/ops/transfers", "Asset and money movement", 2], ["planned_trading", "/ops/trading", "Trade operations", 3],
+  ["planned_billing", "/ops/billing", "Billing operations", 3]];
+
 function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -54,6 +59,10 @@ export default function Work() {
         {can.restricted_accounts && <Link className="tile" to="/restricted">
           <div className="label">Restricted accounts</div><div className="value">{d.restricted_targets}</div>
           <div className="sub">Accounts and firms with an active code</div></Link>}
+        {!can.queues && WORKBENCH.filter(([cap]) => can[cap]).map(([cap, to, label, release]) => (
+          <Link key={cap} className="tile" to={to}>
+            <div className="label">Your team's workbench</div><div className="value small-value">{label}</div>
+            <div className="sub">Planned for release {release}: see what it will do</div></Link>))}
         {user.role === "platform_admin" && <Link className="tile" to="/admin">
           <div className="label">Grants to approve</div><div className="value">{d.grants_waiting ?? 0}</div>
           <div className="sub">Requested by another administrator</div></Link>}

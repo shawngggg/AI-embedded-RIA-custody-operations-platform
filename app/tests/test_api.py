@@ -902,6 +902,10 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
     "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "restricted_accounts", "outbox"},
     "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
     "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
+    # Teams whose workbench arrives in a later release: no queue or notices yet, their own planned page
+    "ops.transfers": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_transfers"},
+    "ops.trade": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_trading"},
+    "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake",
                        "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
@@ -1067,3 +1071,23 @@ def test_the_ai_evaluation_runs_the_nigo_test_set_for_the_admin(as_user, monkeyp
     assert admin.post("/api/ai-evaluation", json={}).status_code == 200              # 40 of 50 calls used
     assert admin.post("/api/ai-evaluation", json={}).status_code == 409              # a third run would pass the cap
     assert admin.get("/api/audit?action=ai_evaluation_run").json()[0]["detail"]["model"]
+
+
+def test_a_sanctions_determination_is_seen_by_every_team_on_the_account_but_not_the_admin_or_the_portal(as_user):
+    ilya = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
+    as_user("sanctions.maker").post(f"/api/cases/{ilya}/decisions", json={
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-V-1"})
+    for u in ("ops.analyst", "ops.cip", "ops.service", "ops.trade", "aml.maker", "rs.principal", "review.analyst"):
+        log = as_user(u).get(f"/api/cases/{ilya}").json()["decision_log"]
+        assert [(d["label"], d["value"], d["reference"]) for d in log] == [("Sanctions determination", "false_positive", "DET-V-1")], u
+    assert as_user("admin.platform").get(f"/api/cases/{ilya}").status_code == 403       # access, not cases
+    portal = as_user("granite.advisor").get(f"/api/cases/{ilya}").json()
+    assert "decision_log" not in portal and "DET-V-1" not in str(portal) and portal["status"] == "IN_REVIEW"
+
+
+def test_the_new_teams_see_their_planned_workbench_and_channel(as_user):
+    marisol = as_user("ops.transfers")
+    assert marisol.get("/api/queues").json()["queues"] == []                 # no release 1 queue
+    assert "asset-transfer" in [c["key"] for c in marisol.get("/api/channels").json()["channels"]]
+    assert marisol.get("/api/outbox").status_code == 403
+    assert as_user("ops.trade").get("/api/restrictions/accounts").status_code == 200   # restricted accounts can't trade

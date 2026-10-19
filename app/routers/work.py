@@ -45,7 +45,8 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
     restricted = {r.target_id for r in db.scalars(select(Restriction).where(Restriction.active.is_(True))).all()}
     out = {
         "greeting_name": user.display_name.split()[0],
-        "role_label": user.role, "team_label": OPS_TEAMS.get(user.team) if user.team else None,
+        "role_label": user.role,
+        "team_label": "Every operations" if user.role == "ops_supervisor" else OPS_TEAMS.get(user.team) if user.team else None,
         "queues": [{"key": k, "label": QUEUES[k]["label"], "count": sum(c.queue == k for c in cases),
                     "breached": sum(c.queue == k and sla_state(c, now)["breached"] for c in cases)} for k in mine],
         "needs_you": [case_summary(db, c) for c in cases[:12]],

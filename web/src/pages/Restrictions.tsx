@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { CaseLink } from "../caselink";
 import { api, type Restriction } from "../api";
 import { useAuth } from "../auth";
 import { Loading, Status, useLoad, when } from "../util";
@@ -82,7 +82,7 @@ export default function Restrictions() {
                           <div className="small muted">Owner: {pretty(c.owner)} · blocks {c.blocks.map(pretty).join(", ")} · placed by {c.placed_by}, {when(c.placed_at)} ({c.source})</div>
                           <div className="small">{c.reason}</div></div>
                         <div className="code-action">
-                          {c.source === "case" && c.case_id ? <Link to={`/cases/${c.case_id}`}>Comes off with case #{c.case_id}</Link>
+                          {c.source === "case" && c.case_id ? <CaseLink id={c.case_id}>Comes off with case #{c.case_id}</CaseLink>
                             : c.code === "RSCN" ? <span className="muted small">Comes off through the rescission decision</span>
                             : mine ? (
                               <>
