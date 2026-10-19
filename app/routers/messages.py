@@ -32,6 +32,9 @@ CHANNELS = [
     ("sanctions", "Sanctions", "Flagged-list escalations (sanctions team only)", ["sanctions"]),
     ("rolling-review", "Rolling review", "Periodic and trigger-event reviews", []),
     ("ria-service", "RIA service team", "Principal acceptance, rescissions, RIA relationships", []),
+    ("asset-transfer", "Asset transfer", "Transfers and money movement (workbench in release 2)", []),
+    ("trade", "Trade", "Orders, allocations, settlement, and fails (workbench in release 3)", []),
+    ("billing", "Billing", "Fee setup, fee runs, and refunds (workbench in release 3)", []),
 ]
 
 CASE_RE = re.compile(r"(?:\bcase\s*#?|(?<![\w&])#)(\d{1,6})\b", re.I)

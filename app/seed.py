@@ -33,7 +33,11 @@ from .serialize import shift_dates, to_json
 DEMO_USERS = [
     ("ops.analyst", "Jamie Ortiz", "ops_analyst", None, None, "Onboarding: works intake, NIGO, and escalations"),
     ("ops.cip", "Taylor Brooks", "ops_analyst", None, None, "CIP: verifies the identity of new parties"),
-    ("ops.service", "Elliot Shaw", "ops_analyst", None, None, "Client service: confirms account changes"),
+    ("ops.service", "Elliot Shaw", "ops_analyst", None, None, "Client service: account maintenance and confirmations"),
+    ("ops.transfers", "Marisol Vega", "ops_analyst", None, None,
+     "Asset transfer: transfers and money movement (workbench in release 2)"),
+    ("ops.trade", "Kevin Tran", "ops_analyst", None, None, "Trade: orders, allocations, and settlement (release 3)"),
+    ("ops.billing", "Grace Holloway", "ops_analyst", None, None, "Billing: fee setup, fee runs, and refunds (release 3)"),
     ("ops.supervisor", "Priya Raman", "ops_supervisor", None, None, "Approves operations decisions as checker"),
     ("aml.maker", "Dev Patel", "aml_compliance", None, None, "Proposes EDD and compliance decisions"),
     ("aml.checker", "Morgan Lee", "aml_compliance", None, None, "Approves EDD and compliance decisions"),
@@ -60,6 +64,7 @@ SEED_EMAILS = {"granite.admin": "dana.whitfield@granitepeak.example", "granite.a
 
 # Operations teams (orm.OPS_TEAMS)
 SEED_TEAMS = {"ops.analyst": "onboarding", "ops.cip": "cip", "ops.service": "client_service",
+              "ops.transfers": "asset_transfer", "ops.trade": "trade", "ops.billing": "billing",
               "ops.supervisor": "onboarding"}
 
 # Synthetic FINRA registrations and individual CRD numbers for the licensed RIA service team

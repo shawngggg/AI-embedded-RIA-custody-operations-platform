@@ -53,7 +53,7 @@ export default function SignIn({ onSignedIn }: { onSignedIn: (u: User) => void }
                   {users.map((u) => (
                     <button key={u.username} className="who-card" onClick={() => asDemo(u)}>
                       <strong>{u.display_name}</strong>
-                      <span>{u.role_label}{u.firm ? ` · ${u.firm.name}` : ""}</span>
+                      <span>{u.role_label}{u.role === "ops_analyst" && u.team_label ? ` · ${u.team_label}` : ""}{u.firm ? ` · ${u.firm.name}` : ""}</span>
                       <span>{u.note}</span>
                     </button>
                   ))}
