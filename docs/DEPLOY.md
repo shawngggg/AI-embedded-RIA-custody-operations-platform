@@ -279,5 +279,6 @@ gcloud iam service-accounts add-iam-policy-binding $DEPLOYER --role=roles/iam.wo
   --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$REPO"
 ```
 
-If a deploy fails on a permission, the Actions log names it; grant that one role to the deployer and re-run the
-workflow from the Actions tab.
+New grants can take a minute or two to reach Google's servers: a deploy right after setup can fail with
+`PERMISSION_DENIED` and pass when re-run (**Re-run jobs** on the run's page). If a deploy fails on a permission
+after that, the run's annotation names it; grant that one role to the deployer and re-run.
