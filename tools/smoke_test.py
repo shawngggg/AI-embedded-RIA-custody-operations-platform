@@ -27,6 +27,8 @@ results: list[tuple[str, bool, str]] = []
 def check(name: str, ok: bool, detail: str = "") -> None:
     results.append((name, bool(ok), detail))
     print(f"{'PASS' if ok else 'FAIL'}  {name}{'  ' + detail if detail else ''}", flush=True)
+    if not ok and os.environ.get("GITHUB_ACTIONS"):
+        print(f"::error title=Smoke test failed::{name}{': ' + detail if detail else ''}", flush=True)
 
 
 class Session:

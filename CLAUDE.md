@@ -18,8 +18,10 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
   `gh pr` uses GraphQL, which is blocked here). Shawn reviews and merges. End commit messages and PR bodies with the
   attribution lines the session provides.
 - Merging deploys: `.github/workflows/deploy.yml` deploys after CI passes on `main` and smoke tests the live site.
-  Read the result with `gh api repos/shawngggg/ai-embedded-ria-custody-operations-platform/actions/runs?branch=main`.
-  The sandbox can't reach the live site directly.
+  Read the result with `gh api repos/shawngggg/ai-embedded-ria-custody-operations-platform/actions/runs?branch=main`;
+  a failed deploy or smoke check writes its error as an annotation: `gh api repos/.../check-runs/<job id>/annotations`
+  (full job logs live on a host the sandbox can't reach, and so does the live site). Re-run a failed run with
+  `gh api -X POST repos/.../actions/runs/<run id>/rerun-failed-jobs`.
 - Shawn's walkthrough notes arrive as GitHub issues (template: walkthrough note) or in chat. Batch related notes into
   one pull request, and say which issues it closes.
 
