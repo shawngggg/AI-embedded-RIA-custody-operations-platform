@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from restrictions import CATALOG
 
-from . import audit
+from . import ai_suggestions, audit
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .access import capabilities
@@ -193,6 +193,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "documents": [{**doc_dict(d), "reopen_refusal": reopen_refusal(c, d, user)} for d in case_documents(db, c)],
         "rescission": rescission_state(db, c, user),
         "rework": (c.extra or {}).get("rework"),
+        "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],
     })
     return data
 

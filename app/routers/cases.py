@@ -6,13 +6,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import ai_suggestions, audit
 from ..acceptance import accept_case
 from ..config import settings
 from ..documents import CORRECTABLE, DOC_TYPES, field_docs, mark, supersede_others
 from .. import rescission
 from ..db import get_db
-from ..orm import PORTAL_ROLES, Case, Document, PendingDecision, Review, User, utcnow
+from ..orm import PORTAL_ROLES, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
 from .. import portal_view
 from ..access import capabilities, require_capability
 from ..queues import DECISIONS, QUEUES, works_queue
@@ -152,6 +152,25 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
                  verify_people=body.verify_people or None, control_person=body.control_person, note=body.note,
                  documents=[{"id": d.id, "doc_type": d.doc_type, "sha256": d.sha256} for d in evidence] or None)
     run_case(db, case, user)
+    db.commit()
+    return case_detail(db, case, user)
+
+
+class SuggestionReview(BaseModel):
+    action: str                                  # accept | edit | reject
+    value: str | dict | None = None              # the reviewer's value for an edit; a person is {name, role, ownership_pct}
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/cases/{case_id}/ai-suggestions/{suggestion_id}")
+def review_suggestion(case_id: int, suggestion_id: int, body: SuggestionReview,
+                      user: User = Depends(require_capability("intake")), db: Session = Depends(get_db)):
+    """The onboarding team checks each value the AI read against the package: accept, edit, or reject."""
+    case = get_case_for(db, user, case_id)
+    s = db.get(AiSuggestion, suggestion_id)
+    if s is None or s.case_id != case.id:
+        raise HTTPException(404, "No such suggestion on this case")
+    ai_suggestions.review(db, case, s, user, body.action, body.value, body.reason)
     db.commit()
     return case_detail(db, case, user)
 

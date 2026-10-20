@@ -13,9 +13,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from extraction import DEFAULT_MODEL, extract_firm_application, gate
+from nigo_eval import PACKAGES, package_text
 from sample_data import FIRM_PACKAGE_TEXT, ILLUSTRATIVE_EXTRACTION
 
-from .. import audit
+from .. import ai_suggestions, audit
 from ..config import settings
 from ..db import get_db
 from ..documents import attach_at_intake, store
@@ -43,8 +44,11 @@ def _usage(db: Session, day: date) -> AiUsage:
 def status(user: User = Depends(ops), db: Session = Depends(get_db)):
     used = _usage(db, settings.today()).count
     db.commit()
+    # The synthetic NIGO test packages, for trying live AI on more than the sample. Names and text only: what each
+    # one is missing is the answer key, and showing it would tell the reviewer what to look for.
     return {"live": settings.ai_live, "auth": settings.ai_auth, "model": DEFAULT_MODEL, "used_today": used,
-            "cap": settings.ai_daily_cap, "sample_text": FIRM_PACKAGE_TEXT}
+            "cap": settings.ai_daily_cap, "sample_text": FIRM_PACKAGE_TEXT,
+            "test_packages": [{"key": p.key, "name": p.name, "text": package_text(p)} for p in PACKAGES]}
 
 
 def _read(file: UploadFile | None, text: str | None) -> tuple[str, bytes | None, str | None]:
@@ -90,13 +94,16 @@ def extract(file: UploadFile | None = File(None), text: str | None = Form(None),
         db.commit()
         raise HTTPException(409, f"{existing.legal_name} (CRD {existing.crd}) is already on the platform"
                                  + (f" as case {prior.id}" if prior else ""))
-    extraction = {**result.to_dict(), "mode": mode, "document": document[:20_000]}
+    version = ai_suggestions.prompt_version() if mode == "live" else None
+    extraction = {**result.to_dict(), "mode": mode, "document": document[:20_000], "prompt_version": version}
     case = create_firm_case(db, result.application, user, extraction=extraction)
+    suggestions = ai_suggestions.create_for(db, case, extraction, mode, result.model, version)
     raw = original if original is not None else document.encode("utf-8")
     store(db, case, user, "application_package", filename or "application-package.txt", raw, "intake",
           content_type=None if original is not None else "text/plain")
     audit.record(db, user, "ai_extraction", "case", case.id, case_id=case.id, mode=mode, model=result.model,
-                 accepted=len(result.accepted), rejected=len(result.rejected))
+                 accepted=len(result.accepted), rejected=len(result.rejected), prompt_version=version,
+                 suggestions=len(suggestions))
     run_case(db, case, user)
     db.commit()
     return case_detail(db, case, user)

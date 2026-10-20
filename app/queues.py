@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 QUEUES = {
+    # Every value the AI reads from a package waits here until a person accepts, edits, or rejects it
+    "ai_review": {"label": "AI suggestions to review", "owner": "Onboarding",
+                  "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 24},
     "items_requested": {"label": "Items requested", "owner": "Onboarding (waiting on the RIA)",
                         "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120},
     "compliance_review": {"label": "Compliance review", "owner": "AML compliance",
@@ -34,6 +37,7 @@ def works_queue(user, key: str) -> bool:
     return user.role != "ops_analyst" or not spec.get("teams") or user.team in spec["teams"]
 
 _BY_STATUS = {
+    "PENDING_AI_REVIEW": "ai_review",
     "PENDING_ITEMS": "items_requested",
     "PENDING_REVIEW": "compliance_review",
     "PENDING_SANCTIONS": "sanctions_review",

@@ -11,7 +11,8 @@ log. Nothing here talks to the live site.
     python tools/gate_review.py --check      # exit 1 if a measured target is missed (CI runs this)
 
 Metrics that need a person (the timed first-time walkthrough) or live AI (NIGO recall, suggestion acceptance)
-are reported as not measured, with what they need.
+are reported as not measured, with what they need. Suggestion tracking itself is checked here on the illustrative
+sample: every review is recorded with what the reviewer did, and only the onboarding team can review.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.db import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.orm import AuditEvent, Case, CaseTransition, PendingDecision, User  # noqa: E402
+from app.orm import AiSuggestion, AuditEvent, Case, CaseTransition, PendingDecision, User  # noqa: E402
 from app.queues import QUEUES  # noqa: E402
 
 USERS = {  # one demo user per role, plus second people for maker-checker
@@ -189,6 +190,33 @@ def work_the_seeded_cases() -> None:
     for u in wrong_roles({"platform_admin"}):
         attempt("email re-send", u, "post", f"/api/outbox/{held['id']}/retry")
 
+    # Oct. 20: only the onboarding team reviews what the AI read from a package (accept, edit, or reject each value)
+    ops = as_user("ops.analyst")
+    detail = ops.post("/api/intake/extract", data={"text": ops.get("/api/intake/status").json()["sample_text"]}).json()
+    first = detail["ai_suggestions"][0]["id"]
+    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.cip", "ops.service"]:
+        attempt("AI suggestion review outside onboarding", u, "post",
+                f"/api/cases/{detail['id']}/ai-suggestions/{first}", {"action": "accept"})
+    for i, sug in enumerate(detail["ai_suggestions"]):
+        body = {"action": "accept"}
+        if sug["field"] == "ein":
+            body = {"action": "edit", "value": "87-1234599", "reason": "Gate review: an edit is recorded with its reason"}
+        r = ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{sug['id']}", json=body)
+        assert r.status_code == 200, r.text
+
+
+def suggestion_tracking() -> dict:
+    """Every suggestion the AI made is stored with what the reviewer did, by whom, and why (PRD guardrail 6)."""
+    with SessionLocal() as db:
+        rows = db.query(AiSuggestion).all()
+        reviews = db.query(AuditEvent).filter(AuditEvent.action == "ai_suggestion_reviewed").count()
+    reviewed = [r for r in rows if r.status != "pending"]
+    return {"suggestions": len(rows), "reviewed": len(reviewed), "audited": reviews,
+            "with_reviewer": sum(bool(r.reviewed_by_name and r.reviewed_at) for r in reviewed),
+            "changes_with_reason": sum(bool(r.reason) for r in reviewed if r.status != "accepted"),
+            "changes": sum(r.status != "accepted" for r in reviewed),
+            "live": sum(r.mode == "live" for r in rows), "outcomes": dict(Counter(r.status for r in rows))}
+
 
 # --------------------------------------------------------------------------- straight-through opening
 def clean_applications(n_a: int = 12, n_b: int = 8) -> list[dict]:
@@ -310,9 +338,11 @@ def main() -> None:
         "escalation_sla": sla_adherence(),
         "build_health": {"measured": False, "why": "skipped"} if args.no_github else build_health(),
         "nigo_test_set": nigo_test_set(),
+        "ai_suggestion_tracking": suggestion_tracking(),
         "not_measured": {
             "nigo_detection_recall": "Needs the live model: run Users and rules → AI evaluation in the deployed app",
-            "ai_suggestion_acceptance": "Needs live AI in use; the demo runs an illustrative extraction",
+            "ai_suggestion_acceptance": "Needs live values reviewed in the deployed app (New application, then review "
+                                        "each value); the share shows on the dashboard and Users and rules → AI evaluation",
             "reviewer_walkthrough": "Needs a person: a first-time reviewer, timed from sign-in to open account"},
     }
     t, s, r = report["decision_traceability"], report["straight_through"], report["role_enforcement"]
@@ -331,6 +361,10 @@ def main() -> None:
     n = report["nigo_test_set"]
     print(f"NIGO test set         : {n['packages']} packages, {n['seeded']} seeded defects; the answer key flags "
           f"{n['caught']}/{n['seeded']} with {n['false_nigo']} false NIGO (checks the set, not the model)")
+    a = report["ai_suggestion_tracking"]
+    print(f"AI suggestion tracking: {a['reviewed']}/{a['suggestions']} sample values reviewed and recorded with the reviewer "
+          f"({a['with_reviewer']}), {a['audited']} audit events, {a['changes_with_reason']}/{a['changes']} changes with a reason "
+          f"(illustrative; {a['live']} live)")
     for k, v in report["not_measured"].items():
         print(f"Not measured          : {k}: {v}")
     if args.json:
@@ -340,7 +374,10 @@ def main() -> None:
             ("decision traceability 100%", t["share"] == 1.0),
             ("straight-through opening 70% or higher", s["share"] >= 0.70),
             ("role enforcement 100% refused and logged", r["share"] == 1.0),
-            ("NIGO test set consistent with its answer key", n["recall"] == 1.0 and n["false_nigo"] == 0)) if not ok]
+            ("NIGO test set consistent with its answer key", n["recall"] == 1.0 and n["false_nigo"] == 0),
+            ("every AI suggestion review recorded with the reviewer and audited",
+             a["reviewed"] == a["suggestions"] == a["with_reviewer"] == a["audited"] > 0
+             and a["changes_with_reason"] == a["changes"])) if not ok]
         print("\nGate check: " + ("all measured targets met" if not missed else "MISSED: " + "; ".join(missed)))
         sys.exit(1 if missed else 0)
 

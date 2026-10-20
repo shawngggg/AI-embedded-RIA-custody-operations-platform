@@ -354,6 +354,32 @@ class OutboundEmail(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class AiSuggestion(Base):
+    """
+    A value the AI proposed for a case that passed the controls gate, and what a person in onboarding did with it
+    (PRD guardrail 6): accepted it unchanged, edited it, or rejected it. The AI suggestion acceptance metric is the
+    share accepted unchanged; edits and rejections, with the reviewer's reason, are what the next evaluation round
+    learns from. Reviewed rows outlive a demo reset (the case link is cleared, the record of the review stays).
+    """
+    __tablename__ = "ai_suggestions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
+    case_label: Mapped[str] = mapped_column(String(240))
+    field: Mapped[str] = mapped_column(String(40))
+    suggested: Mapped[dict] = mapped_column(JSON)       # {"value": text} or, for a person, {name, role, ownership_pct}
+    quote: Mapped[str] = mapped_column(Text)
+    mode: Mapped[str] = mapped_column(String(20))       # live | illustrative (hand-written demo output, not counted)
+    model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")   # pending | accepted | edited | rejected
+    final: Mapped[dict | None] = mapped_column(JSON, nullable=True)     # the value the reviewer set, same shape
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class AiUsage(Base):
     __tablename__ = "ai_usage"
     day: Mapped[date] = mapped_column(Date, primary_key=True)

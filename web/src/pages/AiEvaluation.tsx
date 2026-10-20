@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { api } from "../api";
+import { api, type SuggestionSummary } from "../api";
 import { Loading, useLoad, when } from "../util";
 
 type Row = { key: string; about: string; seeded: string[]; flagged: string[]; caught: string[]; missed: string[];
@@ -9,7 +9,7 @@ type Run = { at: string; by: string; model: string; prompt_version: string; auth
   caught: number; missed: number; recall: number | null; false_nigo: number; clean_packages_flagged: number; target: number;
   met: boolean; rows: Row[] };
 type Evaluation = { latest: Run | null; can_run: boolean; why_not: string | null; model: string; prompt_version: string;
-  target: number; rules: Record<string, string>;
+  target: number; rules: Record<string, string>; suggestions: SuggestionSummary;
   packages: { key: string; about: string; name: string; seeded: string[]; text: string }[] };
 
 const pct = (x: number | null) => (x === null ? "–" : `${Math.round(x * 1000) / 10}%`);
@@ -52,6 +52,8 @@ export default function AiEvaluation() {
       {msg.ok && <p className="ok" role="status">{msg.ok}</p>}{msg.error && <p className="error" role="alert">{msg.error}</p>}
       <p><button onClick={runIt} disabled={!d.can_run || busy}>{busy ? "Running…" : `Run the evaluation (${d.packages.length} model calls)`}</button>
         {!d.can_run && <span className="muted small"> {d.why_not}</span>}</p>
+      <Acceptance s={d.suggestions} />
+      <h3>Test packages</h3>
       <div className="scroll"><table>
         <thead><tr><th>Package</th><th>Seeded defects</th><th>Last run</th></tr></thead>
         <tbody>{d.packages.map((p) => {
@@ -74,6 +76,44 @@ export default function AiEvaluation() {
             </Fragment>);
         })}</tbody>
       </table></div>
+    </>
+  );
+}
+
+/** The AI suggestion acceptance metric (PRD guardrail 6): what onboarding did with each live value. Counts only: the
+ *  values and reasons stay with the case files, which the platform administrator doesn't have. */
+function Acceptance({ s }: { s: SuggestionSummary }) {
+  const l = s.live;
+  return (
+    <>
+      <h3>AI suggestions in use</h3>
+      <p className="muted small">Every value the AI reads from a real intake waits for onboarding to accept, edit, or reject it. The metric is the
+        share of reviewed live values accepted without an edit; edits and rejections show which fields to test next.
+        {s.illustrative.suggestions > 0 && ` The illustrative sample's ${s.illustrative.suggestions} values are tracked apart and not counted.`}</p>
+      {l.reviewed ? (
+        <>
+          <div className="grid tiles">
+            <div className="tile"><div className="label">Accepted unchanged</div><div className="value">{pct(l.share_accepted)}</div>
+              <div className="sub">{l.accepted} of {l.reviewed} reviewed · {l.cases} {l.cases === 1 ? "case" : "cases"}</div></div>
+            <div className="tile"><div className="label">Edited</div><div className="value">{l.edited}</div><div className="sub">a person corrected the value</div></div>
+            <div className="tile"><div className="label">Rejected</div><div className="value">{l.rejected}</div><div className="sub">not in the package</div></div>
+            <div className="tile"><div className="label">Waiting</div><div className="value">{l.pending}</div><div className="sub">not reviewed yet</div></div>
+          </div>
+          <div className="grid two">
+            <div className="scroll"><table>
+              <thead><tr><th>Field</th><th>Reviewed</th><th>Edited</th><th>Rejected</th></tr></thead>
+              <tbody>{s.by_field.filter((f) => f.reviewed).map((f) => (
+                <tr key={f.field}><td className="small">{f.label}</td><td>{f.reviewed}</td><td>{f.edited || ""}</td><td>{f.rejected || ""}</td></tr>))}</tbody>
+            </table></div>
+            <div className="scroll"><table>
+              <thead><tr><th>Prompt version</th><th>Model</th><th>Accepted unchanged</th></tr></thead>
+              <tbody>{s.by_prompt.map((p) => (
+                <tr key={`${p.prompt_version}-${p.model}`}><td className="mono">{p.prompt_version ?? "–"}</td><td className="small">{p.model}</td>
+                  <td>{pct(p.share_accepted)} <span className="muted small">({p.accepted} of {p.reviewed})</span></td></tr>))}</tbody>
+            </table></div>
+          </div>
+        </>
+      ) : <div className="empty">No live values reviewed yet{l.pending ? ` (${l.pending} waiting in onboarding)` : ""}. Read a package with live AI on New application, then review it.</div>}
     </>
   );
 }

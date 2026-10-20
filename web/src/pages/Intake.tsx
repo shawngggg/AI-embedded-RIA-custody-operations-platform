@@ -51,7 +51,8 @@ export default function Intake() {
           <p className="muted small">
             {status.data?.live ? `Live: ${status.data.model}, signed in by ${status.data.auth}; ${status.data.used_today} of ${status.data.cap} reads used today.`
               : "Live AI is off on this server. The sample package runs through the controls gate with an illustrative, hand-written model response."}
-            {" "}A value is accepted only if the model quotes it from the documents.
+            {" "}A value is accepted only if the model quotes it from the documents, and the case then waits for you to
+            accept, edit, or reject each value before the rules run.
           </p>
           <div className="field"><label htmlFor="pkg">Paste the package text</label>
             <textarea id="pkg" value={text} onChange={(e) => setText(e.target.value)} placeholder="Form ADV excerpt, formation documents, ownership chart, agreement signature page" /></div>
@@ -61,6 +62,17 @@ export default function Intake() {
             <button disabled={busy || (!text.trim() && !file)} onClick={extract}>{busy ? "Reading…" : "Read and open a case"}</button>
             <button className="secondary" onClick={() => { setText(status.data?.sample_text ?? ""); setFile(null); }}>Use the sample package</button>
           </div>
+          {status.data?.live && status.data.test_packages?.length > 0 && (
+            <div className="field" style={{ marginTop: 12 }}><label htmlFor="testpkg">Or load a synthetic test package</label>
+              <select id="testpkg" value="" onChange={(e) => {
+                const p = status.data.test_packages.find((x: any) => x.key === e.target.value);
+                if (p) { setText(p.text); setFile(null); }
+              }}>
+                <option value="">Choose one of {status.data.test_packages.length}…</option>
+                {status.data.test_packages.map((p: any) => <option key={p.key} value={p.key}>{p.name}</option>)}
+              </select>
+              <p className="muted small">The NIGO test set&apos;s firms. What each one is missing isn&apos;t shown, so your review is a fair check of the AI.</p>
+            </div>)}
         </section>
         <form className="panel" onSubmit={submitForm}>
           <h2 style={{ marginTop: 0 }}>Or enter it by form</h2>

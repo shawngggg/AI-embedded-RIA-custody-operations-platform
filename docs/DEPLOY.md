@@ -117,6 +117,11 @@ Then sign in as the platform administrator and open **Users and rules → AI eva
 the 20 test packages with the live model (20 calls, about a cent with Claude Haiku 5.5, counted against
 `AI_DAILY_CAP`) and records NIGO detection recall and false NIGOs: the MVP gate's measure.
 
+The other AI measure is how often reviewers accept the AI's values unchanged. Sign in as the onboarding analyst, open
+**New application**, load a synthetic test package (or paste your own), and choose **Read and open a case**. The case
+waits in the AI review queue: accept, edit, or reject each value. The share shows on the operations dashboard and on
+**Users and rules → AI evaluation**.
+
 ### Email through Microsoft 365 (Outlook)
 
 Every notice the platform sends (items requested, account opened, application declined, change applied) is written to
@@ -236,7 +241,8 @@ secrets, and scaling. Data in Neon survives deploys.
 
 In demo mode the app fingerprints its seed data. When a deploy brings different seed data, it resets the demo on
 startup, so nobody has to remember to. A platform administrator can also reset it any time with **Users and rules →
-Reset the demo**. Either way, the AI evaluation runs are kept: they're governance evidence, not demo data.
+Reset the demo**. Either way, the AI evaluation runs and the reviewed AI suggestions are kept: they're governance
+evidence, not demo data.
 
 ## Automatic deploys from GitHub
 

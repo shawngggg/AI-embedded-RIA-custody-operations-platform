@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import ai_suggestions
 from ..db import get_db
 from ..orm import Case, CaseTransition, Restriction, User
 from ..queues import QUEUES
@@ -13,7 +14,7 @@ from ..access import require_capability
 from ..views import sla_state
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-WAITING = ["PENDING_ITEMS", "PENDING_REVIEW", "PENDING_SANCTIONS", "PENDING_EDD", "PENDING_CONFIRMATION",
+WAITING = ["PENDING_AI_REVIEW", "PENDING_ITEMS", "PENDING_REVIEW", "PENDING_SANCTIONS", "PENDING_EDD", "PENDING_CONFIRMATION",
            "PENDING_VERIFICATION", "PENDING_ACCEPTANCE", "PENDING_REWORK", "OPEN_RESTRICTED", "RETURNED"]
 
 
@@ -60,4 +61,5 @@ def dashboard(user: User = Depends(require_capability("dashboard")), db: Session
         "queues": queues,
         "hours_in_state": {k: {"cases": len(v), "average": round(sum(v) / len(v), 1)} for k, v in hours.items()},
         "active_codes": dict(code_counts),
+        "ai_suggestions": ai_suggestions.summary(db, changes=True),
     }

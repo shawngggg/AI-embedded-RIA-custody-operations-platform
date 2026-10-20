@@ -90,7 +90,24 @@ export type CaseDetail = CaseSummary & {
   documents: Doc[];
   rescission: { can_request: boolean; reason: string | null; kinds: Record<string, string>; return_to: Record<string, string> } | null;
   rework: { reason: string; reference: string; requested_by: string; approved_by: string; at: string } | null;
+  ai_suggestions: AiSuggestion[];
 };
+
+/** A value the AI read from the package, and what a person in onboarding did with it (app/ai_suggestions.py). */
+export type AiSuggestion = {
+  id: number; field: string; label: string; kind: "text" | "number" | "date" | "boolean" | "person";
+  choices: string[] | null; suggested: any; suggested_text: string; quote: string; mode: string;
+  status: "pending" | "accepted" | "edited" | "rejected"; final: any; final_text: string | null; reason: string | null;
+  reviewed_by: string | null; reviewed_at: string | null; actions: ("accept" | "edit" | "reject")[];
+};
+
+/** The AI suggestion acceptance metric: live suggestions counted, illustrative ones tracked apart. */
+export type Tally = { suggestions: number; reviewed: number; pending: number; accepted: number; edited: number;
+  rejected: number; share_accepted: number | null; cases: number };
+export type SuggestionSummary = { live: Tally; illustrative: Tally; by_field: (Tally & { field: string; label: string })[];
+  by_prompt: (Tally & { prompt_version: string | null; model: string | null })[];
+  recent_changes?: { id: number; case_id: number | null; case: string; mode: string; field: string; label: string;
+    status: string; suggested: string; final: string | null; reason: string | null; by: string; at: string }[] };
 
 /** What RIA users and clients get for a case (app/portal_view.py): none of the custodian's internal work. */
 export type PortalCase = Pick<CaseSummary, "id" | "kind" | "title" | "status" | "firm" | "account_id" | "target_id" | "created_at" | "updated_at"> & {
