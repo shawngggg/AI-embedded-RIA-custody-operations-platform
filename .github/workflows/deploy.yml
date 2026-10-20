@@ -43,7 +43,17 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy the new code (the service's settings stay as they are)
-        run: gcloud run deploy "$SERVICE" --source . --region "$REGION" --project "$PROJECT" --quiet
+        run: |
+          # On failure the error goes into an annotation and the job summary, which the GitHub API can read
+          set +e
+          gcloud run deploy "$SERVICE" --source . --region "$REGION" --project "$PROJECT" --quiet 2>&1 | tee deploy.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            msg=$(grep -E "ERROR|denied|Permission|permission" deploy.log | tail -5 | tr '\n' ' ' | cut -c1-900)
+            echo "::error title=Deploy failed::${msg:-$(tail -c 900 deploy.log | tr '\n' ' ')}"
+            { echo "### Deploy failed"; echo '```'; tail -40 deploy.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
 
       - name: Which revision is serving
         id: revision
