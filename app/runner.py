@@ -25,7 +25,7 @@ from sample_data import FLAGGED_LIST, IAPD_LOOKUP
 
 from . import audit
 from .config import settings
-from .orm import Account, Case, CaseTransition, Firm, Restriction, Review, User, utcnow
+from .orm import Account, AiSuggestion, Case, CaseTransition, Firm, Restriction, Review, User, utcnow
 from .queues import QUEUES, is_closed, queue_for
 from .serialize import account_from, change_from, firm_from
 
@@ -40,6 +40,13 @@ class StoredExtraction:
 
     def to_dict(self) -> dict:
         return dict(self._d)
+
+
+def unreviewed_suggestions(db: Session, case: Case) -> int | None:
+    """AI suggestions on the case nobody has reviewed yet; None if the case has none to review."""
+    db.flush()                         # the session doesn't autoflush, and a review may have just changed one
+    statuses = db.scalars(select(AiSuggestion.status).where(AiSuggestion.case_id == case.id)).all()
+    return sum(s == "pending" for s in statuses) if statuses else None
 
 
 def decisions_of(case: Case) -> Decisions:
@@ -77,7 +84,8 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         app = firm_from(case.application)
         extraction = StoredExtraction(case.extra["extraction"]) if case.extra.get("extraction") else None
         res = onboard_firm(app, as_of, flagged=FLAGGED_LIST, decisions=decisions,
-                           registration_lookup=simulated_iapd(app), extraction=extraction)
+                           registration_lookup=simulated_iapd(app), extraction=extraction,
+                           unreviewed=unreviewed_suggestions(db, case))
     elif case.kind == "account":
         firm = db.get(Firm, case.firm_id)
         account_row = db.get(Account, case.account_id)

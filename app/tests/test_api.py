@@ -298,9 +298,19 @@ def test_documents_are_fingerprinted_scoped_and_checked(as_user):
     assert scan["checks"][0]["result"] == "manual" and not scan["checks_passed"]
 
 
-def _upload_sample(ops):
+def _upload_sample(ops, review: bool = True):
+    """The sample package read through the controls gate; by default someone in onboarding then accepts every
+    suggestion, so the rules run."""
     text = ops.get("/api/intake/status").json()["sample_text"]
-    return ops.post("/api/intake/extract", data={"text": text}).json()
+    detail = ops.post("/api/intake/extract", data={"text": text}).json()
+    return _accept_all(ops, detail) if review else detail
+
+
+def _accept_all(ops, detail):
+    for s in detail["ai_suggestions"]:
+        if s["status"] == "pending":
+            detail = ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
+    return detail
 
 
 def test_ai_read_firm_completes_after_identity_verification(as_user):
@@ -632,10 +642,12 @@ def test_sample_package_runs_through_the_gate_without_live_ai(as_user):
     ops = as_user("ops.analyst")
     status = ops.get("/api/intake/status").json()
     assert status["live"] is False and status["cap"] == 50
+    assert len(status["test_packages"]) == 20 and set(status["test_packages"][0]) == {"key", "name", "text"}  # no answer key
     # Browsers send textarea text with CRLF line breaks; the sample still matches
     crlf = status["sample_text"].replace("\n", "\r\n")
     detail = ops.post("/api/intake/extract", data={"text": crlf}).json()
-    assert detail["extra"]["extraction"]["mode"] == "illustrative" and detail["status"] == "PENDING_ITEMS"
+    assert detail["extra"]["extraction"]["mode"] == "illustrative" and detail["status"] == "PENDING_AI_REVIEW"
+    assert _accept_all(ops, detail)["status"] == "PENDING_ITEMS"
     other = ops.post("/api/intake/extract", data={"text": "Some other firm's package"})
     assert other.status_code == 503
     again = ops.post("/api/intake/extract", data={"text": status["sample_text"]})
@@ -757,10 +769,10 @@ def test_menus_follow_role_and_team(as_user):
 def test_queues_are_marked_by_team(as_user):
     def mine(u):
         return {q["key"] for q in as_user(u).get("/api/queues").json()["queues"] if q["mine"]}
-    assert mine("ops.analyst") == {"items_requested", "rework"}
+    assert mine("ops.analyst") == {"ai_review", "items_requested", "rework"}
     assert mine("ops.cip") == {"verification"}
     assert mine("ops.service") == {"confirmation", "maintenance_items"}     # account maintenance
-    assert {"items_requested", "confirmation", "verification", "rework", "maintenance_items"} <= mine("ops.supervisor")
+    assert {"ai_review", "items_requested", "confirmation", "verification", "rework", "maintenance_items"} <= mine("ops.supervisor")
 
 
 def test_work_page_shows_what_needs_each_person(as_user):
@@ -932,7 +944,7 @@ def test_each_role_gets_only_its_menu(as_user):
 def test_queues_show_only_the_queues_a_person_works(as_user):
     keys = {u: {q["key"] for q in as_user(u).get("/api/queues").json()["queues"]}
             for u in ("ops.analyst", "ops.cip", "ops.service", "sanctions.maker", "review.analyst")}
-    assert keys["ops.analyst"] == {"items_requested", "rework"}
+    assert keys["ops.analyst"] == {"ai_review", "items_requested", "rework"}
     assert keys["ops.cip"] == {"verification"} and keys["ops.service"] == {"confirmation", "maintenance_items"}
     assert keys["sanctions.maker"] == {"sanctions_review"} and keys["review.analyst"] == {"reviews"}
 
@@ -1128,3 +1140,128 @@ def test_startup_reseeds_the_demo_when_the_seed_data_changed(client):
         assert db.query(User).filter(User.username == "stale.user").first() is None
         assert db.query(AuditEvent).filter(AuditEvent.action == "demo_seeded").one().target_id == SEED_FINGERPRINT
     assert client.get("/api/health").json()["seed"] == SEED_FINGERPRINT
+
+
+# --- AI suggestions: what reviewers do with the AI's values ----------------------------------------------------
+
+
+def _suggestion(detail, field, nth=0):
+    return [s for s in detail["ai_suggestions"] if s["field"] == field][nth]
+
+
+def _review(ops, detail, field, action, nth=0, **body):
+    s = _suggestion(detail, field, nth)
+    return ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{s['id']}", json={"action": action, **body})
+
+
+def test_nothing_runs_on_ai_values_until_onboarding_reviews_each_one(as_user):
+    ops = as_user("ops.analyst")
+    detail = _upload_sample(ops, review=False)
+    cid = detail["id"]
+    assert detail["status"] == "PENDING_AI_REVIEW" and detail["queue"] == "ai_review"
+    assert detail["result"]["findings"] is None and detail["result"]["requested_items"] == []
+    assert len(detail["ai_suggestions"]) == 16 and all(s["status"] == "pending" for s in detail["ai_suggestions"])
+    assert _suggestion(detail, "ein")["actions"] == ["accept", "edit", "reject"]
+    assert _suggestion(detail, "registration")["actions"] == ["accept", "edit"]     # always holds a value
+    assert any(c["id"] == cid for c in ops.get("/api/work").json()["needs_you"])
+    assert ops.post(f"/api/cases/{cid}/corrections", json={"verify_people": True}).status_code == 409
+    for s in detail["ai_suggestions"][:-1]:
+        detail = ops.post(f"/api/cases/{cid}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
+    assert detail["status"] == "PENDING_AI_REVIEW" and detail["manual_steps"] == 0
+    detail = _review(ops, detail, "people", "edit", nth=1, value={"name": "Tomas Reyes", "role": "owner",
+                     "ownership_pct": 30}, reason="The ownership chart shows 30%, not 35%").json()
+    assert detail["status"] == "PENDING_ITEMS" and detail["manual_steps"] == 1        # a correction is manual work
+    assert [p["ownership_pct"] for p in detail["application"]["people"]] == [65.0, 30.0]
+    assert any(s["step"].startswith("Review the AI") and s["outcome"] == "Reviewed" for s in detail["result"]["steps"])
+    edited = _suggestion(detail, "people", 1)
+    assert (edited["status"], edited["final_text"], edited["reviewed_by"]) == ("edited", "Tomas Reyes (owner, 30%)", "Jamie Ortiz")
+    assert edited["actions"] == [] and _review(ops, detail, "people", "accept", nth=1).status_code == 409
+    log = ops.get(f"/api/cases/{cid}/audit").json()
+    assert sum(e["action"] == "ai_suggestion_reviewed" for e in log) == 16
+
+
+def test_edits_and_rejections_change_the_application_and_need_a_reason(as_user):
+    ops = as_user("ops.analyst")
+    detail = _upload_sample(ops, review=False)
+    assert _review(ops, detail, "ein", "edit", value="87-1234599").status_code == 422          # no reason
+    assert _review(ops, detail, "ein", "edit", value="87-1234511", reason="Same as the package").status_code == 422
+    assert _review(ops, detail, "raum", "edit", value="a lot", reason="Item 5.F says otherwise").status_code == 422
+    assert _review(ops, detail, "registration", "edit", value="FINRA", reason="Registered elsewhere").status_code == 422
+    assert _review(ops, detail, "legal_name", "reject", reason="Name is from the cover letter").status_code == 422
+    detail = _review(ops, detail, "ein", "edit", value="87-1234599", reason="The W-9 in the package shows 87-1234599").json()
+    detail = _review(ops, detail, "formation_documents", "reject",
+                     reason="The certificate of formation is listed but not attached").json()
+    detail = _review(ops, detail, "legal_name", "edit", value="Red Butte Capital Management, LLC",
+                     reason="Form ADV Item 1.A has a comma").json()
+    assert _review(ops, detail, "crd_number", "edit", value="310001",
+                   reason="Form ADV shows a different CRD").status_code == 409                # Granite Peak's CRD
+    detail = _accept_all(ops, detail)
+    app = detail["application"]
+    assert app["ein"] == "87-1234599" and app["formation_documents"] is False
+    assert detail["title"] == "RIA firm onboarding: Red Butte Capital Management, LLC"
+    assert "Certificate of formation or articles" in detail["result"]["requested_items"]   # now a NIGO item
+    assert detail["manual_steps"] == 3
+
+
+def test_only_onboarding_reviews_the_ais_suggestions_and_every_refusal_is_logged(as_user):
+    detail = _upload_sample(as_user("ops.analyst"), review=False)
+    sid = detail["ai_suggestions"][0]["id"]
+    for u in ("ops.cip", "ops.service", "ops.trade", "aml.maker", "sanctions.maker", "rs.principal", "rs.lead",
+              "review.analyst", "admin.platform", "granite.admin", "client.farid"):
+        c = as_user(u)
+        assert c.post(f"/api/cases/{detail['id']}/ai-suggestions/{sid}", json={"action": "accept"}).status_code == 403, u
+    refused = as_user("ops.supervisor").get("/api/audit?action=access_refused").json()
+    assert sum(f"/ai-suggestions/{sid}" in e["target_id"] for e in refused) == 11
+    seen = as_user("ops.cip").get(f"/api/cases/{detail['id']}").json()["ai_suggestions"]
+    assert seen and all(s["actions"] == [] for s in seen)                # other teams can see, not review
+    supervisor = as_user("ops.supervisor")
+    assert supervisor.post(f"/api/cases/{detail['id']}/ai-suggestions/{sid}", json={"action": "accept"}).status_code == 200
+
+
+def _live_intake(monkeypatch, package_index=0):
+    from app.config import settings
+    from app.routers import intake
+    from extraction import gate
+    from nigo_eval import PACKAGES, answer_key, package_text
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(intake, "extract_firm_application",
+                        lambda text: gate(answer_key(PACKAGES[package_index]), text, "end_turn", "stand-in-model"))
+    return package_text(PACKAGES[package_index])
+
+
+def test_live_suggestions_measure_how_often_reviewers_accept_the_ais_values(as_user, monkeypatch):
+    ops = as_user("ops.analyst")
+    _upload_sample(ops)                                       # illustrative: tracked apart, never counted
+    text = _live_intake(monkeypatch)
+    detail = ops.post("/api/intake/extract", data={"text": text}).json()
+    assert detail["extra"]["extraction"]["mode"] == "live" and detail["extra"]["extraction"]["prompt_version"]
+    detail = _review(ops, detail, "ein", "edit", value="87-0000001", reason="The W-9 shows a different EIN").json()
+    detail = _review(ops, detail, "ownership_chart", "reject", reason="Only the cover letter mentions it").json()
+    _accept_all(ops, detail)
+    m = as_user("ops.supervisor").get("/api/dashboard").json()["ai_suggestions"]
+    assert m["live"] == {"suggestions": 17, "reviewed": 17, "pending": 0, "accepted": 15, "edited": 1, "rejected": 1,
+                         "share_accepted": round(15 / 17, 3), "cases": 1}
+    assert m["illustrative"]["accepted"] == 16 and m["illustrative"]["share_accepted"] == 1.0
+    assert {c["field"]: (c["status"], c["final"]) for c in m["recent_changes"] if c["mode"] == "live"} == {
+        "ein": ("edited", "87-0000001"), "ownership_chart": ("rejected", None)}
+    assert m["by_prompt"][0]["model"] == "stand-in-model" and m["by_prompt"][0]["share_accepted"] == round(15 / 17, 3)
+    admin = as_user("admin.platform").get("/api/ai-evaluation").json()["suggestions"]
+    assert admin["live"]["share_accepted"] == round(15 / 17, 3) and "recent_changes" not in admin   # counts only
+    assert {f["field"]: f["edited"] + f["rejected"] for f in admin["by_field"]}["ein"] == 1
+    assert as_user("ops.analyst").get("/api/dashboard").status_code == 403
+
+
+def test_reviewed_suggestions_outlive_a_demo_reset(as_user, monkeypatch):
+    text = _live_intake(monkeypatch)
+    ops = as_user("ops.analyst")
+    detail = ops.post("/api/intake/extract", data={"text": text}).json()
+    _review(ops, detail, "ein", "accept")
+    _review(ops, detail, "raum", "accept")
+    admin = as_user("admin.platform")
+    assert admin.post("/api/admin/reset", json={}).status_code == 200
+    live = as_user("admin.platform").get("/api/ai-evaluation").json()["suggestions"]["live"]
+    assert (live["suggestions"], live["accepted"], live["pending"]) == (2, 2, 0)      # the 15 unreviewed are gone
+    from app.db import SessionLocal
+    from app.orm import AiSuggestion
+    with SessionLocal() as db:
+        assert {(s.case_id, s.reviewed_by_name) for s in db.query(AiSuggestion)} == {(None, "Jamie Ortiz")}

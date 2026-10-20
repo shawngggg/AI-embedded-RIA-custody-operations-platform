@@ -32,6 +32,7 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
   after changing one, run `python tools/sync_console.py`.
 - `app/`: FastAPI, SQLAlchemy, Alembic (`migrations/`). `app/access.py` is the capability model; menus and the API
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
+  `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
 - `web/`: React and TypeScript (Vite). `npm run build` in `web/`.
 - `tools/gate_review.py`: the MVP gate metrics (CI runs `--check --no-github`). `tools/smoke_test.py`: live checks.
 
@@ -56,6 +57,8 @@ themselves (the seed fingerprint); AI evaluation runs survive.
 - Risk events belong to an area; each person sees their area's (the platform admin: access and authentication only).
 - The platform admin has no case files. The portal sees no custodian operations: every review state is "In review".
 - Every team that works with accounts sees a case's decisions, sanctions determinations included.
+- A package read by AI waits for the onboarding team to accept, edit, or reject each value before the rules run. The
+  acceptance metric counts live values only; reviewed values survive a demo reset.
 
 ## Docs to keep current with each change
 

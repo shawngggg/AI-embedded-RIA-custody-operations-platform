@@ -28,7 +28,7 @@ from .acceptance import accept_case
 from .config import settings
 from .documents import AUTOMATED_REVIEWER, FIELD_DOCS, checks_pass, mark, sample_document, store
 from .db import Base, SessionLocal, engine
-from .orm import Account, AuditEvent, Case, Firm, Review, User, utcnow
+from .orm import Account, AiSuggestion, AuditEvent, Case, Firm, Review, User, utcnow
 from .runner import run_case
 from .serialize import shift_dates, to_json
 
@@ -379,15 +379,21 @@ KEEP_ON_RESET = ("ai_evaluation_run",)      # governance evidence, not demo data
 
 
 def reseed() -> None:
-    """Put the demo back to its seeded starting point, keeping the AI evaluation runs."""
+    """Put the demo back to its seeded starting point, keeping the AI evaluation runs and the reviewed AI
+    suggestions (the record of each review stays; its case is gone, so the link is cleared)."""
     cols = [c.name for c in AuditEvent.__table__.columns if c.name != "id"]
+    scols = [c.name for c in AiSuggestion.__table__.columns if c.name != "id"]
     with SessionLocal() as db:
         kept = [{c: getattr(e, c) for c in cols} for e in db.scalars(
             select(AuditEvent).where(AuditEvent.action.in_(KEEP_ON_RESET)).order_by(AuditEvent.id))]
+        reviewed = [{**{c: getattr(r, c) for c in scols}, "case_id": None, "reviewed_by": None}
+                    for r in db.scalars(select(AiSuggestion).where(AiSuggestion.status != "pending")
+                                        .order_by(AiSuggestion.id))]
     reset_database()
     with SessionLocal() as db:
         seed(db)
         db.add_all(AuditEvent(**k) for k in kept)
+        db.add_all(AiSuggestion(**r) for r in reviewed)
         db.commit()
 
 

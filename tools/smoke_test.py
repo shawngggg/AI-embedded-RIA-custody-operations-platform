@@ -91,7 +91,8 @@ def main() -> None:
     check("onboarding analyst: Work page", status == 200 and isinstance(work, dict) and "needs_you" in work)
     status, queues = ops.get("/api/queues")
     keys = {q["key"] for q in queues.get("queues", [])} if isinstance(queues, dict) else set()
-    check("onboarding analyst: only onboarding's queues", keys == {"items_requested", "rework"}, str(sorted(keys)))
+    check("onboarding analyst: only onboarding's queues", keys == {"ai_review", "items_requested", "rework"},
+          str(sorted(keys)))
     check("onboarding analyst: no approvals", ops.get("/api/decisions")[0] == 403)
 
     admin = Session(args.base).sign_in("admin.platform")
@@ -105,6 +106,10 @@ def main() -> None:
     if latest:
         check("latest AI evaluation meets the NIGO recall target", bool(latest.get("met")),
               f"recall {latest.get('recall')}, false NIGO {latest.get('false_nigo')}, prompt {latest.get('prompt_version')}")
+    live = (ev.get("suggestions") or {}).get("live")
+    check("AI suggestion acceptance is tracked", isinstance(live, dict) and "share_accepted" in live,
+          f"{live['accepted']} of {live['reviewed']} live values accepted unchanged, {live['pending']} waiting"
+          if isinstance(live, dict) else "no suggestion summary")
     status, risk = admin.get("/api/risk-events")
     areas = {e["area"] for e in risk.get("events", [])} if isinstance(risk, dict) else set()
     check("platform admin: only access and authentication risk events", areas <= {"access"}, str(sorted(areas)))

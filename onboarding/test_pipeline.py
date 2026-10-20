@@ -68,6 +68,19 @@ def test_package_read_by_ai_comes_back_with_one_missing_items_request():
     assert "REG-002" not in res.findings.rule_ids     # IAPD status came from the registration lookup
 
 
+def test_package_waits_for_a_person_to_review_the_ais_suggestions():
+    from extraction import gate
+    from sample_data import FIRM_PACKAGE_TEXT, ILLUSTRATIVE_EXTRACTION
+    extraction = gate(ILLUSTRATIVE_EXTRACTION, FIRM_PACKAGE_TEXT, "end_turn", "illustrative output")
+    waiting = onboard_firm(extraction.application, TODAY, flagged=FLAGGED_LIST, extraction=extraction, unreviewed=3)
+    assert waiting.status == "PENDING_AI_REVIEW" and waiting.findings is None and waiting.requested_items == []
+    assert (waiting.steps[-1].lane, waiting.steps[-1].outcome) == (OPS, "3 waiting")
+    reviewed = onboard_firm(extraction.application, TODAY, flagged=FLAGGED_LIST, extraction=extraction, unreviewed=0)
+    assert reviewed.status == "PENDING_ITEMS" and step(reviewed, "Review the AI").outcome == "Reviewed"
+    untracked = run_firm(PACKAGE_KEY)            # the console doesn't track reviews, so it claims none
+    assert not any(s.name.startswith("Review the AI") for s in untracked.steps)
+
+
 def test_registration_findings_wait_for_compliance_sign_off():
     app = replace(FIRMS["granite_peak"], disciplinary_disclosures=True)
     waiting = onboard_firm(app, TODAY, flagged=FLAGGED_LIST)

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type CaseDetail, type Correction, type Doc, type PortalCase } from "../api";
+import { api, type AiSuggestion, type CaseDetail, type Correction, type Doc, type PortalCase } from "../api";
 import { isInternal, useAuth } from "../auth";
 import { Checks, DocList, DocStatus, DocUpload } from "../docs";
 import { LANES, Loading, slaText, Status, useLoad, when } from "../util";
@@ -137,6 +137,7 @@ function InternalCase() {
         <p><strong>Requested:</strong> {r.requested_items.join("; ")}</p>
       )}
 
+      {d.ai_suggestions.some((s) => s.status === "pending") && <AiReview d={d} onDone={done} onFail={fail} />}
       {d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
       {d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
       {d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
@@ -219,10 +220,11 @@ function InternalCase() {
               "Illustrative model output, hand-written for the demo; not a recorded API response."}{" "}
             Every value needs a quote found in the documents, and the value must appear in its quote.
           </p>
-          <div className="scroll"><table>
-            <thead><tr><th>Accepted</th><th>Value</th><th>Quote</th></tr></thead>
-            <tbody>{d.extra.extraction.accepted.map((a: any, i: number) => <tr key={i}><td>{a.field}</td><td>{String(a.value)}</td><td>{a.quote}</td></tr>)}</tbody>
-          </table></div>
+          {d.ai_suggestions.length ? <AiReview d={d} onDone={done} onFail={fail} readOnly /> : (
+            <div className="scroll"><table>
+              <thead><tr><th>Accepted</th><th>Value</th><th>Quote</th></tr></thead>
+              <tbody>{d.extra.extraction.accepted.map((a: any, i: number) => <tr key={i}><td>{a.field}</td><td>{String(a.value)}</td><td>{a.quote}</td></tr>)}</tbody>
+            </table></div>)}
           {d.extra.extraction.rejected.length > 0 && (
             <div className="scroll" style={{ marginTop: 10 }}><table>
               <thead><tr><th>Rejected</th><th>Value</th><th>Why</th></tr></thead>
@@ -315,7 +317,7 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
           </div>
         );
       })}
-      {pending.length === 0 && !d.available_decisions.length && d.status.startsWith("PENDING") && d.status !== "PENDING_ACCEPTANCE" && !d.corrections.length && (
+      {pending.length === 0 && !d.available_decisions.length && d.status.startsWith("PENDING") && !["PENDING_ACCEPTANCE", "PENDING_AI_REVIEW"].includes(d.status) && !d.corrections.length && (
         <p className="muted small">This case waits for another team. Switch to that team's demo user to decide.</p>
       )}
       {d.decision_log.filter((x) => x.status !== "pending").map((x) => (
@@ -323,6 +325,113 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
           ? <p key={x.id} className="small muted">{x.label}: {x.value_label} by {x.reference}, {when(x.decided_at)}{x.note ? ` · "${x.note}"` : ""}</p>
           : <p key={x.id} className="small muted">{x.label}: {x.value_label} ({x.reference}), proposed by {x.proposed_by}, {x.status} by {x.decided_by}</p>
       ))}
+    </div>
+  );
+}
+
+const OUTCOME: Record<string, [string, string]> = {
+  pending: ["To review", "quiet"], accepted: ["Accepted", "clear"], edited: ["Edited", "refer"], rejected: ["Rejected", "block"] };
+const PERSON_ROLES = [["owner", "Owner"], ["control_person", "Control person"], ["principal", "Principal"]];
+
+/** Onboarding checks each value the AI read against the package: accept it, edit it, or reject it. Until every value is
+ *  reviewed the case waits, and the rules don't run on AI values (app/ai_suggestions.py). */
+function AiReview({ d, onDone, onFail, readOnly }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void;
+  onFail: (e: Error) => void; readOnly?: boolean }) {
+  const list = d.ai_suggestions;
+  const left = list.filter((s) => s.status === "pending").length;
+  const canReview = !readOnly && list.some((s) => s.actions.length > 0);
+  const [open, setOpen] = useState<{ id: number; action: "edit" | "reject" } | null>(null);
+  const [value, setValue] = useState<any>("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = (s: AiSuggestion, action: "accept" | "edit" | "reject", extra: object = {}) => {
+    setBusy(true);
+    api<CaseDetail>(`/api/cases/${d.id}/ai-suggestions/${s.id}`, { body: { action, ...extra } })
+      .then((c) => {
+        setOpen(null); setReason("");
+        const n = c.ai_suggestions.filter((x) => x.status === "pending").length;
+        onDone(c, n ? `${OUTCOME[`${action}ed`][0]}. ${n} left to review.` :
+          "Every value is reviewed. The rules ran on the values you confirmed.");
+      })
+      .catch(onFail).finally(() => setBusy(false));
+  };
+  const start = (s: AiSuggestion, action: "edit" | "reject") => {
+    setOpen({ id: s.id, action }); setReason("");
+    setValue(s.kind === "person" ? { ...s.suggested } : s.kind === "boolean"
+      ? (["true", "yes"].includes(String(s.suggested.value).toLowerCase()) ? "false" : "true") : s.suggested.value);
+  };
+  const editor = (s: AiSuggestion) => {
+    if (s.kind === "person") return (
+      <div className="row">
+        <div className="field"><label htmlFor={`pn-${s.id}`}>Name</label>
+          <input id={`pn-${s.id}`} type="text" value={value.name} onChange={(e) => setValue({ ...value, name: e.target.value })} /></div>
+        <div className="field"><label htmlFor={`pr-${s.id}`}>Role</label>
+          <select id={`pr-${s.id}`} value={value.role} onChange={(e) => setValue({ ...value, role: e.target.value })}>
+            {PERSON_ROLES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+        <div className="field"><label htmlFor={`pp-${s.id}`}>Ownership %</label>
+          <input id={`pp-${s.id}`} type="number" min={0} max={100} step="any" value={value.ownership_pct}
+            onChange={(e) => setValue({ ...value, ownership_pct: e.target.value })} /></div>
+      </div>);
+    const id = `ev-${s.id}`;
+    return (
+      <div className="field"><label htmlFor={id}>What the package says</label>
+        {s.choices ? <select id={id} value={value} onChange={(e) => setValue(e.target.value)}>
+          {s.choices.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+          : s.kind === "boolean" ? <select id={id} value={value} onChange={(e) => setValue(e.target.value)}>
+            <option value="true">Yes</option><option value="false">No</option></select>
+          : <input id={id} type={s.kind === "date" ? "date" : "text"} value={value} onChange={(e) => setValue(e.target.value)} />}
+      </div>);
+  };
+  return (
+    <div className={readOnly ? "" : "decide"}>
+      {!readOnly && <>
+        <h3>Review the AI&apos;s suggestions</h3>
+        <p className="small">The AI read these values from the package, and the controls gate found each one&apos;s quote in it. Check
+          each against the package and accept, edit, or reject it. Nothing else runs on this case until every value is reviewed;
+          then the rules run on the values you confirmed. {list.length - left} of {list.length} reviewed.</p>
+        {d.extra?.extraction?.mode !== "live" && <p className="muted small">Illustrative output: reviews here are practice and
+          don&apos;t count toward the AI suggestion acceptance metric, which measures live AI only.</p>}
+        {!canReview && <p className="muted small">The onboarding team reviews these. Switch to Jamie Ortiz to review.</p>}
+      </>}
+      <div className="scroll"><table className="review">
+        <thead><tr><th>Value</th><th>The AI read</th><th>Quote from the package</th><th>Review</th></tr></thead>
+        <tbody>{list.map((s) => (
+          <Fragment key={s.id}>
+            <tr>
+              <td className="small"><strong>{s.label}</strong></td>
+              <td data-label="The AI read">{s.status === "edited" ? <><s className="muted">{s.suggested_text}</s> {s.final_text}</> :
+                s.status === "rejected" ? <s className="muted">{s.suggested_text}</s> : s.suggested_text}</td>
+              <td className="small" data-label="Quote from the package">“{s.quote}”</td>
+              <td className="small" data-label="Review">
+                {s.status === "pending" && canReview && s.actions.length > 0 && open?.id !== s.id ? (
+                  <div className="actions">
+                    <button className="small" disabled={busy} onClick={() => send(s, "accept")}>Accept</button>
+                    <button className="secondary small" disabled={busy} onClick={() => start(s, "edit")}>Edit</button>
+                    {s.actions.includes("reject") && <button className="secondary small" disabled={busy} onClick={() => start(s, "reject")}>Reject</button>}
+                  </div>
+                ) : <>
+                  <span className={`pill t-${OUTCOME[s.status][1]}`}>{OUTCOME[s.status][0]}</span>
+                  {s.reviewed_by && <div className="muted">{s.reviewed_by}, {when(s.reviewed_at)}</div>}
+                  {s.reason && <div>“{s.reason}”</div>}
+                </>}
+              </td>
+            </tr>
+            {open?.id === s.id && (
+              <tr className="detail"><td colSpan={4}><div className="narrow">
+                {open.action === "edit" ? editor(s) : <p className="small">Rejecting leaves this value empty, so the rules treat the item as missing.</p>}
+                <div className="field"><label htmlFor={`rs-${s.id}`}>{open.action === "edit" ? "Why (what the package shows)" : "Why it's wrong"}</label>
+                  <input id={`rs-${s.id}`} type="text" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
+                <div className="actions">
+                  <button disabled={busy || reason.trim().length < 10}
+                    onClick={() => send(s, open.action, open.action === "edit" ? { value, reason } : { reason })}>
+                    {open.action === "edit" ? "Save the edit" : "Reject the value"}</button>
+                  <button className="secondary" onClick={() => setOpen(null)}>Cancel</button>
+                  {reason.trim().length < 10 && <span className="muted small">A sentence is enough.</span>}
+                </div>
+              </div></td></tr>)}
+          </Fragment>))}
+        </tbody>
+      </table></div>
     </div>
   );
 }

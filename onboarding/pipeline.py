@@ -234,7 +234,10 @@ def _pep_media_step(res: OnboardingResult, people) -> None:
 
 def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=None, decisions=None,
                  registration_lookup: dict | None = None, by: str = "ops.analyst",
-                 extraction: ExtractionResult | None = None) -> OnboardingResult:
+                 extraction: ExtractionResult | None = None, unreviewed: int | None = None) -> OnboardingResult:
+    """`unreviewed`: AI suggestions a person hasn't yet accepted, edited, or rejected (None when the caller doesn't
+    track reviews, as in the console). Until there are none, the case waits with onboarding: nothing downstream
+    (completeness, registration, screening, risk) runs on AI values."""
     decisions = decisions or Decisions()
     registry = registry or RestrictionRegistry()
     target = f"FIRM-{app.crd_number or app.legal_name}"
@@ -244,6 +247,13 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
         res.add(AI, "Extract firm documents (AI)",
                 f"{len(extraction.accepted)} facts accepted; {len(extraction.rejected)} rejected by the controls gate",
                 extraction.review_queue)
+        if unreviewed:
+            res.add(OPS, "Review the AI's suggestions against the package", f"{unreviewed} waiting",
+                    ["Accept, edit, or reject each value; the rules run on the values a person confirmed"])
+            res.status = "PENDING_AI_REVIEW"
+            return res
+        if unreviewed == 0 and extraction.accepted:
+            res.add(OPS, "Review the AI's suggestions against the package", "Reviewed")
     if registration_lookup and app.crd_number in registration_lookup:
         app = replace(app, iapd_status=registration_lookup[app.crd_number])
 

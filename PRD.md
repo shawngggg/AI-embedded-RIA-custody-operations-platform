@@ -154,7 +154,7 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 
 - MVP-1 Sign-in with role-based access for every user above; RIA users see only their firm, and clients only their own account. A public demo mode lets a visitor sign in as any role without a password.
 - MVP-2 Cases persist. Each application becomes a case that stops where its map waits and resumes when the item, review, or decision arrives.
-- MVP-3 Work queues by status (items requested, compliance review, sanctions review, EDD pending, review due), each with an owner, an SLA clock, and aging.
+- MVP-3 Work queues by status (AI review, items requested, compliance review, sanctions review, EDD pending, review due), each with an owner, an SLA clock, and aging.
 - MVP-4 Case view: the step trace along maps 01 and 02, rule findings with citations, documents, restriction codes, risk factors, and transfer routes.
 - MVP-5 Intake by form, or by uploading a package that AI extracts behind the controls gate. Live Claude API calls are for signed-in users only, with a daily cap. Before any prompt or model change goes live, the platform administrator runs the AI evaluation: synthetic firm packages with seeded defects, traps and clean packages included, scored for NIGO detection recall and false NIGOs (guardrail 5).
 - MVP-6 Decisions are role-gated: only compliance signs off reviews, only the sanctions team records determinations, and only AML compliance approves EDD. Approvals need a second person (maker-checker).
@@ -179,6 +179,10 @@ Added after the first walkthrough (Oct. 13, 2026):
 - MVP-22 Team channels. Internal staff discuss work chat-style in one channel per team, plus a general channel; the sanctions channel is the sanctions team's only. Writing `#16` links a case, `ACC-2001` an account, `FIRM-310001` a firm, and `@username` mentions a person. A case's Discussion tab collects every message that references it. Messages aren't edited or deleted.
 - MVP-23 Portal home. RIA users and clients sign in to a welcome page in the custodian's name: the firm, its custody relationship and service team contact, its accounts, what needs its attention, and what's coming to the portal.
 - MVP-24 Email notices. Every notice to an RIA or client (items requested, returned for correction, account opened or opened restricted, declined, change applied, redirected) is written to an email outbox, and sent through the custodian's Microsoft 365 (Outlook) by Microsoft Graph from one shared mailbox. The app signs in to Microsoft Entra ID with its Google identity (no stored secret) or a client secret, and holds Mail.Send for that mailbox only. Demo mode holds every message, and an allowed-domains setting limits live sending while testing.
+
+Added for the MVP gate (Oct. 20, 2026):
+
+- MVP-25 AI suggestion review. Every value the AI reads from a firm's package, and the controls gate lets through, is a suggestion. Someone on the onboarding team checks each one against the package and accepts it, edits it, or rejects it, with a reason for an edit or a rejection; a value that always holds something (legal name, registration, RAUM) can be edited, not rejected. Until every value is reviewed the case waits in onboarding's AI review queue (24-hour SLA), and nothing downstream (completeness, registration, screening, risk) runs on AI values. Each suggestion is stored with the model, the prompt version, and the reviewer's action (guardrail 6). The dashboard and the AI evaluation page report the share of live suggestions accepted unchanged, by field and prompt version; team leads also see the latest edits and rejections with their reasons, and the platform administrator sees counts only. The illustrative demo output is tracked apart and never counted.
 
 Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
 
@@ -515,22 +519,22 @@ The MVP succeeds when a first-time reviewer can work a case end to end in minute
 | Role enforcement | Share of decision attempts by the wrong role that are refused and logged | 100% | R1 (MVP) |
 | Build health | Share of merges to main with every test passing in CI | 100% | R1 (MVP) |
 
-### MVP gate review (Oct. 12, 2026; NIGO detection measured Oct. 20)
+### MVP gate review (Oct. 12, 2026; NIGO detection measured and suggestion tracking built Oct. 20)
 
-Six of the eight release 1 metrics are measured on synthetic data: five meet their targets and one is tracked without a target. The other two need AI suggestions in real use and a timed first-time reviewer before the gate closes.
+Six of the eight release 1 metrics are measured on synthetic data: five meet their targets and one is tracked without a target. The other two need live AI suggestions reviewed in the deployed app (the tracking is built) and a timed first-time reviewer before the gate closes.
 
 | Metric | Target | Result | Status |
 | --- | --- | --- | --- |
 | Decision traceability | 100% | 41 of 41 decisions carry the approver, rule version, and citation | Met |
 | NIGO detection recall | 90% or higher | 18 of 19 seeded defects caught (94.7%) with no false NIGO, on 20 synthetic firm packages read by Claude Haiku 5.5. The one miss: a contents page listed an ownership chart as attached when it wasn't. The prompt now says a mention isn't the document, and a re-run on the new prompt caught that trap | Met |
 | Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
-| AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
+| AI suggestion acceptance | Tracked | Tracking built Oct. 20 (MVP-25): every live value waits for onboarding to accept, edit, or reject it, and the share accepted unchanged is reported by field and prompt version. Not measured yet: no live values reviewed. The gate check confirms that every review is recorded with the reviewer, and every change with a reason | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |
 | Reviewer walkthrough | Under 5 minutes | Not measured: needs a first-time reviewer, timed from sign-in to open account | Open |
-| Role enforcement | 100% | 155 of 155 wrong-role attempts refused and logged (rerun Oct. 13 with the walkthrough's new controls) | Met |
+| Role enforcement | 100% | 166 of 166 wrong-role attempts refused and logged (rerun Oct. 20 with AI suggestion review) | Met |
 | Build health | 100% | 3 of 3 merges to main passed CI | Met |
 
-The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips. On Oct. 13 it gained 24 attempts from the walkthrough's changes: applications from outside the onboarding team, posts to the sanctions channel, and email re-sends by anyone but the platform administrator.
+The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips. On Oct. 13 it gained 24 attempts from the walkthrough's changes: applications from outside the onboarding team, posts to the sanctions channel, and email re-sends by anyone but the platform administrator. On Oct. 20 it gained 11 more: reviews of the AI's values by anyone outside the onboarding team.
 
 ## Release plan
 
