@@ -121,3 +121,19 @@ def test_path_a_relies_on_the_ria_for_new_owner_cip():
 
 def test_ops_can_key_a_written_request():
     assert process_change(req(submitted_by_role="ops_analyst", submitted_by_firm=None), TODAY).status == "APPLIED"
+
+
+def test_a_pep_or_adverse_media_on_a_new_owner_goes_to_aml_compliance_before_the_change_applies():
+    owner = Person("Ana Ruiz", "owner", 30, is_pep=True, pep_type="domestic", identity_verified=True)
+    r = req(ChangeType.BENEFICIAL_OWNER, client_signature=True, new_parties=[owner], path="A")
+    waiting = process_change(r, TODAY, flagged=FLAGGED_LIST)
+    assert waiting.status == "PENDING_ALERT_REVIEW" and waiting.restrictions == []
+    assert waiting.steps[-1].detail == ["Ana Ruiz: domestic PEP"]
+    cleared = process_change(r, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="cleared"))
+    assert cleared.status == "APPLIED"
+    edd = process_change(r, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="edd"))
+    assert edd.status == "PENDING_EDD" and edd.restrictions == []          # not applied yet; the account isn't held
+    assert process_change(r, TODAY, decisions=Decisions(alert_review="edd", edd="approved")).status == "APPLIED"
+    assert process_change(r, TODAY, decisions=Decisions(alert_review="edd", edd="declined")).status == "REJECTED"
+    media = replace(r, new_parties=[replace(owner, is_pep=False, adverse_media=True)])
+    assert process_change(media, TODAY, flagged=FLAGGED_LIST).status == "PENDING_ALERT_REVIEW"

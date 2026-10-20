@@ -333,12 +333,14 @@ const OUTCOME: Record<string, [string, string]> = {
   pending: ["To review", "quiet"], accepted: ["Accepted", "clear"], edited: ["Edited", "refer"], rejected: ["Rejected", "block"] };
 const PERSON_ROLES = [["owner", "Owner"], ["control_person", "Control person"], ["principal", "Principal"]];
 
-/** Onboarding checks each value the AI read against the package: accept it, edit it, or reject it. Until every value is
- *  reviewed the case waits, and the rules don't run on AI values (app/ai_suggestions.py). */
+/** Onboarding and CIP check each value the AI read against the package (onboarding the firm and Form ADV facts, CIP the
+ *  identity facts): accept it, edit it, or reject it. Until every value is reviewed the case waits, and the rules don't
+ *  run on AI values (app/ai_suggestions.py). */
 function AiReview({ d, onDone, onFail, readOnly }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void;
   onFail: (e: Error) => void; readOnly?: boolean }) {
   const list = d.ai_suggestions;
   const left = list.filter((s) => s.status === "pending").length;
+  const leftFor = (team: string) => list.filter((s) => s.status === "pending" && s.team === team).length;
   const canReview = !readOnly && list.some((s) => s.actions.length > 0);
   const [open, setOpen] = useState<{ id: number; action: "edit" | "reject" } | null>(null);
   const [value, setValue] = useState<any>("");
@@ -386,19 +388,23 @@ function AiReview({ d, onDone, onFail, readOnly }: { d: CaseDetail; onDone: (c: 
     <div className={readOnly ? "" : "decide"}>
       {!readOnly && <>
         <h3>Review the AI&apos;s suggestions</h3>
-        <p className="small">The AI read these values from the package, and the controls gate found each one&apos;s quote in it. Check
-          each against the package and accept, edit, or reject it. Nothing else runs on this case until every value is reviewed;
-          then the rules run on the values you confirmed. {list.length - left} of {list.length} reviewed.</p>
+        <p className="small">The AI read these values from the package, and the controls gate found each one&apos;s quote in it.
+          Onboarding checks the firm and Form ADV facts; CIP checks the identity facts (name, address, EIN, owners and control
+          persons, formation and ownership documents). Accept, edit, or reject each value. Nothing else runs on this case until
+          every value is reviewed; then the rules run on the confirmed values, and a licensed principal accepts at the end.</p>
+        <p className="small"><strong>{list.length - left} of {list.length} reviewed</strong> · onboarding: {leftFor("onboarding")} left ·
+          CIP: {leftFor("cip")} left</p>
         {d.extra?.extraction?.mode !== "live" && <p className="muted small">Illustrative output: reviews here are practice and
           don&apos;t count toward the AI suggestion acceptance metric, which measures live AI only.</p>}
-        {!canReview && <p className="muted small">The onboarding team reviews these. Switch to Jamie Ortiz to review.</p>}
+        {!canReview && <p className="muted small">Onboarding and CIP review these. Switch to Jamie Ortiz (onboarding) or Taylor
+          Brooks (CIP) to review.</p>}
       </>}
       <div className="scroll"><table className="review">
         <thead><tr><th>Value</th><th>The AI read</th><th>Quote from the package</th><th>Review</th></tr></thead>
         <tbody>{list.map((s) => (
           <Fragment key={s.id}>
             <tr>
-              <td className="small"><strong>{s.label}</strong></td>
+              <td className="small"><strong>{s.label}</strong><div className="muted">{s.team_label}</div></td>
               <td data-label="The AI read">{s.status === "edited" ? <><s className="muted">{s.suggested_text}</s> {s.final_text}</> :
                 s.status === "rejected" ? <s className="muted">{s.suggested_text}</s> : s.suggested_text}</td>
               <td className="small" data-label="Quote from the package">“{s.quote}”</td>

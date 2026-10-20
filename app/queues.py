@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 QUEUES = {
-    # Every value the AI reads from a package waits here until a person accepts, edits, or rejects it
-    "ai_review": {"label": "AI suggestions to review", "owner": "Onboarding",
-                  "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 24},
+    # Every value the AI reads from a package waits here until a person accepts, edits, or rejects it: onboarding
+    # reviews the firm and Form ADV facts, CIP the identity facts
+    "ai_review": {"label": "AI suggestions to review", "owner": "Onboarding and CIP",
+                  "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding", "cip"], "sla_hours": 24},
     "items_requested": {"label": "Items requested", "owner": "Onboarding (waiting on the RIA)",
                         "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120},
     "compliance_review": {"label": "Compliance review", "owner": "AML compliance",
@@ -40,6 +41,7 @@ _BY_STATUS = {
     "PENDING_AI_REVIEW": "ai_review",
     "PENDING_ITEMS": "items_requested",
     "PENDING_REVIEW": "compliance_review",
+    "PENDING_ALERT_REVIEW": "compliance_review",   # a PEP or adverse-media alert the risk rating didn't send to EDD
     "PENDING_SANCTIONS": "sanctions_review",
     "PENDING_EDD": "edd_review",
     "PENDING_CONFIRMATION": "confirmation",
@@ -71,6 +73,11 @@ DECISIONS = {
     "edd": {"label": "EDD decision", "statuses": ["PENDING_EDD"],
             "values": {"approved": "Approve EDD", "declined": "Decline"},
             "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
+    # Every PEP or adverse-media alert goes to AML compliance (Shawn, Oct. 20, 2026); sanctions hits go to the
+    # sanctions team. Compliance clears the alert or requires EDD.
+    "alert_review": {"label": "PEP or adverse-media alert", "statuses": ["PENDING_ALERT_REVIEW"],
+                     "values": {"cleared": "Cleared: no EDD needed", "edd": "Require EDD"},
+                     "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
     "compliance_signoff": {"label": "Compliance sign-off", "statuses": ["PENDING_REVIEW"],
                            "values": {"signed_off": "Sign off the registration findings"},
                            "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},

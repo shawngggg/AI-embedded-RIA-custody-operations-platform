@@ -30,7 +30,7 @@ from enum import Enum
 from applications import Person
 from flagged_list import Kind, Subject
 from models import AccountGroup
-from pipeline import AI, LEDGER, OPS, RULES, Decisions, OnboardingResult, _screen_and_escalate
+from pipeline import AI, LEDGER, OPS, RULES, Decisions, OnboardingResult, _edd, _route_alerts, _screen_and_escalate
 from restrictions import RestrictionRegistry
 from rules import Disposition, evaluate_all
 
@@ -236,6 +236,14 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
             return res
     else:
         res.add(RULES, "First-line check on new parties: owner, trustee, beneficiary, bank", "No new parties")
+
+    # A new owner, trustee, or beneficiary who is a PEP or has adverse media goes to AML compliance, which clears
+    # the alert or requires EDD before the change is applied
+    stop = _route_alerts(res, r.new_parties, False, decisions) or _edd(
+        res, None, registry, decisions, by, "EDD on the new party before the change is applied", hold=False)
+    if stop:
+        res.status = "REJECTED" if stop == "DECLINED" else stop
+        return res
 
     if r.change_type in OWNERSHIP:
         unverified = [p.name for p in r.new_parties if not p.identity_verified]

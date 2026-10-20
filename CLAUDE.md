@@ -57,8 +57,11 @@ themselves (the seed fingerprint); AI evaluation runs survive.
 - Risk events belong to an area; each person sees their area's (the platform admin: access and authentication only).
 - The platform admin has no case files. The portal sees no custodian operations: every review state is "In review".
 - Every team that works with accounts sees a case's decisions, sanctions determinations included.
-- A package read by AI waits for the onboarding team to accept, edit, or reject each value before the rules run. The
-  acceptance metric counts live values only; reviewed values survive a demo reset.
+- A package read by AI waits for onboarding (firm and Form ADV facts) and CIP (identity facts) to accept, edit, or
+  reject each value before the rules run; a licensed principal accepts at the end. The acceptance metric counts live
+  values only; reviewed values survive a demo reset.
+- Every screening alert goes to compliance: sanctions hits to the sanctions team, PEP and adverse-media alerts and
+  EDD to AML compliance (a PEP alert the rating doesn't send to EDD waits for AML compliance to clear it or require EDD).
 
 ## Docs to keep current with each change
 

@@ -119,7 +119,8 @@ the 20 test packages with the live model (20 calls, about a cent with Claude Hai
 
 The other AI measure is how often reviewers accept the AI's values unchanged. Sign in as the onboarding analyst, open
 **New application**, load a synthetic test package (or paste your own), and choose **Read and open a case**. The case
-waits in the AI review queue: accept, edit, or reject each value. The share shows on the operations dashboard and on
+waits in the AI review queue: accept, edit, or reject each firm and Form ADV value, then switch to the CIP analyst
+(Taylor Brooks) for the identity values. The share shows on the operations dashboard and on
 **Users and rules → AI evaluation**.
 
 ### Email through Microsoft 365 (Outlook)

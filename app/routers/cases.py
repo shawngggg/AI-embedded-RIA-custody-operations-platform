@@ -164,8 +164,8 @@ class SuggestionReview(BaseModel):
 
 @router.post("/cases/{case_id}/ai-suggestions/{suggestion_id}")
 def review_suggestion(case_id: int, suggestion_id: int, body: SuggestionReview,
-                      user: User = Depends(require_capability("intake")), db: Session = Depends(get_db)):
-    """The onboarding team checks each value the AI read against the package: accept, edit, or reject."""
+                      user: User = Depends(require_capability("ai_review")), db: Session = Depends(get_db)):
+    """Onboarding and CIP check each value the AI read against the package: accept, edit, or reject."""
     case = get_case_for(db, user, case_id)
     s = db.get(AiSuggestion, suggestion_id)
     if s is None or s.case_id != case.id:
@@ -326,7 +326,7 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
-        if d.decision_type in ("sanctions", "edd"):
+        if d.decision_type in ("sanctions", "edd", "alert_review"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)

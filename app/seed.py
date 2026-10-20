@@ -84,7 +84,7 @@ ACCEPTED_SEEDS = {"granite_peak", "bonneville", "maria_chen", "kenji_tanaka", "f
 FIRM_SEEDS = ["granite_peak", "juniper_ridge", "bonneville", "lakeshore", "meridian_gate", "alta_vista", "cottonwood"]
 ACCOUNT_SEEDS = ["maria_chen", "kenji_tanaka", "farid_hosseini_pure", "farid_hosseini_sd", "whitfield_holdings",
                  "ilya_sorvetkin", "elena_marsh_pep", "orphan_self_directed", "rosa_delgado_nigo",
-                 "lena_park_waiting", "owen_gallagher_restricted"]
+                 "lena_park_waiting", "owen_gallagher_restricted", "nadia_brooks_pep"]
 
 # How long ago each seeded case arrived, in hours, so SLA clocks and time-in-state look like a working
 # queue: some cases comfortable, one close to its deadline, one past it.
@@ -93,7 +93,8 @@ AGE_HOURS = {
     "alta_vista": 70, "cottonwood": 200,
     "maria_chen": 300, "kenji_tanaka": 260, "farid_hosseini_pure": 240, "farid_hosseini_sd": 230,
     "whitfield_holdings": 190, "ilya_sorvetkin": 21, "elena_marsh_pep": 30, "orphan_self_directed": 40,
-    "rosa_delgado_nigo": 128, "lena_park_waiting": 6, "owen_gallagher_restricted": 50, "CHG-0001": 72,
+    "rosa_delgado_nigo": 128, "lena_park_waiting": 6, "owen_gallagher_restricted": 50, "nadia_brooks_pep": 14,
+    "CHG-0001": 72,
     "CHG-0002": 5,
 }
 
@@ -177,6 +178,19 @@ def _owen_gallagher() -> AccountApplication:
         lpoa_signed=True, fee_authorization=False, client_signature=True, tax_form=None,
         account_purpose="Retirement investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
         expected_initial_funding=145_000)
+
+
+def _nadia_brooks() -> AccountApplication:
+    """A domestic PEP (a state legislator). The risk rating alone doesn't call for EDD, so the alert goes to AML
+    compliance, which clears it or requires EDD (Shawn, Oct. 20, 2026: every PEP alert goes to compliance)."""
+    return AccountApplication(
+        "APP-2011", "ACC-2011", AccountGroup.PURE_RIA, "individual",
+        [Person("Nadia Brooks", "account_holder", date_of_birth="1971-09-22", identity_verified=True,
+                address="77 E 300 S, Salt Lake City, UT 84111", tax_id="900-00-2011", occupation="State legislator",
+                is_pep=True, pep_type="domestic")],
+        lpoa_signed=True, fee_authorization=True, client_signature=True, tax_form="W-9",
+        account_purpose="Retirement investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
+        expected_initial_funding=220_000)
 
 
 TAX_DOC = {"W-9": "w9", "W-8BEN": "w8ben", "W-8BEN-E": "w8bene"}
@@ -298,6 +312,8 @@ def seed(db: Session) -> None:
             app, firm_key = _lena_park(), "granite_peak"
         elif key == "owen_gallagher_restricted":
             app, firm_key = _owen_gallagher(), "granite_peak"
+        elif key == "nadia_brooks_pep":
+            app, firm_key = _nadia_brooks(), "granite_peak"
         else:
             app, firm_key = ACCOUNTS[key], ACCOUNT_FIRMS[key]
         app = shift_dates(app, delta)

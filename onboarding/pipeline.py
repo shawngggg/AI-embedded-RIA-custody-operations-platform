@@ -77,6 +77,8 @@ class Decisions:
     edd_reference: str = "EDD-DEMO-0001"
     acceptance: str | None = None             # accepted | declined, by a registered principal
     acceptance_by: str = "Registered principal (demo)"
+    alert_review: str | None = None           # cleared | edd: AML compliance on a PEP or adverse-media alert
+    alert_reference: str = "ALR-DEMO-0001"
 
 
 @dataclass
@@ -189,21 +191,58 @@ def _screen_and_escalate(res: OnboardingResult, subjects, flagged, registry, dec
     return None
 
 
-def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name) -> str | None:
-    if not risk.edd_required:
+def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name, hold: bool = True) -> str | None:
+    """EDD when the risk rating requires it, or when AML compliance requires it after reviewing an alert.
+    `hold`: place the EDD hold (not for an account change, which simply isn't applied until EDD is approved)."""
+    required_by_alert = decisions.alert_review == "edd"
+    if not ((risk is not None and risk.edd_required) or required_by_alert):
         return None
     at = _stamp(res.as_of)
-    hold = registry.place(res.target_id, "EDDP", f"{risk.tier} risk; EDD pending", by, Function.OPERATIONS, at)
-    res.add(AML, step_name, "Required; EDD hold placed", risk.edd_requirements)
+    by_rating = risk is not None and risk.edd_required
+    requirements = risk.edd_requirements if by_rating else [
+        "Enhanced review of the PEP or adverse-media alert, required by AML compliance "
+        f"(reference {decisions.alert_reference})"]
+    placed = registry.place(res.target_id, "EDDP", f"{risk.tier} risk; EDD pending" if by_rating else
+                            "Screening alert; EDD required by AML compliance", by, Function.OPERATIONS, at) if hold else None
+    res.add(AML, step_name, "Required; EDD hold placed" if hold else "Required", requirements)
     if decisions.edd is None:
         return "PENDING_EDD"
     if decisions.edd == "declined":
         res.add(AML, "EDD decision", "Declined", [f"Reference {decisions.edd_reference}"])
         return "DECLINED"
-    registry.remove(hold.restriction_id, "aml.officer", Function.AML_COMPLIANCE, "EDD approved",
-                    decisions.edd_reference, at)
-    res.add(AML, "EDD decision", "Approved; EDD hold removed by AML compliance",
+    if placed is not None:
+        registry.remove(placed.restriction_id, "aml.officer", Function.AML_COMPLIANCE, "EDD approved",
+                        decisions.edd_reference, at)
+    res.add(AML, "EDD decision", "Approved; EDD hold removed by AML compliance" if hold else "Approved by AML compliance",
             [f"Reference {decisions.edd_reference}"])
+    return None
+
+
+def alert_hits(people) -> list[str]:
+    """PEP and adverse-media alerts on the people screened."""
+    hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
+    return hits + [f"{p.name}: adverse media" for p in people if p.adverse_media]
+
+
+ALERT_STEP = "Route PEP and adverse-media alerts to AML compliance"
+
+
+def _route_alerts(res: OnboardingResult, people, covered_by_edd: bool, decisions) -> str | None:
+    """Every PEP or adverse-media alert goes to AML compliance (with sanctions hits, which go to the sanctions team,
+    no screening alert is settled by operations). When the risk rating already requires EDD, the EDD review is where
+    compliance sees it; otherwise AML compliance reviews the alert and either clears it or requires EDD."""
+    hits = alert_hits(people)
+    if not hits:
+        return None
+    if covered_by_edd:
+        res.add(AML, ALERT_STEP, "Reviewed in EDD", hits)
+        return None
+    if decisions.alert_review is None:
+        res.add(AML, ALERT_STEP, "Waiting for AML compliance", hits)
+        return "PENDING_ALERT_REVIEW"
+    outcome = "Cleared by AML compliance: no EDD needed" if decisions.alert_review == "cleared" else \
+        "AML compliance requires EDD"
+    res.add(AML, ALERT_STEP, outcome, [f"Reference {decisions.alert_reference}", *hits])
     return None
 
 
@@ -222,10 +261,9 @@ def _accept(res: OnboardingResult, decisions, what: str) -> str | None:
 
 
 def _pep_media_step(res: OnboardingResult, people) -> None:
-    hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
-    hits += [f"{p.name}: adverse media" for p in people if p.adverse_media]
+    hits = alert_hits(people)
     res.add(AI, "PEP and adverse media screening; summarize hits (AI)",
-            "Hits found; they feed the risk rating" if hits else "No hits", hits)
+            "Hits found; they feed the risk rating and go to AML compliance" if hits else "No hits", hits)
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +274,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
                  registration_lookup: dict | None = None, by: str = "ops.analyst",
                  extraction: ExtractionResult | None = None, unreviewed: int | None = None) -> OnboardingResult:
     """`unreviewed`: AI suggestions a person hasn't yet accepted, edited, or rejected (None when the caller doesn't
-    track reviews, as in the console). Until there are none, the case waits with onboarding: nothing downstream
-    (completeness, registration, screening, risk) runs on AI values."""
+    track reviews, as in the console). Until there are none, the case waits with onboarding and CIP: nothing
+    downstream (completeness, registration, screening, risk) runs on AI values."""
     decisions = decisions or Decisions()
     registry = registry or RestrictionRegistry()
     target = f"FIRM-{app.crd_number or app.legal_name}"
@@ -249,7 +287,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
                 extraction.review_queue)
         if unreviewed:
             res.add(OPS, "Review the AI's suggestions against the package", f"{unreviewed} waiting",
-                    ["Accept, edit, or reject each value; the rules run on the values a person confirmed"])
+                    ["Onboarding reviews the firm and Form ADV facts; CIP reviews the identity facts",
+                     "Accept, edit, or reject each value; the rules run on the values a person confirmed"])
             res.status = "PENDING_AI_REVIEW"
             return res
         if unreviewed == 0 and extraction.accepted:
@@ -314,8 +353,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     res.add(RULES, "Risk-rate the RIA", f"{risk.tier} ({risk.score} points)",
             [f"{f['description']} (+{f['points']})" for f in risk.factors] or ["No risk factors"],
             [f["factor_id"] for f in risk.factors])
-    stop = _edd(res, risk, registry, decisions, by,
-                "EDD: owners' source of wealth, source of firm funds, enhanced review")
+    stop = _route_alerts(res, app.people, risk.edd_required, decisions) or _edd(
+        res, risk, registry, decisions, by, "EDD: owners' source of wealth, source of firm funds, enhanced review")
     if stop:
         res.status = stop
         return res
@@ -472,7 +511,8 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
             [f"Rated on {risk.information_basis}"]
             + ([f"{f['description']} (+{f['points']})" for f in risk.factors] or ["No risk factors"]),
             [f["factor_id"] for f in risk.factors])
-    stop = _edd(res, risk, registry, decisions, by, "EDD: source of funds and source of wealth; approve")
+    stop = _route_alerts(res, app.holders, risk.edd_required, decisions) or _edd(
+        res, risk, registry, decisions, by, "EDD: source of funds and source of wealth; approve")
     if stop:
         res.status = stop
         return res

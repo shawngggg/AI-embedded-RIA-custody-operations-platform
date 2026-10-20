@@ -81,6 +81,32 @@ def test_package_waits_for_a_person_to_review_the_ais_suggestions():
     assert not any(s.name.startswith("Review the AI") for s in untracked.steps)
 
 
+def test_a_domestic_pep_alert_goes_to_aml_compliance_which_clears_it_or_requires_edd():
+    f = FIRMS["granite_peak"]
+    app = replace(f, people=[replace(f.people[0], is_pep=True, pep_type="domestic")] + f.people[1:])
+    waiting = onboard_firm(app, TODAY, flagged=FLAGGED_LIST)
+    assert waiting.status == "PENDING_ALERT_REVIEW" and waiting.risk.tier == "MEDIUM"      # no EDD by the rating
+    assert (waiting.steps[-1].lane, waiting.steps[-1].outcome) == (AML, "Waiting for AML compliance")
+    cleared = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="cleared", **OK))
+    assert cleared.status == "ACTIVE" and "Cleared" in step(cleared, "Route PEP").outcome
+    edd = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="edd"))
+    assert edd.status == "PENDING_EDD" and [r["code"] for r in edd.restrictions] == ["EDDP"]
+    done = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="edd", edd="approved", **OK))
+    assert done.status == "ACTIVE" and done.restrictions == []
+
+
+def test_alerts_the_rating_sends_to_edd_are_reviewed_there_and_accounts_route_alerts_too():
+    f = FIRMS["granite_peak"]
+    foreign = replace(f, people=[replace(f.people[0], is_pep=True, pep_type="foreign")] + f.people[1:])
+    res = onboard_firm(foreign, TODAY, flagged=FLAGGED_LIST)
+    assert res.status == "PENDING_EDD" and step(res, "Route PEP").outcome == "Reviewed in EDD"
+    a = ACCOUNTS["maria_chen"]
+    pep = replace(a, holders=[replace(a.holders[0], is_pep=True, pep_type="domestic")] + a.holders[1:])
+    assert open_account(pep, f, TODAY, flagged=FLAGGED_LIST).status == "PENDING_ALERT_REVIEW"
+    assert open_account(pep, f, TODAY, flagged=FLAGGED_LIST,
+                        decisions=Decisions(alert_review="cleared")).status == "PENDING_ACCEPTANCE"
+
+
 def test_registration_findings_wait_for_compliance_sign_off():
     app = replace(FIRMS["granite_peak"], disciplinary_disclosures=True)
     waiting = onboard_firm(app, TODAY, flagged=FLAGGED_LIST)

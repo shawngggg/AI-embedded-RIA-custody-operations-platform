@@ -122,6 +122,9 @@ def work_the_seeded_cases() -> None:
                   {"aml_compliance"}, matrix=True)
     maker_checker(lakeshore, "edd", "approved", "EDD-GATE-02", "aml.maker", "aml.checker", {"aml_compliance"},
                   {"aml_compliance"}, matrix=False)
+    # Oct. 20: every PEP or adverse-media alert goes to AML compliance; a domestic PEP's alert is cleared here
+    maker_checker(case_id("Nadia Brooks"), "alert_review", "cleared", "ALR-GATE-01", "aml.maker", "aml.checker",
+                  {"aml_compliance"}, {"aml_compliance"}, matrix=True)
     chg = case_id("bank instruction on Maria Chen")
     maker_checker(chg, "confirmation", "confirmed", "CALLBACK-GATE", "ops.analyst", "ops.supervisor",
                   {"ops_analyst", "ops_supervisor"}, {"ops_supervisor"}, matrix=True)
@@ -190,18 +193,24 @@ def work_the_seeded_cases() -> None:
     for u in wrong_roles({"platform_admin"}):
         attempt("email re-send", u, "post", f"/api/outbox/{held['id']}/retry")
 
-    # Oct. 20: only the onboarding team reviews what the AI read from a package (accept, edit, or reject each value)
+    # Oct. 20: onboarding and CIP review what the AI read from a package, each their own values (onboarding the firm
+    # and Form ADV facts, CIP the identity facts): accept, edit, or reject each one
     ops = as_user("ops.analyst")
     detail = ops.post("/api/intake/extract", data={"text": ops.get("/api/intake/status").json()["sample_text"]}).json()
-    first = detail["ai_suggestions"][0]["id"]
-    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.cip", "ops.service"]:
-        attempt("AI suggestion review outside onboarding", u, "post",
-                f"/api/cases/{detail['id']}/ai-suggestions/{first}", {"action": "accept"})
-    for i, sug in enumerate(detail["ai_suggestions"]):
+    url = f"/api/cases/{detail['id']}/ai-suggestions/"
+    firm_fact = next(x["id"] for x in detail["ai_suggestions"] if x["team"] == "onboarding")
+    identity_fact = next(x["id"] for x in detail["ai_suggestions"] if x["team"] == "cip")
+    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.service"]:
+        attempt("AI suggestion review outside onboarding and CIP", u, "post", url + str(firm_fact), {"action": "accept"})
+    attempt("AI suggestion review: CIP on a firm fact", "ops.cip", "post", url + str(firm_fact), {"action": "accept"})
+    attempt("AI suggestion review: onboarding on an identity fact", "ops.analyst", "post", url + str(identity_fact),
+            {"action": "accept"})
+    for sug in detail["ai_suggestions"]:
         body = {"action": "accept"}
         if sug["field"] == "ein":
             body = {"action": "edit", "value": "87-1234599", "reason": "Gate review: an edit is recorded with its reason"}
-        r = ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{sug['id']}", json=body)
+        reviewer = as_user("ops.analyst" if sug["team"] == "onboarding" else "ops.cip")
+        r = reviewer.post(url + str(sug["id"]), json=body)
         assert r.status_code == 200, r.text
 
 
