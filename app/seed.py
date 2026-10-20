@@ -8,8 +8,10 @@ review dates stay current however long the demo has been running.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,8 +27,8 @@ from . import audit
 from .acceptance import accept_case
 from .config import settings
 from .documents import AUTOMATED_REVIEWER, FIELD_DOCS, checks_pass, mark, sample_document, store
-from .db import Base, engine
-from .orm import Account, Case, Firm, Review, User, utcnow
+from .db import Base, SessionLocal, engine
+from .orm import Account, AuditEvent, Case, Firm, Review, User, utcnow
 from .runner import run_case
 from .serialize import shift_dates, to_json
 
@@ -362,7 +364,31 @@ def seed(db: Session) -> None:
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
     seed_access_events(db, users)
     seed_messages(db, users)
+    audit.record(db, None, "demo_seeded", "demo", SEED_FINGERPRINT, fingerprint=SEED_FINGERPRINT)
     db.commit()
+
+
+def _fingerprint() -> str:
+    """Changes whenever the seed data does: this file and the synthetic sample data it draws on."""
+    import sample_data
+    return hashlib.sha256(Path(__file__).read_bytes() + Path(sample_data.__file__).read_bytes()).hexdigest()[:12]
+
+
+SEED_FINGERPRINT = _fingerprint()
+KEEP_ON_RESET = ("ai_evaluation_run",)      # governance evidence, not demo data: it survives a demo reset
+
+
+def reseed() -> None:
+    """Put the demo back to its seeded starting point, keeping the AI evaluation runs."""
+    cols = [c.name for c in AuditEvent.__table__.columns if c.name != "id"]
+    with SessionLocal() as db:
+        kept = [{c: getattr(e, c) for c in cols} for e in db.scalars(
+            select(AuditEvent).where(AuditEvent.action.in_(KEEP_ON_RESET)).order_by(AuditEvent.id))]
+    reset_database()
+    with SessionLocal() as db:
+        seed(db)
+        db.add_all(AuditEvent(**k) for k in kept)
+        db.commit()
 
 
 def seed_access_events(db: Session, users: dict) -> None:
@@ -415,9 +441,19 @@ def seed_messages(db: Session, users: dict) -> None:
 
 
 def ensure_seeded(db: Session) -> bool:
-    """Seed an empty database. Returns True if it seeded."""
+    """Seed an empty database, and in demo mode reseed when a deploy brings new seed data (its fingerprint changed),
+    so nobody has to remember to reset the demo. Returns True if it seeded."""
     Base.metadata.create_all(engine)
-    if db.query(User).first() is not None:
+    if db.query(User).first() is None:
+        seed(db)
+        return True
+    if not settings.demo_mode:
         return False
-    seed(db)
+    current = db.scalar(select(AuditEvent.target_id).where(AuditEvent.action == "demo_seeded")
+                        .order_by(AuditEvent.id.desc()))
+    if current == SEED_FINGERPRINT:
+        return False
+    db.rollback()
+    db.close()                     # Postgres won't drop tables while this session holds them
+    reseed()
     return True

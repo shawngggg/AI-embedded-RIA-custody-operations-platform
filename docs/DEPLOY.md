@@ -230,5 +230,54 @@ because Cloud Run starts the container and Neon resumes the database.
 
 ## Updating
 
-Run the same `gcloud run deploy` command again. Data in Neon survives deploys. A platform administrator
-can put the demo back to its starting point with **Users and rules → Reset the demo**.
+Merging a pull request into `main` deploys it (next section). By hand, run `gcloud run deploy ria-custody --source .
+--region us-central1` from the repository: with no other flags, the service keeps its identity, live AI settings,
+secrets, and scaling. Data in Neon survives deploys.
+
+In demo mode the app fingerprints its seed data. When a deploy brings different seed data, it resets the demo on
+startup, so nobody has to remember to. A platform administrator can also reset it any time with **Users and rules →
+Reset the demo**. Either way, the AI evaluation runs are kept: they're governance evidence, not demo data.
+
+## Automatic deploys from GitHub
+
+`.github/workflows/deploy.yml` deploys to Cloud Run once CI passes on `main`, then runs `tools/smoke_test.py`
+against the live site: the new revision is serving, the screens load, each kind of user gets the right access, the
+portal shows no custodian operations, and live AI is on. The results are on the run's summary page in the Actions
+tab.
+
+GitHub signs in to Google Cloud with workload identity federation, so no key is stored in GitHub. Only this
+repository's `main` branch is accepted, and the deployer can do only what a deploy needs. Run this once in Cloud Shell:
+
+```bash
+PROJECT=ria-custody-demo
+PROJECT_NUMBER=1638463558
+REPO=shawngggg/AI-embedded-RIA-custody-operations-platform
+REPO_ID=1405013520          # the repository's numeric id: it doesn't change if the repository is renamed
+
+# 1. Trust GitHub Actions tokens from this repository's main branch only
+gcloud iam workload-identity-pools create github --location=global --display-name="GitHub Actions"
+gcloud iam workload-identity-pools providers create-oidc github --location=global --workload-identity-pool=github \
+  --display-name="GitHub" --issuer-uri="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
+  --attribute-condition="assertion.repository_id=='$REPO_ID' && assertion.ref=='refs/heads/main'"
+
+# 2. A deployer identity with what a deploy from source needs
+gcloud iam service-accounts create ria-custody-deployer --display-name="GitHub deployer for ria-custody"
+DEPLOYER=ria-custody-deployer@$PROJECT.iam.gserviceaccount.com
+for role in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.writer roles/storage.admin \
+            roles/serviceusage.serviceUsageConsumer; do
+  gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$DEPLOYER" --role=$role --condition=None
+done
+# It deploys the service as its own identity, and its builds run as the default compute account
+for sa in ria-custody-run@$PROJECT.iam.gserviceaccount.com $PROJECT_NUMBER-compute@developer.gserviceaccount.com; do
+  gcloud iam service-accounts add-iam-policy-binding $sa --member="serviceAccount:$DEPLOYER" \
+    --role=roles/iam.serviceAccountUser
+done
+
+# 3. Only this repository may act as the deployer
+gcloud iam service-accounts add-iam-policy-binding $DEPLOYER --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$REPO"
+```
+
+If a deploy fails on a permission, the Actions log names it; grant that one role to the deployer and re-run the
+workflow from the Actions tab.

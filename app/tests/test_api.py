@@ -1091,3 +1091,40 @@ def test_the_new_teams_see_their_planned_workbench_and_channel(as_user):
     assert "asset-transfer" in [c["key"] for c in marisol.get("/api/channels").json()["channels"]]
     assert marisol.get("/api/outbox").status_code == 403
     assert as_user("ops.trade").get("/api/restrictions/accounts").status_code == 200   # restricted accounts can't trade
+
+
+def test_a_demo_reset_keeps_the_ai_evaluation_runs(as_user, monkeypatch):
+    from app.config import settings
+    from app.routers import ai_eval
+    from extraction import gate
+    from nigo_eval import PACKAGES, answer_key, package_text
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    by_text = {package_text(p): p for p in PACKAGES}
+    monkeypatch.setattr(ai_eval, "extract_firm_application",
+                        lambda text: gate(answer_key(by_text[text]), text, "end_turn", "stand-in"))
+    admin = as_user("admin.platform")
+    assert admin.post("/api/ai-evaluation", json={}).status_code == 200
+    admin.post("/api/admin/users", json={"username": "temp.user", "display_name": "Temp User", "role": "ops_analyst",
+                                         "password": "a-long-temp-password", "team": "onboarding"})
+    assert admin.post("/api/admin/reset", json={}).status_code == 200
+    admin = as_user("admin.platform")
+    assert "temp.user" not in [u["username"] for u in admin.get("/api/admin/users").json()]     # demo data reset
+    assert admin.get("/api/ai-evaluation").json()["latest"]["recall"] == 1.0                    # evaluation kept
+
+
+def test_startup_reseeds_the_demo_when_the_seed_data_changed(client):
+    from app.db import SessionLocal
+    from app.orm import AuditEvent, User
+    from app.seed import SEED_FINGERPRINT, ensure_seeded
+    with SessionLocal() as db:
+        assert not ensure_seeded(db)                       # same seed data: nothing to do
+    with SessionLocal() as db:
+        db.add(User(username="stale.user", display_name="Stale", role="ops_analyst", is_demo=False))
+        db.query(AuditEvent).filter(AuditEvent.action == "demo_seeded").update({"target_id": "older-seed"})
+        db.commit()
+    with SessionLocal() as db:
+        assert ensure_seeded(db)                           # a deploy brought different seed data
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.username == "stale.user").first() is None
+        assert db.query(AuditEvent).filter(AuditEvent.action == "demo_seeded").one().target_id == SEED_FINGERPRINT
+    assert client.get("/api/health").json()["seed"] == SEED_FINGERPRINT

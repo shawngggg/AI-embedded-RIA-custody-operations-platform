@@ -133,13 +133,13 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 77 API tests
+python -m pytest app/tests -v        # 79 API tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 
 For frontend work, run `npm run dev` in `web/` alongside `uvicorn app.main:app --reload`; Vite forwards `/api` to the app.
 
-It runs live on Google Cloud Run with a Neon database, at no cost for a demo: https://ria-custody-1638463558.us-central1.run.app/. [docs/DEPLOY.md](docs/DEPLOY.md) has the deployment steps. GitHub Actions runs the engine tests, the API tests on SQLite and Postgres, a migration check, and the frontend build on every push.
+It runs live on Google Cloud Run with a Neon database, at no cost for a demo: https://ria-custody-1638463558.us-central1.run.app/. [docs/DEPLOY.md](docs/DEPLOY.md) has the deployment steps. GitHub Actions runs the engine tests, the API tests on SQLite and Postgres, a migration check, and the frontend build on every push. Once CI passes on `main`, it deploys to Cloud Run (signing in with workload identity federation, no stored key) and smoke tests the live site.
 
 ## Repository contents
 
