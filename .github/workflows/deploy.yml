@@ -1,0 +1,59 @@
+name: Deploy
+
+# Deploys to Cloud Run once CI passes on main, which is to say after a pull request is merged, then smoke tests the
+# live site. The service keeps its own settings (identity, live AI, secrets, scaling): the deploy only ships new code.
+# One-time setup: docs/DEPLOY.md, "Automatic deploys from GitHub". Run it by hand from the Actions tab if needed.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  PROJECT: ria-custody-demo
+  REGION: us-central1
+  SERVICE: ria-custody
+  URL: https://ria-custody-1638463558.us-central1.run.app
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # lets the job prove to Google Cloud that it's this repository's main branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Sign in to Google Cloud (workload identity federation, no key)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.PROJECT }}
+          workload_identity_provider: projects/1638463558/locations/global/workloadIdentityPools/github/providers/github
+          service_account: ria-custody-deployer@ria-custody-demo.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy the new code (the service's settings stay as they are)
+        run: gcloud run deploy "$SERVICE" --source . --region "$REGION" --project "$PROJECT" --quiet
+
+      - name: Which revision is serving
+        id: revision
+        run: |
+          echo "name=$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+            --format='value(status.latestReadyRevisionName)')" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Smoke test the live site
+        run: python tools/smoke_test.py "$URL" --revision "${{ steps.revision.outputs.name }}"

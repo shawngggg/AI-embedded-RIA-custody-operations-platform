@@ -522,7 +522,7 @@ Six of the eight release 1 metrics are measured on synthetic data: five meet the
 | Metric | Target | Result | Status |
 | --- | --- | --- | --- |
 | Decision traceability | 100% | 41 of 41 decisions carry the approver, rule version, and citation | Met |
-| NIGO detection recall | 90% or higher | 18 of 19 seeded defects caught (94.7%) with no false NIGO, on 20 synthetic firm packages read by Claude Haiku 5.5. The one miss: a contents page listed an ownership chart as attached when it wasn't. The prompt now says a mention isn't the document; the next run shows whether that fixed it | Met |
+| NIGO detection recall | 90% or higher | 18 of 19 seeded defects caught (94.7%) with no false NIGO, on 20 synthetic firm packages read by Claude Haiku 5.5. The one miss: a contents page listed an ownership chart as attached when it wasn't. The prompt now says a mention isn't the document, and a re-run on the new prompt caught that trap | Met |
 | Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
 | AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |

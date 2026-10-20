@@ -3,6 +3,7 @@ The MVP app: the API under /api and the built React screens at every other path.
 
 Run locally:  uvicorn app.main:app --reload
 """
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -13,7 +14,7 @@ from .config import settings
 from .db import SessionLocal
 from .routers import (admin, audit_log, auth, cases, dashboard, documents, intake, portal, restrictions, reviews,
                       risk_events, work, messages, outbox, ai_eval)
-from .seed import ensure_seeded
+from .seed import SEED_FINGERPRINT, ensure_seeded
 
 
 @asynccontextmanager
@@ -36,7 +37,9 @@ for r in (auth.router, cases.router, restrictions.router, reviews.router, dashbo
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "demo_mode": settings.demo_mode, "as_of": settings.today().isoformat()}
+    # revision: the Cloud Run revision serving (K_REVISION), so a deploy can confirm it's live; seed: the demo data
+    return {"ok": True, "demo_mode": settings.demo_mode, "as_of": settings.today().isoformat(),
+            "revision": os.environ.get("K_REVISION"), "seed": SEED_FINGERPRINT}
 
 
 @app.exception_handler(ValueError)

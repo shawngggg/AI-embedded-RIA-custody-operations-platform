@@ -20,7 +20,7 @@ from account_changes import CHANGE_RULES
 
 from .. import audit
 from ..config import settings
-from ..db import SessionLocal, get_db
+from ..db import get_db
 from ..orm import (DECISION_ROLES, LICENSED_ROLES, OPS_ROLES, OPS_TEAMS, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
                    Account, Firm, RoleGrant, User, utcnow)
 from ..security import hash_password, require_internal, require_roles
@@ -294,14 +294,12 @@ def reject_grant(grant_id: int, actor: User = Depends(require_roles("platform_ad
 def reset_demo(actor: User = Depends(require_roles("platform_admin")), db: Session = Depends(get_db)):
     if not settings.demo_mode:
         raise HTTPException(403, "Reset is only available in demo mode")
-    from ..seed import reset_database, seed
+    from ..seed import reseed
     # End this request's own read transaction first: on Postgres, DROP TABLE waits on any open
     # transaction that has touched the table, including the one that loaded the signed-in admin.
     db.rollback()
     db.close()
-    reset_database()
-    with SessionLocal() as fresh:
-        seed(fresh)
+    reseed()                       # keeps the AI evaluation runs
     return {"ok": True}
 
 
