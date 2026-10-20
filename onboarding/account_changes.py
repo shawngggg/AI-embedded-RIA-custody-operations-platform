@@ -30,7 +30,8 @@ from enum import Enum
 from applications import Person
 from flagged_list import Kind, Subject
 from models import AccountGroup
-from pipeline import AI, LEDGER, OPS, RULES, Decisions, OnboardingResult, _edd, _route_alerts, _screen_and_escalate
+from pipeline import (AI, LEDGER, OPS, RESUBMIT, RULES, Decisions, OnboardingResult, _edd, _identity_issue,
+                      _route_alerts, _screen_and_escalate, _unverified_issue)
 from restrictions import RestrictionRegistry
 from rules import Disposition, evaluate_all
 
@@ -164,7 +165,8 @@ def fraud_pattern(r: ChangeRequest, as_of: date) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None, decisions=None,
-                   confirmation: str | None = None, by: str = "ops.analyst") -> OnboardingResult:
+                   confirmation: str | None = None, by: str = "ops.analyst",
+                   identity_issue: dict | None = None) -> OnboardingResult:
     """
     Run a change request along map 04. `confirmation` is the outcome of the RIA
     confirmation and client callback when the fraud pattern fires:
@@ -251,6 +253,14 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
             res.add(RULES, "Re-run due diligence: CIP on new parties", "Relied on the RIA (Path A)",
                     [p.name for p in r.new_parties] or ["No new parties named"])
         elif unverified:
+            stop = _identity_issue(res, _unverified_issue(identity_issue, unverified), decisions, registry, by)
+            if stop == RESUBMIT:                      # back to the requester for new identity documents
+                res.add(OPS, "Return for correction", "Sent", res.requested_items)
+                res.status = "RETURNED"
+                return res
+            if stop:
+                res.status = "REJECTED" if stop == "DECLINED" else stop
+                return res
             res.add(RULES, "Re-run due diligence: CIP on new parties", "Identity verification pending", unverified)
             res.status = "PENDING_VERIFICATION"
             return res

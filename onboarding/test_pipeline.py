@@ -272,3 +272,55 @@ def test_catalog_lists_every_scenario():
     c = catalog()
     assert len(c["firms"]) == len(FIRMS) + 1 and len(c["accounts"]) == len(ACCOUNTS)
     assert "Red Butte" in c["package_text"]
+
+
+# A failed identity check (Shawn, Oct. 20, 2026): the RIA resubmits, or AML compliance decides on a suspected fraud
+
+def _unverified_firm():
+    f = FIRMS["granite_peak"]
+    return replace(f, people=[replace(p, identity_verified=False) for p in f.people])
+
+
+def test_insufficient_information_or_the_wrong_document_goes_back_to_the_ria():
+    app = _unverified_firm()
+    who = app.people[0].name
+    for kind, words in (("insufficient_information", "not enough information"), ("wrong_document", "wrong type")):
+        res = onboard_firm(app, TODAY, flagged=FLAGGED_LIST,
+                           identity_issue={"kind": kind, "person": who, "note": "Expired passport"})
+        assert res.status == "PENDING_ITEMS" and res.restrictions == []
+        assert any(i.startswith(f"New identity documents for {who}: {words}") and "Expired passport" in i
+                   for i in res.requested_items)
+    verified = replace(app, people=[replace(p, identity_verified=True) for p in app.people])
+    settled = onboard_firm(verified, TODAY, flagged=FLAGGED_LIST,
+                           identity_issue={"kind": "wrong_document", "person": who})
+    assert settled.status == "PENDING_ACCEPTANCE"                         # verifying the person settles it
+
+
+def test_a_suspected_fraudulent_identity_is_held_for_aml_compliance():
+    app = _unverified_firm()
+    issue = {"kind": "suspected_fraud", "person": app.people[0].name, "note": "Photo doesn't match the record"}
+    waiting = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, identity_issue=issue)
+    assert waiting.status == "PENDING_FRAUD_REVIEW" and [r["code"] for r in waiting.restrictions] == ["IDFR"]
+    assert waiting.steps[-1].lane == AML
+    confirmed = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, identity_issue=issue,
+                             decisions=Decisions(identity_fraud="confirmed", identity_fraud_reference="IDF-1"))
+    assert confirmed.status == "DECLINED" and [r["code"] for r in confirmed.restrictions] == ["IDFR"]
+    cleared = onboard_firm(app, TODAY, flagged=FLAGGED_LIST, identity_issue=issue,
+                           decisions=Decisions(identity_fraud="not_fraud"))
+    assert cleared.status == "PENDING_ITEMS" and cleared.restrictions == []    # verification continues
+    assert "ID documents for owners and control person (for verification)" in cleared.requested_items
+
+
+def test_path_b_account_identity_failures():
+    a = ACCOUNTS["maria_chen"]
+    app = replace(a, holders=[replace(a.holders[0], identity_verified=False)] + a.holders[1:])
+    firm = FIRMS["bonneville"]                              # not reliance eligible: Path B
+    who = app.holders[0].name
+    assert open_account(app, firm, TODAY, flagged=FLAGGED_LIST).path == "B"
+    resubmit = {"kind": "insufficient_information", "person": who}
+    assert open_account(app, firm, TODAY, flagged=FLAGGED_LIST, identity_issue=resubmit).status == "PENDING_ITEMS"
+    opened = open_account(app, firm, TODAY, flagged=FLAGGED_LIST, identity_issue=resubmit, decisions=Decisions(**OK))
+    assert opened.status == "OPEN_RESTRICTED" and "CIPV" in [r["code"] for r in opened.restrictions]
+    fraud = open_account(app, firm, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(**OK),
+                         identity_issue={"kind": "suspected_fraud", "person": who})
+    assert fraud.status == "PENDING_FRAUD_REVIEW" and "IDFR" in [r["code"] for r in fraud.restrictions]

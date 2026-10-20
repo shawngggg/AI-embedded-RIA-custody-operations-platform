@@ -42,6 +42,7 @@ _BY_STATUS = {
     "PENDING_ITEMS": "items_requested",
     "PENDING_REVIEW": "compliance_review",
     "PENDING_ALERT_REVIEW": "compliance_review",   # a PEP or adverse-media alert the risk rating didn't send to EDD
+    "PENDING_FRAUD_REVIEW": "compliance_review",   # a suspected fraudulent identity (app/identity_check.py)
     "PENDING_SANCTIONS": "sanctions_review",
     "PENDING_EDD": "edd_review",
     "PENDING_CONFIRMATION": "confirmation",
@@ -78,6 +79,11 @@ DECISIONS = {
     "alert_review": {"label": "PEP or adverse-media alert", "statuses": ["PENDING_ALERT_REVIEW"],
                      "values": {"cleared": "Cleared: no EDD needed", "edd": "Require EDD"},
                      "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
+    # A suspected fraudulent identity goes to AML compliance (Shawn, Oct. 20, 2026): confirmed declines the case and
+    # keeps it held; not fraudulent sends it back to identity verification
+    "identity_fraud": {"label": "Suspected fraudulent identity", "statuses": ["PENDING_FRAUD_REVIEW"],
+                       "values": {"confirmed": "Fraudulent identity: decline", "not_fraud": "Not fraudulent: verify again"},
+                       "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
     "compliance_signoff": {"label": "Compliance sign-off", "statuses": ["PENDING_REVIEW"],
                            "values": {"signed_off": "Sign off the registration findings"},
                            "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},

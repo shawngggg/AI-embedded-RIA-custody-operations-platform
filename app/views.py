@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from restrictions import CATALOG
 
-from . import ai_suggestions, audit
+from . import ai_suggestions, audit, identity_check
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .access import capabilities
@@ -194,6 +194,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "rescission": rescission_state(db, c, user),
         "rework": (c.extra or {}).get("rework"),
         "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],
+        "identity_check": identity_check.state(c, user),
     })
     return data
 

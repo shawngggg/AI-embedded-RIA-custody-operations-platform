@@ -138,7 +138,7 @@ def notify_transition(db: Session, case: Case, previous: str | None, status: str
                      "We couldn't process this request as submitted:\n" + "\n".join(f"- {i}" for i in items)),
         "OPEN": ("account_opened", f"Account open: {name}", "The account is open."),
         "OPEN_RESTRICTED": ("account_opened_restricted", f"Account open, restricted: {name}",
-                            "The account is open but restricted from trading and fee deduction until we receive:\n"
+                            "The account is open, but some activity is restricted until we receive:\n"
                             + "\n".join(f"- {i}" for i in items)),
         "DECLINED": ("declined", f"Application declined: {name}", "We weren't able to approve this application. "
                      "Your RIA service team will follow up with the reason."),

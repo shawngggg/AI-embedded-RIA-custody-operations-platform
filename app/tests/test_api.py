@@ -922,15 +922,17 @@ def test_microsoft_365_sends_through_graph(monkeypatch):
 
 PLANNED_ALL = {"planned_transfers", "planned_trading", "planned_billing"}
 EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams that will run them
-    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "ai_review", "restricted_accounts",
-                    "outbox"},
-    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "ai_review", "restricted_accounts", "outbox"},
+    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "ai_review", "identity_check",
+                    "restricted_accounts", "outbox"},
+    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "ai_review", "identity_check", "restricted_accounts",
+                "outbox"},
     "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
     # Teams whose workbench arrives in a later release: no queue or notices yet, their own planned page
     "ops.transfers": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_transfers"},
     "ops.trade": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_trading"},
     "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake", "ai_review",
+                       "identity_check",
                        "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
                   "audit"},
@@ -1328,3 +1330,82 @@ def test_a_cleared_alert_goes_on_to_the_principal(as_user):
     d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
     assert d["status"] == "PENDING_ACCEPTANCE"
     assert any(s["outcome"].startswith("Cleared by AML compliance") for s in d["result"]["steps"])
+
+
+# --- Failed identity checks: back to the RIA to resubmit, or to AML compliance for a suspected fraud ---------------
+
+
+def _firm_by_form(ops, name="Wasatch Peak Advisors LLC", crd="310077"):
+    app = {"legal_name": name, "registration": "SEC", "sec_file_number": "801-120077", "crd_number": crd,
+           "raum": 300_000_000, "adv_last_annual_amendment": "2026-03-10", "principal_address": "9 Main St, Logan, UT 84321",
+           "ein": "87-1234577", "people": [{"name": "Iris Holt", "role": "control_person", "ownership_pct": 100}]}
+    return ops.post("/api/intake/firm", json={"application": app, "documents": []}).json()
+
+
+def _identity_check(client, cid, kind, person, note="Checked against the record: see the file"):
+    return client.post(f"/api/cases/{cid}/identity-check", json={"kind": kind, "person": person, "note": note})
+
+
+def test_the_wrong_document_goes_back_to_the_ria_and_new_documents_restart_verification(as_user):
+    cid = _firm_by_form(as_user("ops.analyst"))["id"]
+    upload_sample(as_user("ops.analyst"), cid, "identity_documents")
+    cip = as_user("ops.cip")
+    state = cip.get(f"/api/cases/{cid}").json()["identity_check"]
+    assert state["can_record"] and state["people"] == ["Iris Holt"]
+    assert _identity_check(cip, cid, "wrong_document", "Iris Holt", "short").status_code == 422      # say what you found
+    assert _identity_check(cip, cid, "wrong_document", "Nobody").status_code == 409
+    d = _identity_check(cip, cid, "wrong_document", "Iris Holt", "A library card, not a government ID").json()
+    assert d["status"] == "PENDING_ITEMS" and not [r for r in d["restrictions"] if r["active"]]
+    assert "New identity documents for Iris Holt: wrong type of identity document (A library card, not a government ID)" \
+        in d["result"]["requested_items"]
+    assert [x["status"] for x in d["documents"] if x["doc_type"] == "identity_documents"] == ["not_in_good_order"]
+    d = upload_sample(as_user("ops.analyst"), cid, "identity_documents")       # the RIA's new documents
+    d = as_user("ops.cip").get(f"/api/cases/{cid}").json()
+    assert d["identity_check"]["issue"]["status"] == "resubmitted"
+    assert not any(i.startswith("New identity documents") for i in d["result"]["requested_items"])
+    for u in ("ops.service", "aml.maker", "rs.principal", "admin.platform", "granite.advisor"):
+        assert _identity_check(as_user(u), cid, "suspected_fraud", "Iris Holt").status_code in (403, 404), u
+
+
+def test_a_suspected_fraudulent_identity_is_held_for_aml_compliance_which_confirms_or_clears_it(as_user):
+    cid = _firm_by_form(as_user("ops.analyst"))["id"]
+    d = _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Iris Holt",
+                        "The ID photo and date of birth don't match the record").json()
+    assert (d["status"], d["queue"]) == ("PENDING_FRAUD_REVIEW", "compliance_review")
+    assert [r["code"] for r in d["restrictions"] if r["active"]] == ["IDFR"]
+    assert _identity_check(as_user("ops.cip"), cid, "wrong_document", "Iris Holt").status_code == 409   # with compliance
+    aml = as_user("aml.maker")
+    p = aml.post(f"/api/cases/{cid}/decisions", json={"decision_type": "identity_fraud", "value": "not_fraud",
+                                                       "reference": "IDF-2026-0001"}).json()
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "PENDING_ITEMS" and not [r for r in d["restrictions"] if r["active"]]    # verify again
+    d = _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Iris Holt", "Second ID is also altered").json()
+    assert d["status"] == "PENDING_FRAUD_REVIEW"                                  # a new suspicion, a new decision
+    p = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "identity_fraud", "value": "confirmed", "reference": "IDF-2026-0002"}).json()
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "DECLINED" and [r["code"] for r in d["restrictions"] if r["active"]] == ["IDFR"]
+    events = as_user("aml.maker").get("/api/risk-events").json()["events"]
+    assert any(e["category"] == "Fraudulent identity confirmed" and e["area"] == "aml" for e in events)
+    approved = [e for e in as_user("ops.supervisor").get(f"/api/cases/{cid}/audit").json()
+                if e["action"] == "decision_approved"][-1]["detail"]
+    assert "CIP-FRD" in {b["rule_id"] for b in approved["basis"]}
+
+
+def test_a_new_owners_failed_check_reaches_the_ria_but_a_fraud_suspicion_never_does(as_user):
+    adv = as_user("bonneville.advisor")
+    d = adv.post("/api/portal/changes", json={
+        "account_id": "ACC-2002", "change_type": "beneficial_owner", "details": {"owner": "Ana Ruiz, 30%"},
+        "new_parties": [{"name": "Ana Ruiz", "role": "owner", "ownership_pct": 30, "date_of_birth": "1981-02-03",
+                         "address": "9 Elm St, Ogden, UT 84401"}],
+        "documents": [{"doc_type": "change_form", "sample": True}]}).json()
+    cid = d["id"]
+    assert as_user("ops.cip").get(f"/api/cases/{cid}").json()["status"] == "PENDING_VERIFICATION"
+    _identity_check(as_user("ops.cip"), cid, "insufficient_information", "Ana Ruiz", "Send a passport or driver's license")
+    portal = as_user("bonneville.advisor").get(f"/api/cases/{cid}").json()
+    assert portal["status"] == "RETURNED" and any("Send a passport" in i for i in portal["requested_items"])
+    as_user("bonneville.advisor").post(f"/api/cases/{cid}/documents", data={"doc_type": "identity_documents", "sample": "true"})
+    assert as_user("ops.cip").get(f"/api/cases/{cid}").json()["status"] == "PENDING_VERIFICATION"
+    _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Ana Ruiz", "The passport number belongs to someone else")
+    portal = as_user("bonneville.advisor").get(f"/api/cases/{cid}").json()
+    assert portal["status"] == "IN_REVIEW" and "fraud" not in str(portal).lower() and "IDFR" not in str(portal)

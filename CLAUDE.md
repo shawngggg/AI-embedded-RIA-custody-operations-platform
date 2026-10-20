@@ -62,6 +62,9 @@ themselves (the seed fingerprint); AI evaluation runs survive.
   values only; reviewed values survive a demo reset.
 - Every screening alert goes to compliance: sanctions hits to the sanctions team, PEP and adverse-media alerts and
   EDD to AML compliance (a PEP alert the rating doesn't send to EDD waits for AML compliance to clear it or require EDD).
+- A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
+  RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
+  the portal: no note, document review note, notice, or status beyond "In review".
 
 ## Docs to keep current with each change
 

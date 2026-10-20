@@ -138,6 +138,7 @@ function InternalCase() {
       )}
 
       {d.ai_suggestions.some((s) => s.status === "pending") && <AiReview d={d} onDone={done} onFail={fail} />}
+      {d.identity_check && <IdentityCheck d={d} onDone={done} onFail={fail} />}
       {d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
       {d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
       {d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
@@ -438,6 +439,64 @@ function AiReview({ d, onDone, onFail, readOnly }: { d: CaseDetail; onDone: (c: 
           </Fragment>))}
         </tbody>
       </table></div>
+    </div>
+  );
+}
+
+const ISSUE_WORDS: Record<string, string> = { insufficient_information: "Insufficient information",
+  wrong_document: "Wrong type of document", suspected_fraud: "Suspected fraudulent identity" };
+
+/** Why an identity check failed: insufficient information or the wrong document goes back to the RIA to resubmit; a
+ *  suspected fraudulent identity goes to AML compliance (app/identity_check.py). */
+function IdentityCheck({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+  const s = d.identity_check!;
+  const [open, setOpen] = useState(false);
+  const [person, setPerson] = useState(s.people[0] ?? "");
+  const [kind, setKind] = useState("insufficient_information");
+  const [note, setNote] = useState("");
+  const fraud = kind === "suspected_fraud";
+  const issue = s.issue;
+  const send = () => api<CaseDetail>(`/api/cases/${d.id}/identity-check`, { body: { kind, person, note } })
+    .then((c) => { setOpen(false); setNote(""); onDone(c, fraud ? "Sent to AML compliance and held (IDFR)." :
+      "Sent back to the RIA to resubmit identity documents."); })
+    .catch(onFail);
+  if (!s.can_record && !issue) return null;
+  return (
+    <div className={open ? "accept" : ""} style={open ? undefined : { marginBottom: 12 }}>
+      {issue && (
+        <p className="small"><strong>Identity check failed for {issue.person}:</strong> {ISSUE_WORDS[issue.kind] ?? issue.kind}
+          {" "}({issue.by}). {issue.kind === "suspected_fraud" ? "AML compliance decides; the case is held." :
+            issue.status === "open" ? "Waiting for the RIA to resubmit identity documents." :
+            "New identity documents arrived; verify again."}</p>
+      )}
+      {s.can_record && !open && (
+        <div className="actions">
+          <button className="secondary small" onClick={() => setOpen(true)}>Record a failed identity check</button>
+          <span className="muted small">Identity pending for {s.people.join(", ")}.</span>
+        </div>
+      )}
+      {s.can_record && open && (
+        <>
+          <h3>Record a failed identity check</h3>
+          <div className="row">
+            <div className="field"><label htmlFor="idp">Person</label>
+              <select id="idp" value={person} onChange={(e) => setPerson(e.target.value)}>
+                {s.people.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+            <div className="field"><label htmlFor="idk">Why it failed</label>
+              <select id="idk" value={kind} onChange={(e) => setKind(e.target.value)}>
+                {Object.entries(s.kinds).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+          </div>
+          <div className="field"><label htmlFor="idn">{fraud ? "What you found (for AML compliance only)" : "What the RIA needs to send (goes to the RIA)"}</label>
+            <input id="idn" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <p className="small muted">{fraud ? "The case is held (IDFR) and goes to AML compliance, which confirms the fraud (declined, stays held) or clears it (verification continues). Nothing is said to the RIA or the client." :
+            "The request goes to the RIA, and the identity documents waiting to be checked are marked not in good order. New identity documents start verification again."}</p>
+          <div className="actions">
+            <button className={fraud ? "danger" : ""} disabled={note.trim().length < 10 || !person} onClick={send}>
+              {fraud ? "Send to AML compliance" : "Send back to the RIA"}</button>
+            <button className="secondary" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

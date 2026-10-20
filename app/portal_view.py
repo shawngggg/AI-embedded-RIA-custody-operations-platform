@@ -24,7 +24,7 @@ NOTES = {
     "PENDING_ITEMS": "We need the items below before we can continue.",
     "RETURNED": "We couldn't process this request as submitted. Correct the items below and submit it again.",
     "OPEN": "The account is open.",
-    "OPEN_RESTRICTED": "The account is open, but trading and fee deduction wait until we receive the items below.",
+    "OPEN_RESTRICTED": "The account is open, but some activity waits until we receive the items below.",
     "APPLIED": "The change has been applied.",
     "REDIRECTED": "This request has to come through the other channel: changes to a pure RIA account come from the RIA, "
                   "and changes to the self-directed account come from the client.",

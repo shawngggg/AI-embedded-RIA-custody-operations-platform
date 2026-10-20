@@ -213,6 +213,16 @@ def work_the_seeded_cases() -> None:
         r = reviewer.post(url + str(sug["id"]), json=body)
         assert r.status_code == 200, r.text
 
+    # Oct. 20: a failed identity check is recorded by onboarding or CIP; a suspected fraudulent identity goes to AML
+    # compliance, which decides under maker-checker
+    check = {"kind": "suspected_fraud", "person": "Nora Lindqvist", "note": "Gate review: the ID photo doesn't match"}
+    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.service"]:
+        attempt("identity check outside onboarding and CIP", u, "post", f"/api/cases/{detail['id']}/identity-check", check)
+    r = as_user("ops.cip").post(f"/api/cases/{detail['id']}/identity-check", json=check)
+    assert r.status_code == 200 and r.json()["status"] == "PENDING_FRAUD_REVIEW", r.text
+    maker_checker(detail["id"], "identity_fraud", "not_fraud", "IDF-GATE-01", "aml.maker", "aml.checker",
+                  {"aml_compliance"}, {"aml_compliance"}, matrix=True)
+
 
 def suggestion_tracking() -> dict:
     """Every suggestion the AI made is stored with what the reviewer did, by whom, and why (PRD guardrail 6)."""

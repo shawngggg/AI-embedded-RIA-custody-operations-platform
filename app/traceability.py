@@ -37,6 +37,10 @@ STATIC = {
     "alert_review": [{"rule_id": "AML-ALR", "rule_version": "1",
                       "source": "Broker-dealer AML program and customer due diligence: 31 CFR 1023.210; " + PEP_SOURCE
                                 + "; platform policy: every PEP or adverse-media alert goes to AML compliance"}],
+    "identity_fraud": [{"rule_id": "CIP-FRD", "rule_version": "1",
+                        "source": "31 CFR 1023.220(a)(2)(iii) (when the custodian can't form a reasonable belief that "
+                                  "it knows a customer's true identity: when not to open, when to close, and when to "
+                                  "file a SAR); platform policy: a suspected fraudulent identity goes to AML compliance"}],
     "confirmation": [{"rule_id": "FRD-001", "rule_version": "1",
                       "source": "Platform policy: address, bank, or contact changes together within 30 days need "
                                 "RIA confirmation and a client callback"}],

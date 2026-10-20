@@ -156,6 +156,23 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     return case_detail(db, case, user)
 
 
+class IdentityCheck(BaseModel):
+    kind: str                     # insufficient_information | wrong_document | suspected_fraud
+    person: str
+    note: str = Field(max_length=500)
+
+
+@router.post("/cases/{case_id}/identity-check")
+def identity_check_failed(case_id: int, body: IdentityCheck, user: User = Depends(require_capability("identity_check")),
+                          db: Session = Depends(get_db)):
+    """Record why an identity check failed: back to the RIA to resubmit, or to AML compliance for a suspected fraud."""
+    from .. import identity_check
+    case = get_case_for(db, user, case_id)
+    identity_check.record(db, case, user, body.kind, body.person, body.note)
+    db.commit()
+    return case_detail(db, case, user)
+
+
 class SuggestionReview(BaseModel):
     action: str                                  # accept | edit | reject
     value: str | dict | None = None              # the reviewer's value for an edit; a person is {name, role, ownership_pct}
@@ -321,12 +338,20 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
                           "report to OFAC is due within 10 business days (31 CFR 501.603 and 501.604).",
                   area="sanctions", detected_by=proposer.display_name if proposer else "Sanctions team",
                   approved_by=user.display_name, case=case, dedupe_key=f"sanctions:{d.id}")
+    if d.decision_type == "identity_fraud" and approve and d.value == "confirmed":
+        proposer = db.get(User, d.proposed_by)
+        log_event(db, user, category="Fraudulent identity confirmed", risk_type="regulatory", source="identity",
+                  summary=f"{case.title}: AML compliance confirmed a fraudulent identity ({d.reference}). The case is "
+                          "declined and stays held (IDFR); AML compliance decides whether a SAR is due within 30 "
+                          "days of the determination (31 CFR 1023.320).",
+                  area="aml", detected_by=proposer.display_name if proposer else "AML compliance",
+                  approved_by=user.display_name, case=case, dedupe_key=f"identity_fraud:{d.id}")
     if d.decision_type == "rescission":
         (rescission.approve if approve else rescission.reject)(db, d, case, user)
     elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
-        if d.decision_type in ("sanctions", "edd", "alert_review"):
+        if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)

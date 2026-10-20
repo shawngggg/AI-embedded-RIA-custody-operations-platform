@@ -64,6 +64,9 @@ def upload(case_id: int, doc_type: str = Form(...), channel: str = Form("portal"
         data = file.file.read(MAX_BYTES + 1)
         filename = file.filename or "document"
     doc = store(db, case, user, doc_type, filename, data, channel, when, synthetic=sample)
+    from ..identity_check import resubmitted
+    if resubmitted(db, case, user, doc):          # new identity documents: verification starts again
+        run_case(db, case, user)
     db.commit()
     return _view(db, doc, user)
 
