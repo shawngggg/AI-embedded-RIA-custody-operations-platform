@@ -515,14 +515,14 @@ The MVP succeeds when a first-time reviewer can work a case end to end in minute
 | Role enforcement | Share of decision attempts by the wrong role that are refused and logged | 100% | R1 (MVP) |
 | Build health | Share of merges to main with every test passing in CI | 100% | R1 (MVP) |
 
-### MVP gate review (Oct. 12, 2026)
+### MVP gate review (Oct. 12, 2026; NIGO detection measured Oct. 20)
 
-Five of the eight release 1 metrics are measured on synthetic data: four meet their targets and one is tracked without a target. The other three need live AI or a timed first-time reviewer before the gate closes.
+Six of the eight release 1 metrics are measured on synthetic data: five meet their targets and one is tracked without a target. The other two need AI suggestions in real use and a timed first-time reviewer before the gate closes.
 
 | Metric | Target | Result | Status |
 | --- | --- | --- | --- |
 | Decision traceability | 100% | 41 of 41 decisions carry the approver, rule version, and citation | Met |
-| NIGO detection recall | 90% or higher | Not measured yet: the seeded test set is built (20 packages, 19 defects, answer key 19 of 19); it needs a run with the live model | Open |
+| NIGO detection recall | 90% or higher | 18 of 19 seeded defects caught (94.7%) with no false NIGO, on 20 synthetic firm packages read by Claude Haiku 5.5. The one miss: a contents page listed an ownership chart as attached when it wasn't. The prompt now says a mention isn't the document; the next run shows whether that fixed it | Met |
 | Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
 | AI suggestion acceptance | Tracked | Not measured: needs live AI in use | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |

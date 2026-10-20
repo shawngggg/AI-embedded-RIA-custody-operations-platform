@@ -37,6 +37,23 @@ def test_scoring_counts_misses_and_false_nigos():
     assert perfect["seeded"] == 19 and perfect["packages"] == 20
 
 
+def test_a_miss_shows_the_models_evidence():
+    # The live run's one miss (Oct. 20): the model took the contents line for the ownership chart itself
+    p = next(p for p in PACKAGES if p.key == "chart-listed")
+    fooled = answer_key(p)
+    fooled["fields"].append({"name": "ownership_chart", "value": "true", "quote": "ownership chart (attached)"})
+    out = run(lambda text: gate(fooled, text, "end_turn", "fooled"), [p])
+    row = out["rows"][0]
+    assert row["missed"] == ["KYB-002"] and out["recall"] == 0.0
+    assert row["evidence"] == {"KYB-002": [{"field": "ownership_chart", "value": "true",
+                                            "quote": "ownership chart (attached)"}]}
+
+
+def test_the_prompt_says_a_mention_is_not_the_document():
+    from extraction import SYSTEM
+    assert "table of contents" in SYSTEM and "never from a mention of it" in SYSTEM
+
+
 def test_a_failed_model_call_counts_as_missed():
     def broken(text):
         raise RuntimeError("timeout")
