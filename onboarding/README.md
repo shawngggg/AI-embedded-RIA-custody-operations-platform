@@ -28,7 +28,7 @@ RIA firm onboarding and client account opening for the RIA custody operations pl
 | `pipeline.py` | All | Firm onboarding and account opening in map order, with a step trace and audit record |
 | `sample_data.py` | All | Synthetic firms, accounts, flagged list, and an application package |
 | `demo.py` | All | Command-line demo and the browser console's entry point |
-| `test_*.py` | All | 234 tests |
+| `test_*.py` | All | 236 tests |
 
 ## Run it
 

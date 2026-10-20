@@ -100,7 +100,7 @@ To run it from the repo root:
 
 ```
 pip install -r requirements.txt
-python -m pytest onboarding -v      # 234 tests
+python -m pytest onboarding -v      # 236 tests
 python onboarding/demo.py           # every scenario, printed step by step
 ```
 

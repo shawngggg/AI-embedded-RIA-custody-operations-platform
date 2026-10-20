@@ -43,6 +43,11 @@ NIGO_RULES = {
     "CIP-F03": "Principal place of business is a P.O. box",
 }
 TARGET_RECALL = 0.90
+# The extracted fact each rule turns on, so a miss or a false NIGO shows the model's evidence
+RULE_FIELD = {"REG-003": "sec_file_number", "REG-004": "crd_number", "KYB-001": "formation_documents",
+              "KYB-002": "ownership_chart", "KYB-003": "beneficial_ownership_certification", "KYB-004": "people",
+              "KYB-006": "custodial_agreement_signed", "CIP-F01": "ein", "CIP-F02": "principal_address",
+              "CIP-F03": "principal_address"}
 
 ENTITY = {"LLC": ("limited liability company", "CERTIFICATE OF FORMATION (SYNTHETIC)", "filed with the {state} "
                   "Division of Corporations on"),
@@ -264,9 +269,14 @@ def run(extract, packages: list[Package] | None = None, workers: int = 1) -> dic
             return {"key": p.key, "about": p.about, "seeded": sorted(p.seeded), "flagged": [], "caught": [],
                     "missed": sorted(p.seeded), "false_nigo": [], "error": str(exc)[:300]}
         got = flagged(result.application)
+        wrong = (p.seeded - got) | (got - p.seeded)
+        # What the model returned for each rule it got wrong: a quote it relied on, or nothing if it left it out
+        evidence = {r: [{k: a[k] for k in ("field", "value", "quote")} for a in result.accepted
+                        if a["field"] == RULE_FIELD[r]] for r in sorted(wrong)}
         return {"key": p.key, "about": p.about, "seeded": sorted(p.seeded), "flagged": sorted(got),
                 "caught": sorted(p.seeded & got), "missed": sorted(p.seeded - got),
-                "false_nigo": sorted(got - p.seeded), "rejected": len(result.rejected), "error": None}
+                "false_nigo": sorted(got - p.seeded), "rejected": len(result.rejected), "evidence": evidence,
+                "error": None}
 
     if workers > 1:
         from concurrent.futures import ThreadPoolExecutor

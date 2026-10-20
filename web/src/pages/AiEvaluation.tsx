@@ -3,7 +3,8 @@ import { api } from "../api";
 import { Loading, useLoad, when } from "../util";
 
 type Row = { key: string; about: string; seeded: string[]; flagged: string[]; caught: string[]; missed: string[];
-  false_nigo: string[]; rejected?: number; error: string | null };
+  false_nigo: string[]; rejected?: number; error: string | null;
+  evidence?: Record<string, { field: string; value: string; quote: string }[]> };
 type Run = { at: string; by: string; model: string; prompt_version: string; auth: string; packages: number; seeded: number;
   caught: number; missed: number; recall: number | null; false_nigo: number; clean_packages_flagged: number; target: number;
   met: boolean; rows: Row[] };
@@ -63,7 +64,11 @@ export default function AiEvaluation() {
                 <td className="small">{!x ? <span className="muted">–</span> : x.error ? <span className="error">Call failed: {x.error}</span> : <>
                   {x.missed.length === 0 && x.false_nigo.length === 0 && <span className="pill t-clear">Correct</span>}
                   {x.missed.length > 0 && <div><span className="pill t-block">Missed</span> {label(x.missed)}</div>}
-                  {x.false_nigo.length > 0 && <div><span className="pill t-refer">False NIGO</span> {label(x.false_nigo)}</div>}</>}</td>
+                  {x.false_nigo.length > 0 && <div><span className="pill t-refer">False NIGO</span> {label(x.false_nigo)}</div>}
+                  {[...x.missed, ...x.false_nigo].map((rule) => x.evidence?.[rule] && (
+                    <div key={rule} className="muted small">{x.evidence[rule].length
+                      ? <>Model's evidence: {x.evidence[rule].map((e) => `“${e.quote}”`).join("; ")}</>
+                      : "The model left it out"}</div>))}</>}</td>
               </tr>
               {open === p.key && <tr className="detail"><td colSpan={3}><pre className="email-body">{p.text}</pre></td></tr>}
             </Fragment>);
