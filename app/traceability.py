@@ -11,7 +11,7 @@ from datetime import date
 from account_changes import CHANGE_RULES
 from account_rules import ACCOUNT_RULES, CIP_SOURCE
 from firm_rules import FIRM_RULES
-from risk import ACCOUNT_FACTORS, FIRM_FACTORS
+from risk import ACCOUNT_FACTORS, FIRM_FACTORS, PEP_SOURCE
 from rules import POLICY_VERSION
 from transferability import XFER_RULES
 
@@ -34,6 +34,13 @@ STATIC = {
                              "against the sanctions team's flagged list; the sanctions team decides"}],
     "edd": [{"rule_id": "AML-EDD", "rule_version": "1",
              "source": "Broker-dealer AML program, including customer due diligence: 31 CFR 1023.210"}],
+    "alert_review": [{"rule_id": "AML-ALR", "rule_version": "1",
+                      "source": "Broker-dealer AML program and customer due diligence: 31 CFR 1023.210; " + PEP_SOURCE
+                                + "; platform policy: every PEP or adverse-media alert goes to AML compliance"}],
+    "identity_fraud": [{"rule_id": "CIP-FRD", "rule_version": "1",
+                        "source": "31 CFR 1023.220(a)(2)(iii) (when the custodian can't form a reasonable belief that "
+                                  "it knows a customer's true identity: when not to open, when to close, and when to "
+                                  "file a SAR); platform policy: a suspected fraudulent identity goes to AML compliance"}],
     "confirmation": [{"rule_id": "FRD-001", "rule_version": "1",
                       "source": "Platform policy: address, bank, or contact changes together within 30 days need "
                                 "RIA confirmation and a client callback"}],
@@ -63,7 +70,7 @@ def basis(case: Case, decision_type: str) -> list[dict]:
     findings = (result.get("findings") or {}).get("decisions") or []
     if decision_type == "sanctions" and result.get("escalation"):
         items[0]["flagged_entries"] = sorted({h.get("entry_id") for h in result["escalation"].get("hits", [])} - {None})
-    if decision_type == "edd":
+    if decision_type in ("edd", "alert_review"):
         for f in (result.get("risk") or {}).get("factors") or []:
             lib = _in_force(f["factor_id"], on)
             items.append({"rule_id": f["factor_id"], "rule_version": lib["version"] if lib else "1",

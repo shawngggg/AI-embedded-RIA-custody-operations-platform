@@ -1,10 +1,11 @@
 """
 AI suggestions and what people do with them (PRD guardrail 6, and the MVP gate's AI suggestion acceptance metric).
 
-Every value the AI reads from a firm's package and the controls gate lets through becomes a suggestion. A person on
-the onboarding team checks each one against the package and accepts it unchanged, edits it, or rejects it, with a
-reason for an edit or a rejection. Until every suggestion is reviewed the case waits in onboarding's AI review queue,
-and the rules don't run on AI values. The metric is the share of reviewed live suggestions accepted without edits;
+Every value the AI reads from a firm's package and the controls gate lets through becomes a suggestion. The
+onboarding and CIP teams check each one against the package (Shawn, Oct. 20, 2026): onboarding the firm and Form ADV
+facts, CIP the identity facts (CIP_FIELDS). They accept it unchanged, edit it, or reject it, with a reason for an edit
+or a rejection. Until every suggestion is reviewed the case waits in the AI review queue, and the rules don't run on
+AI values; a licensed principal accepts the relationship at the end. The metric is the share of reviewed live suggestions accepted without edits;
 the illustrative demo output is tracked apart and never counted.
 """
 from __future__ import annotations
@@ -32,6 +33,11 @@ CLEARS_TO = {"sec_file_number": None, "crd_number": None, "adv_last_annual_amend
 # is edited to what the package says, never rejected
 CHOICES = {"registration": ["SEC", "state", "none"], "entity_type": ["LLC", "corporation", "partnership"]}
 MIN_REASON = 10
+# The CIP team reviews what identifies the firm and the people behind it (name, address, TIN, owners and control
+# persons, and the formation and ownership documents); onboarding reviews the rest
+CIP_FIELDS = {"legal_name", "principal_address", "ein", "people", "formation_documents", "ownership_chart",
+              "beneficial_ownership_certification"}
+REVIEW_TEAMS = {"onboarding": "Onboarding", "cip": "CIP"}
 LABELS = {"legal_name": "Legal name", "entity_type": "Entity type", "registration": "Registration",
           "sec_file_number": "SEC file number", "crd_number": "CRD number", "raum": "RAUM (Form ADV Item 5.F)",
           "fiscal_year_end_month": "Fiscal year ends (month)", "adv_last_annual_amendment": "Last ADV annual amendment",
@@ -46,6 +52,20 @@ LABELS = {"legal_name": "Legal name", "entity_type": "Entity type", "registratio
 def prompt_version() -> str:
     """A short fingerprint of the extraction instructions: a change to the prompt shows as a new version."""
     return hashlib.sha256((SYSTEM + build_prompt("")).encode()).hexdigest()[:10]
+
+
+def team_for(field: str) -> str:
+    return "cip" if field in CIP_FIELDS else "onboarding"
+
+
+def may_review(user: User, field: str) -> bool:
+    """The supervisor oversees both teams; an analyst reviews their own team's values."""
+    return user.role == "ops_supervisor" or (user.role == "ops_analyst" and user.team == team_for(field))
+
+
+def pending_teams(db: Session, case: Case) -> set[str]:
+    return {team_for(f) for f in db.scalars(select(AiSuggestion.field).where(
+        AiSuggestion.case_id == case.id, AiSuggestion.status == "pending")).all()}
 
 
 def label(field: str) -> str:
@@ -95,14 +115,14 @@ def create_for(db: Session, case: Case, extraction: dict, mode: str, model: str 
 
 
 def actions(s: AiSuggestion, user: User, case: Case) -> list[str]:
-    from .access import capabilities
-    if s.status != "pending" or case.closed_at or not capabilities(user)["intake"]:
+    if s.status != "pending" or case.closed_at or not may_review(user, s.field):
         return []
     return ["accept", "edit", "reject"] if s.field == "people" or s.field in CLEARS_TO else ["accept", "edit"]
 
 
 def to_dict(s: AiSuggestion, user: User | None = None, case: Case | None = None) -> dict:
-    return {"id": s.id, "field": s.field, "label": label(s.field), "kind": kind(s.field),
+    return {"id": s.id, "field": s.field, "label": label(s.field), "kind": kind(s.field), "team": team_for(s.field),
+            "team_label": REVIEW_TEAMS[team_for(s.field)],
             "choices": CHOICES.get(s.field), "suggested": s.suggested, "suggested_text": show(s.field, s.suggested),
             "quote": s.quote, "mode": s.mode, "status": s.status, "final": s.final, "final_text": show(s.field, s.final),
             "reason": s.reason, "reviewed_by": s.reviewed_by_name, "reviewed_at": iso(s.reviewed_at),
@@ -173,6 +193,10 @@ def review(db: Session, case: Case, s: AiSuggestion, user: User, action: str, va
            reason: str | None = None) -> None:
     """Record what the reviewer did, apply an edit or a rejection to the application, and re-run the case."""
     from .runner import run_case
+    if not may_review(user, s.field):
+        team = REVIEW_TEAMS[team_for(s.field)]
+        audit.refuse(db, user, "ai_suggestion_review", f"The {team} team reviews this value", case_id=case.id,
+                     suggestion=s.id, field=s.field)
     if s.status != "pending":
         raise HTTPException(409, f"Already {s.status} by {s.reviewed_by_name}")
     if case.closed_at:

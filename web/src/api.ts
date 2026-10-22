@@ -91,11 +91,19 @@ export type CaseDetail = CaseSummary & {
   rescission: { can_request: boolean; reason: string | null; kinds: Record<string, string>; return_to: Record<string, string> } | null;
   rework: { reason: string; reference: string; requested_by: string; approved_by: string; at: string } | null;
   ai_suggestions: AiSuggestion[];
+  identity_check: IdentityCheckState | null;
 };
+
+/** A failed identity check (app/identity_check.py): back to the RIA to resubmit, or to AML compliance. */
+export type IdentityIssue = { kind: string; person: string; note: string; status: string; by: string; at: string;
+  resubmitted_at?: string };
+export type IdentityCheckState = { can_record: boolean; people: string[]; kinds: Record<string, string>;
+  issue: IdentityIssue | null; history: IdentityIssue[] };
 
 /** A value the AI read from the package, and what a person in onboarding did with it (app/ai_suggestions.py). */
 export type AiSuggestion = {
   id: number; field: string; label: string; kind: "text" | "number" | "date" | "boolean" | "person";
+  team: "onboarding" | "cip"; team_label: string;
   choices: string[] | null; suggested: any; suggested_text: string; quote: string; mode: string;
   status: "pending" | "accepted" | "edited" | "rejected"; final: any; final_text: string | null; reason: string | null;
   reviewed_by: string | null; reviewed_at: string | null; actions: ("accept" | "edit" | "reject")[];

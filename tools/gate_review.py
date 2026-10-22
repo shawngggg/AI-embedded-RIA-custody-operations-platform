@@ -122,6 +122,9 @@ def work_the_seeded_cases() -> None:
                   {"aml_compliance"}, matrix=True)
     maker_checker(lakeshore, "edd", "approved", "EDD-GATE-02", "aml.maker", "aml.checker", {"aml_compliance"},
                   {"aml_compliance"}, matrix=False)
+    # Oct. 20: every PEP or adverse-media alert goes to AML compliance; a domestic PEP's alert is cleared here
+    maker_checker(case_id("Nadia Brooks"), "alert_review", "cleared", "ALR-GATE-01", "aml.maker", "aml.checker",
+                  {"aml_compliance"}, {"aml_compliance"}, matrix=True)
     chg = case_id("bank instruction on Maria Chen")
     maker_checker(chg, "confirmation", "confirmed", "CALLBACK-GATE", "ops.analyst", "ops.supervisor",
                   {"ops_analyst", "ops_supervisor"}, {"ops_supervisor"}, matrix=True)
@@ -190,19 +193,49 @@ def work_the_seeded_cases() -> None:
     for u in wrong_roles({"platform_admin"}):
         attempt("email re-send", u, "post", f"/api/outbox/{held['id']}/retry")
 
-    # Oct. 20: only the onboarding team reviews what the AI read from a package (accept, edit, or reject each value)
+    # Oct. 20: onboarding and CIP review what the AI read from a package, each their own values (onboarding the firm
+    # and Form ADV facts, CIP the identity facts): accept, edit, or reject each one
     ops = as_user("ops.analyst")
     detail = ops.post("/api/intake/extract", data={"text": ops.get("/api/intake/status").json()["sample_text"]}).json()
-    first = detail["ai_suggestions"][0]["id"]
-    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.cip", "ops.service"]:
-        attempt("AI suggestion review outside onboarding", u, "post",
-                f"/api/cases/{detail['id']}/ai-suggestions/{first}", {"action": "accept"})
-    for i, sug in enumerate(detail["ai_suggestions"]):
+    url = f"/api/cases/{detail['id']}/ai-suggestions/"
+    firm_fact = next(x["id"] for x in detail["ai_suggestions"] if x["team"] == "onboarding")
+    identity_fact = next(x["id"] for x in detail["ai_suggestions"] if x["team"] == "cip")
+    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.service"]:
+        attempt("AI suggestion review outside onboarding and CIP", u, "post", url + str(firm_fact), {"action": "accept"})
+    attempt("AI suggestion review: CIP on a firm fact", "ops.cip", "post", url + str(firm_fact), {"action": "accept"})
+    attempt("AI suggestion review: onboarding on an identity fact", "ops.analyst", "post", url + str(identity_fact),
+            {"action": "accept"})
+    for sug in detail["ai_suggestions"]:
         body = {"action": "accept"}
         if sug["field"] == "ein":
             body = {"action": "edit", "value": "87-1234599", "reason": "Gate review: an edit is recorded with its reason"}
-        r = ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{sug['id']}", json=body)
+        reviewer = as_user("ops.analyst" if sug["team"] == "onboarding" else "ops.cip")
+        r = reviewer.post(url + str(sug["id"]), json=body)
         assert r.status_code == 200, r.text
+
+    # Oct. 20: a failed identity check is recorded by onboarding or CIP; a suspected fraudulent identity goes to AML
+    # compliance, which decides under maker-checker
+    check = {"kind": "suspected_fraud", "person": "Nora Lindqvist", "note": "Gate review: the ID photo doesn't match"}
+    for u in wrong_roles({"ops_analyst", "ops_supervisor"}) + ["ops.service"]:
+        attempt("identity check outside onboarding and CIP", u, "post", f"/api/cases/{detail['id']}/identity-check", check)
+    r = as_user("ops.cip").post(f"/api/cases/{detail['id']}/identity-check", json=check)
+    assert r.status_code == 200 and r.json()["status"] == "PENDING_FRAUD_REVIEW", r.text
+    maker_checker(detail["id"], "identity_fraud", "not_fraud", "IDF-GATE-01", "aml.maker", "aml.checker",
+                  {"aml_compliance"}, {"aml_compliance"}, matrix=True)
+
+
+def walkthrough_tracking() -> dict:
+    """The timed walkthrough measures itself: a run here (not first-time, so it isn't counted) must be timed from Start
+    to the account opening and kept. The measure itself needs first-time reviewers on the live site."""
+    ops = as_user("ops.analyst")
+    w = ops.post("/api/walkthrough", json={"first_time": False}).json()
+    d = ops.get(f"/api/cases/{w['case_id']}").json()
+    lpoa = next(x for x in d["documents"] if x["doc_type"] == "lpoa")
+    ops.post(f"/api/cases/{w['case_id']}/corrections", json={"fields": {"lpoa_signed": True},
+                                                          "documents": {"lpoa_signed": lpoa["id"]}})
+    accept(w["case_id"])
+    run = as_user("ops.analyst").get(f"/api/walkthrough/{w['case_id']}").json()
+    return {"timed": "seconds" in run, "seconds": run.get("seconds"), "status": run["status"]}
 
 
 def suggestion_tracking() -> dict:
@@ -339,11 +372,13 @@ def main() -> None:
         "build_health": {"measured": False, "why": "skipped"} if args.no_github else build_health(),
         "nigo_test_set": nigo_test_set(),
         "ai_suggestion_tracking": suggestion_tracking(),
+        "walkthrough_tracking": walkthrough_tracking(),
         "not_measured": {
             "nigo_detection_recall": "Needs the live model: run Users and rules → AI evaluation in the deployed app",
             "ai_suggestion_acceptance": "Needs live values reviewed in the deployed app (New application, then review "
                                         "each value); the share shows on the dashboard and Users and rules → AI evaluation",
-            "reviewer_walkthrough": "Needs a person: a first-time reviewer, timed from sign-in to open account"},
+            "reviewer_walkthrough": "Needs first-time reviewers on the live site: Start the clock on the sign-in page; "
+                                    "the median shows on the dashboard"},
     }
     t, s, r = report["decision_traceability"], report["straight_through"], report["role_enforcement"]
     print("MVP gate review (synthetic data)\n")
@@ -365,6 +400,8 @@ def main() -> None:
     print(f"AI suggestion tracking: {a['reviewed']}/{a['suggestions']} sample values reviewed and recorded with the reviewer "
           f"({a['with_reviewer']}), {a['audited']} audit events, {a['changes_with_reason']}/{a['changes']} changes with a reason "
           f"(illustrative; {a['live']} live)")
+    wt = report["walkthrough_tracking"]
+    print(f"Walkthrough timing    : a run from Start to open account was timed ({wt['seconds']}s, {wt['status']}) and kept")
     for k, v in report["not_measured"].items():
         print(f"Not measured          : {k}: {v}")
     if args.json:
@@ -377,7 +414,9 @@ def main() -> None:
             ("NIGO test set consistent with its answer key", n["recall"] == 1.0 and n["false_nigo"] == 0),
             ("every AI suggestion review recorded with the reviewer and audited",
              a["reviewed"] == a["suggestions"] == a["with_reviewer"] == a["audited"] > 0
-             and a["changes_with_reason"] == a["changes"])) if not ok]
+             and a["changes_with_reason"] == a["changes"]),
+            ("the timed walkthrough records a run from Start to open account", wt["timed"] and wt["status"] == "OPEN"))
+            if not ok]
         print("\nGate check: " + ("all measured targets met" if not missed else "MISSED: " + "; ".join(missed)))
         sys.exit(1 if missed else 0)
 

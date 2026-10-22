@@ -77,6 +77,10 @@ class Decisions:
     edd_reference: str = "EDD-DEMO-0001"
     acceptance: str | None = None             # accepted | declined, by a registered principal
     acceptance_by: str = "Registered principal (demo)"
+    alert_review: str | None = None           # cleared | edd: AML compliance on a PEP or adverse-media alert
+    alert_reference: str = "ALR-DEMO-0001"
+    identity_fraud: str | None = None         # confirmed | not_fraud: AML compliance on a suspected fraudulent identity
+    identity_fraud_reference: str = "IDF-DEMO-0001"
 
 
 @dataclass
@@ -189,21 +193,100 @@ def _screen_and_escalate(res: OnboardingResult, subjects, flagged, registry, dec
     return None
 
 
-def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name) -> str | None:
-    if not risk.edd_required:
+def _edd(res: OnboardingResult, risk, registry, decisions, by, step_name, hold: bool = True) -> str | None:
+    """EDD when the risk rating requires it, or when AML compliance requires it after reviewing an alert.
+    `hold`: place the EDD hold (not for an account change, which simply isn't applied until EDD is approved)."""
+    required_by_alert = decisions.alert_review == "edd"
+    if not ((risk is not None and risk.edd_required) or required_by_alert):
         return None
     at = _stamp(res.as_of)
-    hold = registry.place(res.target_id, "EDDP", f"{risk.tier} risk; EDD pending", by, Function.OPERATIONS, at)
-    res.add(AML, step_name, "Required; EDD hold placed", risk.edd_requirements)
+    by_rating = risk is not None and risk.edd_required
+    requirements = risk.edd_requirements if by_rating else [
+        "Enhanced review of the PEP or adverse-media alert, required by AML compliance "
+        f"(reference {decisions.alert_reference})"]
+    placed = registry.place(res.target_id, "EDDP", f"{risk.tier} risk; EDD pending" if by_rating else
+                            "Screening alert; EDD required by AML compliance", by, Function.OPERATIONS, at) if hold else None
+    res.add(AML, step_name, "Required; EDD hold placed" if hold else "Required", requirements)
     if decisions.edd is None:
         return "PENDING_EDD"
     if decisions.edd == "declined":
         res.add(AML, "EDD decision", "Declined", [f"Reference {decisions.edd_reference}"])
         return "DECLINED"
-    registry.remove(hold.restriction_id, "aml.officer", Function.AML_COMPLIANCE, "EDD approved",
-                    decisions.edd_reference, at)
-    res.add(AML, "EDD decision", "Approved; EDD hold removed by AML compliance",
+    if placed is not None:
+        registry.remove(placed.restriction_id, "aml.officer", Function.AML_COMPLIANCE, "EDD approved",
+                        decisions.edd_reference, at)
+    res.add(AML, "EDD decision", "Approved; EDD hold removed by AML compliance" if hold else "Approved by AML compliance",
             [f"Reference {decisions.edd_reference}"])
+    return None
+
+
+# A failed identity check (Shawn, Oct. 20, 2026): insufficient information or the wrong type of document goes back
+# to the RIA to resubmit; a suspected fraudulent identity goes to AML compliance
+IDENTITY_RESUBMIT = {"insufficient_information": "not enough information to verify identity",
+                     "wrong_document": "wrong type of identity document"}
+IDENTITY_FAILURES = {**IDENTITY_RESUBMIT, "suspected_fraud": "suspected fraudulent identity"}
+RESUBMIT = "RESUBMIT"
+
+
+def _identity_issue(res: OnboardingResult, issue: dict | None, decisions, registry, by) -> str | None:
+    """Returns RESUBMIT (the resubmission request is in res.requested_items; the caller sets the waiting status), a
+    stop status for a suspected fraud (held while AML compliance decides; DECLINED once confirmed), or None."""
+    if not issue:
+        return None
+    who, note = issue["person"], (issue.get("note") or "").strip()
+    if issue["kind"] in IDENTITY_RESUBMIT:
+        item = f"New identity documents for {who}: {IDENTITY_RESUBMIT[issue['kind']]}" + (f" ({note})" if note else "")
+        res.requested_items.append(item)
+        res.add(OPS, "Identity check failed: ask the RIA to resubmit", "Resubmission requested", [item])
+        return RESUBMIT
+    at = _stamp(res.as_of)
+    hold = registry.place(res.target_id, "IDFR", f"Suspected fraudulent identity: {who}", by, Function.OPERATIONS, at)
+    step = "Suspected fraudulent identity: AML compliance decides"
+    detail = [f"{who}: {note}" if note else who]
+    if decisions.identity_fraud is None:
+        res.add(AML, step, "Waiting for AML compliance; held (IDFR)", detail)
+        return "PENDING_FRAUD_REVIEW"
+    reference = f"Reference {decisions.identity_fraud_reference}"
+    if decisions.identity_fraud == "confirmed":
+        res.add(AML, step, "Fraudulent identity confirmed; stays held, not opened or closed",
+                [reference, *detail, "AML compliance decides whether a SAR is due (31 CFR 1023.320)"])
+        return "DECLINED"
+    registry.remove(hold.restriction_id, "aml.officer", Function.AML_COMPLIANCE, "Not a fraudulent identity",
+                    decisions.identity_fraud_reference, at)
+    res.add(AML, step, "Not fraudulent: hold removed; identity verification continues", [reference, *detail])
+    return None
+
+
+def _unverified_issue(issue: dict | None, unverified: list[str]) -> dict | None:
+    """An issue counts only while the person is still unverified (verifying them settles a resubmission)."""
+    return issue if issue and (issue["kind"] == "suspected_fraud" or issue.get("person") in unverified) else None
+
+
+def alert_hits(people) -> list[str]:
+    """PEP and adverse-media alerts on the people screened."""
+    hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
+    return hits + [f"{p.name}: adverse media" for p in people if p.adverse_media]
+
+
+ALERT_STEP = "Route PEP and adverse-media alerts to AML compliance"
+
+
+def _route_alerts(res: OnboardingResult, people, covered_by_edd: bool, decisions) -> str | None:
+    """Every PEP or adverse-media alert goes to AML compliance (with sanctions hits, which go to the sanctions team,
+    no screening alert is settled by operations). When the risk rating already requires EDD, the EDD review is where
+    compliance sees it; otherwise AML compliance reviews the alert and either clears it or requires EDD."""
+    hits = alert_hits(people)
+    if not hits:
+        return None
+    if covered_by_edd:
+        res.add(AML, ALERT_STEP, "Reviewed in EDD", hits)
+        return None
+    if decisions.alert_review is None:
+        res.add(AML, ALERT_STEP, "Waiting for AML compliance", hits)
+        return "PENDING_ALERT_REVIEW"
+    outcome = "Cleared by AML compliance: no EDD needed" if decisions.alert_review == "cleared" else \
+        "AML compliance requires EDD"
+    res.add(AML, ALERT_STEP, outcome, [f"Reference {decisions.alert_reference}", *hits])
     return None
 
 
@@ -222,10 +305,9 @@ def _accept(res: OnboardingResult, decisions, what: str) -> str | None:
 
 
 def _pep_media_step(res: OnboardingResult, people) -> None:
-    hits = [f"{p.name}: {'foreign' if p.pep_type == 'foreign' else 'domestic'} PEP" for p in people if p.is_pep]
-    hits += [f"{p.name}: adverse media" for p in people if p.adverse_media]
+    hits = alert_hits(people)
     res.add(AI, "PEP and adverse media screening; summarize hits (AI)",
-            "Hits found; they feed the risk rating" if hits else "No hits", hits)
+            "Hits found; they feed the risk rating and go to AML compliance" if hits else "No hits", hits)
 
 
 # ---------------------------------------------------------------------------
@@ -234,10 +316,11 @@ def _pep_media_step(res: OnboardingResult, people) -> None:
 
 def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=None, decisions=None,
                  registration_lookup: dict | None = None, by: str = "ops.analyst",
-                 extraction: ExtractionResult | None = None, unreviewed: int | None = None) -> OnboardingResult:
+                 extraction: ExtractionResult | None = None, unreviewed: int | None = None,
+                 identity_issue: dict | None = None) -> OnboardingResult:
     """`unreviewed`: AI suggestions a person hasn't yet accepted, edited, or rejected (None when the caller doesn't
-    track reviews, as in the console). Until there are none, the case waits with onboarding: nothing downstream
-    (completeness, registration, screening, risk) runs on AI values."""
+    track reviews, as in the console). Until there are none, the case waits with onboarding and CIP: nothing
+    downstream (completeness, registration, screening, risk) runs on AI values."""
     decisions = decisions or Decisions()
     registry = registry or RestrictionRegistry()
     target = f"FIRM-{app.crd_number or app.legal_name}"
@@ -249,21 +332,29 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
                 extraction.review_queue)
         if unreviewed:
             res.add(OPS, "Review the AI's suggestions against the package", f"{unreviewed} waiting",
-                    ["Accept, edit, or reject each value; the rules run on the values a person confirmed"])
+                    ["Onboarding reviews the firm and Form ADV facts; CIP reviews the identity facts",
+                     "Accept, edit, or reject each value; the rules run on the values a person confirmed"])
             res.status = "PENDING_AI_REVIEW"
             return res
         if unreviewed == 0 and extraction.accepted:
             res.add(OPS, "Review the AI's suggestions against the package", "Reviewed")
     if registration_lookup and app.crd_number in registration_lookup:
         app = replace(app, iapd_status=registration_lookup[app.crd_number])
+    stop = _identity_issue(res, _unverified_issue(identity_issue, [p.name for p in app.people if not p.identity_verified]),
+                           decisions, registry, by)
+    resubmit = list(res.requested_items) if stop == RESUBMIT else []
+    if stop and stop != RESUBMIT:
+        res.status = stop
+        return res
 
     ev = evaluate_firm(app, as_of)
     res.findings = ev
     nigo = [d for d in ev.decisions if d.required_documents and d.owner == "operations"]
-    if nigo:
-        res.add(AI, "Check completeness; categorize NIGO (AI)", "Not in good order",
-                [d.reason for d in nigo], [d.rule_id for d in nigo])
-        res.requested_items = [doc for d in nigo for doc in d.required_documents]
+    if nigo or resubmit:
+        if nigo:
+            res.add(AI, "Check completeness; categorize NIGO (AI)", "Not in good order",
+                    [d.reason for d in nigo], [d.rule_id for d in nigo])
+        res.requested_items = [doc for d in nigo for doc in d.required_documents] + resubmit
         res.add(OPS, "Request missing items from the RIA", "Sent", res.requested_items)
         res.status = "PENDING_ITEMS"
         return res
@@ -314,8 +405,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     res.add(RULES, "Risk-rate the RIA", f"{risk.tier} ({risk.score} points)",
             [f"{f['description']} (+{f['points']})" for f in risk.factors] or ["No risk factors"],
             [f["factor_id"] for f in risk.factors])
-    stop = _edd(res, risk, registry, decisions, by,
-                "EDD: owners' source of wealth, source of firm funds, enhanced review")
+    stop = _route_alerts(res, app.people, risk.edd_required, decisions) or _edd(
+        res, risk, registry, decisions, by, "EDD: owners' source of wealth, source of firm funds, enhanced review")
     if stop:
         res.status = stop
         return res
@@ -364,7 +455,7 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                  existing: list[Account] | None = None, ria_active: bool = True, ria_risk_tier: str = "LOW",
                  flagged=None, registry=None, decisions=None, by: str = "ops.analyst",
                  security_master: dict | None = None,
-                 liquidation_elections: set[str] | None = None) -> OnboardingResult:
+                 liquidation_elections: set[str] | None = None, identity_issue: dict | None = None) -> OnboardingResult:
     decisions = decisions or Decisions()
     registry = registry or RestrictionRegistry()
     primary = app.primary.name if app.primary else app.account_id
@@ -385,6 +476,7 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         return res
     res.add(RULES, gate_step, "Eligible")
 
+    resubmitted = False
     path = determine_path(account, as_of)                      # Milestone 1
     path_notes = []
     if path is Path.A and not reliance_relief_in_force(as_of):
@@ -424,6 +516,15 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.add(RULES, "Path A applies?", "No: Path B, the custodian carries CIP and CDD", why)
         people = [p for p in app.holders if p.role in ("account_holder", "control_person", "owner", "trustee")]
         unverified = [p.name for p in people if not p.identity_verified]
+        stop = _identity_issue(res, _unverified_issue(identity_issue, unverified), decisions, registry, by)
+        if stop == RESUBMIT:
+            resubmitted = True
+            if decisions.acceptance is None:         # not opened yet: it waits for the RIA's new documents
+                res.status = "PENDING_ITEMS"
+                return res
+        elif stop:
+            res.status = stop
+            return res
         if unverified:
             registry.place(app.account_id, "CIPV", "Identity verification pending: " + ", ".join(unverified),
                            by, Function.OPERATIONS, _stamp(as_of))
@@ -472,7 +573,8 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
             [f"Rated on {risk.information_basis}"]
             + ([f"{f['description']} (+{f['points']})" for f in risk.factors] or ["No risk factors"]),
             [f["factor_id"] for f in risk.factors])
-    stop = _edd(res, risk, registry, decisions, by, "EDD: source of funds and source of wealth; approve")
+    stop = _route_alerts(res, app.holders, risk.edd_required, decisions) or _edd(
+        res, risk, registry, decisions, by, "EDD: source of funds and source of wealth; approve")
     if stop:
         res.status = stop
         return res
@@ -499,5 +601,5 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
         res.add(OPS, "Transferability review of funding assets (shared subprocess)",
                 f"Release: {review.release}",
                 [f"{d.description}: {ROUTE_LABELS[d.route.value]}. {d.reason}" for d in review.dispositions])
-    res.status = "OPEN_RESTRICTED" if outstanding else "OPEN"
+    res.status = "OPEN_RESTRICTED" if outstanding or resubmitted else "OPEN"
     return res

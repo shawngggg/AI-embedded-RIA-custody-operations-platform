@@ -67,6 +67,9 @@ CATALOG = {c.code: c for c in [
              "Platform policy (sanctions escalation map, 06); only the sanctions team releases"),
     CodeType("OFAC", "Blocked property: confirmed sanctions match", Function.SANCTIONS, ALL, True,
              "31 CFR Part 501; 31 CFR 501.603 (report blocked property to OFAC within 10 business days)"),
+    CodeType("IDFR", "Suspected fraudulent identity: AML compliance review", Function.AML_COMPLIANCE, ALL, True,
+             "31 CFR 1023.220(a)(2)(iii) (procedures when the custodian can't form a reasonable belief that it knows "
+             "a customer's true identity); platform policy: a suspected fraudulent identity goes to AML compliance"),
     CodeType("FRAUD", "Fraud hold", Function.FRAUD, OUTGOING, True,
              "Platform policy (fraud holds are the custodian's own decision)"),
     CodeType("LEGAL", "Legal process hold: levy, garnishment, or court order", Function.LEGAL, OUTGOING, True,

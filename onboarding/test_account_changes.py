@@ -121,3 +121,34 @@ def test_path_a_relies_on_the_ria_for_new_owner_cip():
 
 def test_ops_can_key_a_written_request():
     assert process_change(req(submitted_by_role="ops_analyst", submitted_by_firm=None), TODAY).status == "APPLIED"
+
+
+def test_a_pep_or_adverse_media_on_a_new_owner_goes_to_aml_compliance_before_the_change_applies():
+    owner = Person("Ana Ruiz", "owner", 30, is_pep=True, pep_type="domestic", identity_verified=True)
+    r = req(ChangeType.BENEFICIAL_OWNER, client_signature=True, new_parties=[owner], path="A")
+    waiting = process_change(r, TODAY, flagged=FLAGGED_LIST)
+    assert waiting.status == "PENDING_ALERT_REVIEW" and waiting.restrictions == []
+    assert waiting.steps[-1].detail == ["Ana Ruiz: domestic PEP"]
+    cleared = process_change(r, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="cleared"))
+    assert cleared.status == "APPLIED"
+    edd = process_change(r, TODAY, flagged=FLAGGED_LIST, decisions=Decisions(alert_review="edd"))
+    assert edd.status == "PENDING_EDD" and edd.restrictions == []          # not applied yet; the account isn't held
+    assert process_change(r, TODAY, decisions=Decisions(alert_review="edd", edd="approved")).status == "APPLIED"
+    assert process_change(r, TODAY, decisions=Decisions(alert_review="edd", edd="declined")).status == "REJECTED"
+    media = replace(r, new_parties=[replace(owner, is_pep=False, adverse_media=True)])
+    assert process_change(media, TODAY, flagged=FLAGGED_LIST).status == "PENDING_ALERT_REVIEW"
+
+
+def test_a_new_partys_failed_identity_check_returns_the_change_or_goes_to_aml_compliance():
+    owner = Person("Ana Ruiz", "owner", 30, date_of_birth="1981-02-03", address="9 Elm St, Ogden, UT")
+    r = req(ChangeType.BENEFICIAL_OWNER, client_signature=True, new_parties=[owner], path="B")
+    back = process_change(r, TODAY, flagged=FLAGGED_LIST,
+                          identity_issue={"kind": "wrong_document", "person": "Ana Ruiz", "note": "Library card"})
+    assert back.status == "RETURNED" and back.requested_items[0].startswith("New identity documents for Ana Ruiz")
+    fraud = {"kind": "suspected_fraud", "person": "Ana Ruiz"}
+    held = process_change(r, TODAY, flagged=FLAGGED_LIST, identity_issue=fraud)
+    assert held.status == "PENDING_FRAUD_REVIEW" and [c["code"] for c in held.restrictions] == ["IDFR"]
+    assert process_change(r, TODAY, identity_issue=fraud,
+                          decisions=Decisions(identity_fraud="confirmed")).status == "REJECTED"
+    assert process_change(r, TODAY, identity_issue=fraud,
+                          decisions=Decisions(identity_fraud="not_fraud")).status == "PENDING_VERIFICATION"

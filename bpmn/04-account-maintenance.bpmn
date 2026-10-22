@@ -13,6 +13,7 @@
 <bpmn:textAnnotation id="am_ann0"><bpmn:text>Owner-level changes need the client&#39;s signature: beneficiaries, title or registration, powers of attorney, standing letters of authorization. The RIA submits changes on pure RIA accounts; the client submits changes on the self-directed account. A client can always contact the custodian, for example to revoke the RIA&#39;s authority.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="am_ann1"><bpmn:text>No cooling periods: RIA-confirmed changes take effect directly; new bank instructions activate only after verification.</bpmn:text></bpmn:textAnnotation>
 <bpmn:messageFlow id="am_msg6" name="Change request" sourceRef="am_cli" targetRef="am_s" />
+<bpmn:textAnnotation id="am_ann2"><bpmn:text>New parties are also screened for PEP and adverse media: an alert goes to AML compliance, which clears it or requires EDD before the change applies. A new party's failed identity check goes back to the submitter, or, if fraud is suspected, is held (IDFR) for AML compliance.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="am_process" name="Account maintenance (RIA-only channel)" isExecutable="false">
 <bpmn:laneSet id="am_laneset">
@@ -286,5 +287,6 @@
 <bpmndi:BPMNEdge id="am_msg4_di" bpmnElement="am_msg4" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="1780" y="674" /><di:waypoint x="1780" y="644" /><di:waypoint x="1880" y="644" /><di:waypoint x="1880" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="1887" y="66" width="115" height="16" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="am_msg5_di" bpmnElement="am_msg5" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4180" y="944" /><di:waypoint x="4180" y="1058" /><bpmndi:BPMNLabel><dc:Bounds x="4187" y="1022" width="133" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="am_msg6_di" bpmnElement="am_msg6" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="100" y="1058" /><di:waypoint x="100" y="209" /><di:waypoint x="162" y="209" /><bpmndi:BPMNLabel><dc:Bounds x="107" y="1022" width="98" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="am_ann2_di" bpmnElement="am_ann2"><dc:Bounds x="2260" y="640" width="380" height="110" /></bpmndi:BPMNShape>
 </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </bpmn:definitions>

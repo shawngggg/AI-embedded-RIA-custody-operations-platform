@@ -119,7 +119,12 @@ the 20 test packages with the live model (20 calls, about a cent with Claude Hai
 
 The other AI measure is how often reviewers accept the AI's values unchanged. Sign in as the onboarding analyst, open
 **New application**, load a synthetic test package (or paste your own), and choose **Read and open a case**. The case
-waits in the AI review queue: accept, edit, or reject each value. The share shows on the operations dashboard and on
+waits in the AI review queue: accept, edit, or reject each firm and Form ADV value, then switch to the CIP analyst
+(Taylor Brooks) for the identity values.
+
+The last measure is the reviewer walkthrough. On the sign-in page, a first-time reviewer ticks "This is my first time"
+and chooses **Start the clock**; the server times their case from Start to the account opening. The median of
+first-time runs shows on the operations dashboard (sign in as Priya Raman), and the deploy smoke test reports it. The share shows on the operations dashboard and on
 **Users and rules → AI evaluation**.
 
 ### Email through Microsoft 365 (Outlook)

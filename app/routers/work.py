@@ -33,6 +33,9 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
     can = capabilities(user)
     mine = [k for k in QUEUES if works_queue(user, k)]
     cases = sorted(db.scalars(select(Case).where(Case.queue.in_(mine))).all(), key=_sla_key) if mine else []
+    if user.role == "ops_analyst":       # an AI review needs an analyst only while their team has values left
+        from ..ai_suggestions import pending_teams
+        cases = [c for c in cases if c.queue != "ai_review" or user.team in pending_teams(db, c)]
     now = datetime.now(timezone.utc)
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")
                          .order_by(PendingDecision.proposed_at)).all()

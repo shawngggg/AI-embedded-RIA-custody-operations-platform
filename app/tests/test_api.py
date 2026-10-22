@@ -299,18 +299,29 @@ def test_documents_are_fingerprinted_scoped_and_checked(as_user):
 
 
 def _upload_sample(ops, review: bool = True):
-    """The sample package read through the controls gate; by default someone in onboarding then accepts every
+    """The sample package read through the controls gate; by default onboarding and CIP then accept every
     suggestion, so the rules run."""
     text = ops.get("/api/intake/status").json()["sample_text"]
     detail = ops.post("/api/intake/extract", data={"text": text}).json()
     return _accept_all(ops, detail) if review else detail
 
 
-def _accept_all(ops, detail):
-    for s in detail["ai_suggestions"]:
-        if s["status"] == "pending":
-            detail = ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
-    return detail
+REVIEWER = {"onboarding": "ops.analyst", "cip": "ops.cip"}
+
+
+def _accept_all(client, detail):
+    """Each team accepts its own values (onboarding the firm facts, CIP the identity facts); then the client is
+    signed back in as whoever was using it."""
+    me = client.get("/api/auth/me").json()["username"]
+    for team, username in REVIEWER.items():
+        client.cookies.clear()
+        client.post("/api/auth/demo", json={"username": username})
+        for s in detail["ai_suggestions"]:
+            if s["status"] == "pending" and s["team"] == team:
+                detail = client.post(f"/api/cases/{detail['id']}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
+    client.cookies.clear()
+    client.post("/api/auth/demo", json={"username": me})
+    return client.get(f"/api/cases/{detail['id']}").json()
 
 
 def test_ai_read_firm_completes_after_identity_verification(as_user):
@@ -770,7 +781,7 @@ def test_queues_are_marked_by_team(as_user):
     def mine(u):
         return {q["key"] for q in as_user(u).get("/api/queues").json()["queues"] if q["mine"]}
     assert mine("ops.analyst") == {"ai_review", "items_requested", "rework"}
-    assert mine("ops.cip") == {"verification"}
+    assert mine("ops.cip") == {"ai_review", "verification"}
     assert mine("ops.service") == {"confirmation", "maintenance_items"}     # account maintenance
     assert {"ai_review", "items_requested", "confirmation", "verification", "rework", "maintenance_items"} <= mine("ops.supervisor")
 
@@ -911,14 +922,17 @@ def test_microsoft_365_sends_through_graph(monkeypatch):
 
 PLANNED_ALL = {"planned_transfers", "planned_trading", "planned_billing"}
 EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams that will run them
-    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "restricted_accounts", "outbox"},
-    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
+    "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "ai_review", "identity_check",
+                    "restricted_accounts", "outbox"},
+    "ops.cip": {"work", "cases", "queues", "messages", "risk_events", "ai_review", "identity_check", "restricted_accounts",
+                "outbox"},
     "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
     # Teams whose workbench arrives in a later release: no queue or notices yet, their own planned page
     "ops.transfers": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_transfers"},
     "ops.trade": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_trading"},
     "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
-    "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake",
+    "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake", "ai_review",
+                       "identity_check",
                        "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
                   "audit"},
@@ -945,7 +959,7 @@ def test_queues_show_only_the_queues_a_person_works(as_user):
     keys = {u: {q["key"] for q in as_user(u).get("/api/queues").json()["queues"]}
             for u in ("ops.analyst", "ops.cip", "ops.service", "sanctions.maker", "review.analyst")}
     assert keys["ops.analyst"] == {"ai_review", "items_requested", "rework"}
-    assert keys["ops.cip"] == {"verification"} and keys["ops.service"] == {"confirmation", "maintenance_items"}
+    assert keys["ops.cip"] == {"ai_review", "verification"} and keys["ops.service"] == {"confirmation", "maintenance_items"}
     assert keys["sanctions.maker"] == {"sanctions_review"} and keys["review.analyst"] == {"reviews"}
 
 
@@ -1154,48 +1168,60 @@ def _review(ops, detail, field, action, nth=0, **body):
     return ops.post(f"/api/cases/{detail['id']}/ai-suggestions/{s['id']}", json={"action": action, **body})
 
 
-def test_nothing_runs_on_ai_values_until_onboarding_reviews_each_one(as_user):
+def test_nothing_runs_on_ai_values_until_onboarding_and_cip_review_each_one(as_user):
     ops = as_user("ops.analyst")
     detail = _upload_sample(ops, review=False)
     cid = detail["id"]
     assert detail["status"] == "PENDING_AI_REVIEW" and detail["queue"] == "ai_review"
     assert detail["result"]["findings"] is None and detail["result"]["requested_items"] == []
     assert len(detail["ai_suggestions"]) == 16 and all(s["status"] == "pending" for s in detail["ai_suggestions"])
-    assert _suggestion(detail, "ein")["actions"] == ["accept", "edit", "reject"]
+    teams = {s["field"]: s["team"] for s in detail["ai_suggestions"]}
+    assert teams["registration"] == teams["raum"] == "onboarding" and teams["ein"] == teams["people"] == "cip"
     assert _suggestion(detail, "registration")["actions"] == ["accept", "edit"]     # always holds a value
+    assert _suggestion(detail, "ein")["actions"] == []                              # CIP's, not onboarding's
     assert any(c["id"] == cid for c in ops.get("/api/work").json()["needs_you"])
     assert ops.post(f"/api/cases/{cid}/corrections", json={"verify_people": True}).status_code == 409
-    for s in detail["ai_suggestions"][:-1]:
-        detail = ops.post(f"/api/cases/{cid}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
+    for s in detail["ai_suggestions"]:
+        if s["team"] == "onboarding":
+            detail = ops.post(f"/api/cases/{cid}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
     assert detail["status"] == "PENDING_AI_REVIEW" and detail["manual_steps"] == 0
-    detail = _review(ops, detail, "people", "edit", nth=1, value={"name": "Tomas Reyes", "role": "owner",
+    assert not any(c["id"] == cid for c in ops.get("/api/work").json()["needs_you"])   # onboarding's half is done
+    cip = as_user("ops.cip")
+    assert any(c["id"] == cid for c in cip.get("/api/work").json()["needs_you"])
+    assert _suggestion(cip.get(f"/api/cases/{cid}").json(), "ein")["actions"] == ["accept", "edit", "reject"]
+    detail = cip.get(f"/api/cases/{cid}").json()
+    for s in detail["ai_suggestions"]:
+        if s["status"] == "pending" and not (s["field"] == "people" and s["suggested"]["name"] == "Tomas Reyes"):
+            detail = cip.post(f"/api/cases/{cid}/ai-suggestions/{s['id']}", json={"action": "accept"}).json()
+    detail = _review(cip, detail, "people", "edit", nth=1, value={"name": "Tomas Reyes", "role": "owner",
                      "ownership_pct": 30}, reason="The ownership chart shows 30%, not 35%").json()
     assert detail["status"] == "PENDING_ITEMS" and detail["manual_steps"] == 1        # a correction is manual work
     assert [p["ownership_pct"] for p in detail["application"]["people"]] == [65.0, 30.0]
     assert any(s["step"].startswith("Review the AI") and s["outcome"] == "Reviewed" for s in detail["result"]["steps"])
     edited = _suggestion(detail, "people", 1)
-    assert (edited["status"], edited["final_text"], edited["reviewed_by"]) == ("edited", "Tomas Reyes (owner, 30%)", "Jamie Ortiz")
-    assert edited["actions"] == [] and _review(ops, detail, "people", "accept", nth=1).status_code == 409
-    log = ops.get(f"/api/cases/{cid}/audit").json()
+    assert (edited["status"], edited["final_text"], edited["reviewed_by"]) == ("edited", "Tomas Reyes (owner, 30%)", "Taylor Brooks")
+    assert edited["actions"] == [] and _review(cip, detail, "people", "accept", nth=1).status_code == 409
+    log = cip.get(f"/api/cases/{cid}/audit").json()
     assert sum(e["action"] == "ai_suggestion_reviewed" for e in log) == 16
 
 
 def test_edits_and_rejections_change_the_application_and_need_a_reason(as_user):
+    detail = _upload_sample(as_user("ops.analyst"), review=False)
     ops = as_user("ops.analyst")
-    detail = _upload_sample(ops, review=False)
-    assert _review(ops, detail, "ein", "edit", value="87-1234599").status_code == 422          # no reason
-    assert _review(ops, detail, "ein", "edit", value="87-1234511", reason="Same as the package").status_code == 422
     assert _review(ops, detail, "raum", "edit", value="a lot", reason="Item 5.F says otherwise").status_code == 422
     assert _review(ops, detail, "registration", "edit", value="FINRA", reason="Registered elsewhere").status_code == 422
-    assert _review(ops, detail, "legal_name", "reject", reason="Name is from the cover letter").status_code == 422
-    detail = _review(ops, detail, "ein", "edit", value="87-1234599", reason="The W-9 in the package shows 87-1234599").json()
-    detail = _review(ops, detail, "formation_documents", "reject",
-                     reason="The certificate of formation is listed but not attached").json()
-    detail = _review(ops, detail, "legal_name", "edit", value="Red Butte Capital Management, LLC",
-                     reason="Form ADV Item 1.A has a comma").json()
     assert _review(ops, detail, "crd_number", "edit", value="310001",
                    reason="Form ADV shows a different CRD").status_code == 409                # Granite Peak's CRD
-    detail = _accept_all(ops, detail)
+    cip = as_user("ops.cip")
+    assert _review(cip, detail, "ein", "edit", value="87-1234599").status_code == 422          # no reason
+    assert _review(cip, detail, "ein", "edit", value="87-1234511", reason="Same as the package").status_code == 422
+    assert _review(cip, detail, "legal_name", "reject", reason="Name is from the cover letter").status_code == 422
+    detail = _review(cip, detail, "ein", "edit", value="87-1234599", reason="The W-9 in the package shows 87-1234599").json()
+    detail = _review(cip, detail, "formation_documents", "reject",
+                     reason="The certificate of formation is listed but not attached").json()
+    detail = _review(cip, detail, "legal_name", "edit", value="Red Butte Capital Management, LLC",
+                     reason="Form ADV Item 1.A has a comma").json()
+    detail = _accept_all(cip, detail)
     app = detail["application"]
     assert app["ein"] == "87-1234599" and app["formation_documents"] is False
     assert detail["title"] == "RIA firm onboarding: Red Butte Capital Management, LLC"
@@ -1203,19 +1229,25 @@ def test_edits_and_rejections_change_the_application_and_need_a_reason(as_user):
     assert detail["manual_steps"] == 3
 
 
-def test_only_onboarding_reviews_the_ais_suggestions_and_every_refusal_is_logged(as_user):
+def test_only_onboarding_and_cip_review_each_their_own_values_and_every_refusal_is_logged(as_user):
     detail = _upload_sample(as_user("ops.analyst"), review=False)
-    sid = detail["ai_suggestions"][0]["id"]
-    for u in ("ops.cip", "ops.service", "ops.trade", "aml.maker", "sanctions.maker", "rs.principal", "rs.lead",
+    cid = detail["id"]
+    raum, ein = _suggestion(detail, "raum")["id"], _suggestion(detail, "ein")["id"]
+    for u in ("ops.service", "ops.trade", "aml.maker", "sanctions.maker", "rs.principal", "rs.lead",
               "review.analyst", "admin.platform", "granite.admin", "client.farid"):
         c = as_user(u)
-        assert c.post(f"/api/cases/{detail['id']}/ai-suggestions/{sid}", json={"action": "accept"}).status_code == 403, u
-    refused = as_user("ops.supervisor").get("/api/audit?action=access_refused").json()
-    assert sum(f"/ai-suggestions/{sid}" in e["target_id"] for e in refused) == 11
-    seen = as_user("ops.cip").get(f"/api/cases/{detail['id']}").json()["ai_suggestions"]
+        assert c.post(f"/api/cases/{cid}/ai-suggestions/{raum}", json={"action": "accept"}).status_code == 403, u
+    assert as_user("ops.cip").post(f"/api/cases/{cid}/ai-suggestions/{raum}", json={"action": "accept"}).status_code == 403
+    assert as_user("ops.analyst").post(f"/api/cases/{cid}/ai-suggestions/{ein}", json={"action": "accept"}).status_code == 403
+    log = as_user("ops.supervisor").get("/api/audit").json()
+    assert sum(f"/ai-suggestions/{raum}" in e["target_id"] for e in log if e["action"] == "access_refused") == 10
+    assert {e["detail"]["reason"] for e in log if e["action"] == "ai_suggestion_review_refused"} == {
+        "The Onboarding team reviews this value", "The CIP team reviews this value"}
+    seen = as_user("aml.maker").get(f"/api/cases/{cid}").json()["ai_suggestions"]
     assert seen and all(s["actions"] == [] for s in seen)                # other teams can see, not review
-    supervisor = as_user("ops.supervisor")
-    assert supervisor.post(f"/api/cases/{detail['id']}/ai-suggestions/{sid}", json={"action": "accept"}).status_code == 200
+    supervisor = as_user("ops.supervisor")                               # oversees both teams
+    for sid in (raum, ein):
+        assert supervisor.post(f"/api/cases/{cid}/ai-suggestions/{sid}", json={"action": "accept"}).status_code == 200
 
 
 def _live_intake(monkeypatch, package_index=0):
@@ -1235,9 +1267,10 @@ def test_live_suggestions_measure_how_often_reviewers_accept_the_ais_values(as_u
     text = _live_intake(monkeypatch)
     detail = ops.post("/api/intake/extract", data={"text": text}).json()
     assert detail["extra"]["extraction"]["mode"] == "live" and detail["extra"]["extraction"]["prompt_version"]
-    detail = _review(ops, detail, "ein", "edit", value="87-0000001", reason="The W-9 shows a different EIN").json()
-    detail = _review(ops, detail, "ownership_chart", "reject", reason="Only the cover letter mentions it").json()
-    _accept_all(ops, detail)
+    cip = as_user("ops.cip")
+    detail = _review(cip, detail, "ein", "edit", value="87-0000001", reason="The W-9 shows a different EIN").json()
+    detail = _review(cip, detail, "ownership_chart", "reject", reason="Only the cover letter mentions it").json()
+    _accept_all(cip, detail)
     m = as_user("ops.supervisor").get("/api/dashboard").json()["ai_suggestions"]
     assert m["live"] == {"suggestions": 17, "reviewed": 17, "pending": 0, "accepted": 15, "edited": 1, "rejected": 1,
                          "share_accepted": round(15 / 17, 3), "cases": 1}
@@ -1255,8 +1288,8 @@ def test_reviewed_suggestions_outlive_a_demo_reset(as_user, monkeypatch):
     text = _live_intake(monkeypatch)
     ops = as_user("ops.analyst")
     detail = ops.post("/api/intake/extract", data={"text": text}).json()
-    _review(ops, detail, "ein", "accept")
     _review(ops, detail, "raum", "accept")
+    _review(as_user("ops.cip"), detail, "ein", "accept")
     admin = as_user("admin.platform")
     assert admin.post("/api/admin/reset", json={}).status_code == 200
     live = as_user("admin.platform").get("/api/ai-evaluation").json()["suggestions"]["live"]
@@ -1264,4 +1297,139 @@ def test_reviewed_suggestions_outlive_a_demo_reset(as_user, monkeypatch):
     from app.db import SessionLocal
     from app.orm import AiSuggestion
     with SessionLocal() as db:
-        assert {(s.case_id, s.reviewed_by_name) for s in db.query(AiSuggestion)} == {(None, "Jamie Ortiz")}
+        assert {(s.case_id, s.reviewed_by_name) for s in db.query(AiSuggestion)} == {(None, "Jamie Ortiz"),
+                                                                                    (None, "Taylor Brooks")}
+
+
+# --- Compliance alerts: every PEP or adverse-media alert goes to AML compliance ------------------------------------
+
+
+def test_a_domestic_pep_alert_waits_for_aml_compliance_which_clears_it_or_requires_edd(as_user):
+    ops = as_user("ops.analyst")
+    nadia = case_id(ops, "Nadia Brooks")
+    d = ops.get(f"/api/cases/{nadia}").json()
+    assert (d["status"], d["queue"]) == ("PENDING_ALERT_REVIEW", "compliance_review") and d["result"]["risk"]["tier"] == "MEDIUM"
+    assert d["available_decisions"] == []                                   # operations can't settle an alert
+    assert as_user("granite.advisor").get(f"/api/cases/{nadia}").json()["status"] == "IN_REVIEW"   # nothing disclosed
+    aml = as_user("aml.maker")
+    assert [a["decision_type"] for a in aml.get(f"/api/cases/{nadia}").json()["available_decisions"]] == ["alert_review"]
+    p = aml.post(f"/api/cases/{nadia}/decisions", json={"decision_type": "alert_review", "value": "edd",
+                                                         "reference": "ALR-2026-0001"}).json()
+    assert aml.post(f"/api/decisions/{p['id']}/approve", json={}).status_code == 403          # maker-checker
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "PENDING_EDD" and [r["code"] for r in d["restrictions"] if r["active"]] == ["EDDP"]
+    approved = [e for e in as_user("ops.supervisor").get(f"/api/cases/{nadia}/audit").json()
+                if e["action"] == "decision_approved"][0]["detail"]
+    assert {"AML-ALR", "RA-PEP-2"} <= {b["rule_id"] for b in approved["basis"]}            # traceable
+
+
+def test_a_cleared_alert_goes_on_to_the_principal(as_user):
+    nadia = case_id(as_user("ops.analyst"), "Nadia Brooks")
+    p = as_user("aml.maker").post(f"/api/cases/{nadia}/decisions", json={
+        "decision_type": "alert_review", "value": "cleared", "reference": "ALR-2026-0002"}).json()
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "PENDING_ACCEPTANCE"
+    assert any(s["outcome"].startswith("Cleared by AML compliance") for s in d["result"]["steps"])
+
+
+# --- Failed identity checks: back to the RIA to resubmit, or to AML compliance for a suspected fraud ---------------
+
+
+def _firm_by_form(ops, name="Wasatch Peak Advisors LLC", crd="310077"):
+    app = {"legal_name": name, "registration": "SEC", "sec_file_number": "801-120077", "crd_number": crd,
+           "raum": 300_000_000, "adv_last_annual_amendment": "2026-03-10", "principal_address": "9 Main St, Logan, UT 84321",
+           "ein": "87-1234577", "people": [{"name": "Iris Holt", "role": "control_person", "ownership_pct": 100}]}
+    return ops.post("/api/intake/firm", json={"application": app, "documents": []}).json()
+
+
+def _identity_check(client, cid, kind, person, note="Checked against the record: see the file"):
+    return client.post(f"/api/cases/{cid}/identity-check", json={"kind": kind, "person": person, "note": note})
+
+
+def test_the_wrong_document_goes_back_to_the_ria_and_new_documents_restart_verification(as_user):
+    cid = _firm_by_form(as_user("ops.analyst"))["id"]
+    upload_sample(as_user("ops.analyst"), cid, "identity_documents")
+    cip = as_user("ops.cip")
+    state = cip.get(f"/api/cases/{cid}").json()["identity_check"]
+    assert state["can_record"] and state["people"] == ["Iris Holt"]
+    assert _identity_check(cip, cid, "wrong_document", "Iris Holt", "short").status_code == 422      # say what you found
+    assert _identity_check(cip, cid, "wrong_document", "Nobody").status_code == 409
+    d = _identity_check(cip, cid, "wrong_document", "Iris Holt", "A library card, not a government ID").json()
+    assert d["status"] == "PENDING_ITEMS" and not [r for r in d["restrictions"] if r["active"]]
+    assert "New identity documents for Iris Holt: wrong type of identity document (A library card, not a government ID)" \
+        in d["result"]["requested_items"]
+    assert [x["status"] for x in d["documents"] if x["doc_type"] == "identity_documents"] == ["not_in_good_order"]
+    d = upload_sample(as_user("ops.analyst"), cid, "identity_documents")       # the RIA's new documents
+    d = as_user("ops.cip").get(f"/api/cases/{cid}").json()
+    assert d["identity_check"]["issue"]["status"] == "resubmitted"
+    assert not any(i.startswith("New identity documents") for i in d["result"]["requested_items"])
+    for u in ("ops.service", "aml.maker", "rs.principal", "admin.platform", "granite.advisor"):
+        assert _identity_check(as_user(u), cid, "suspected_fraud", "Iris Holt").status_code in (403, 404), u
+
+
+def test_a_suspected_fraudulent_identity_is_held_for_aml_compliance_which_confirms_or_clears_it(as_user):
+    cid = _firm_by_form(as_user("ops.analyst"))["id"]
+    d = _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Iris Holt",
+                        "The ID photo and date of birth don't match the record").json()
+    assert (d["status"], d["queue"]) == ("PENDING_FRAUD_REVIEW", "compliance_review")
+    assert [r["code"] for r in d["restrictions"] if r["active"]] == ["IDFR"]
+    assert _identity_check(as_user("ops.cip"), cid, "wrong_document", "Iris Holt").status_code == 409   # with compliance
+    aml = as_user("aml.maker")
+    p = aml.post(f"/api/cases/{cid}/decisions", json={"decision_type": "identity_fraud", "value": "not_fraud",
+                                                       "reference": "IDF-2026-0001"}).json()
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "PENDING_ITEMS" and not [r for r in d["restrictions"] if r["active"]]    # verify again
+    d = _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Iris Holt", "Second ID is also altered").json()
+    assert d["status"] == "PENDING_FRAUD_REVIEW"                                  # a new suspicion, a new decision
+    p = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "identity_fraud", "value": "confirmed", "reference": "IDF-2026-0002"}).json()
+    d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
+    assert d["status"] == "DECLINED" and [r["code"] for r in d["restrictions"] if r["active"]] == ["IDFR"]
+    events = as_user("aml.maker").get("/api/risk-events").json()["events"]
+    assert any(e["category"] == "Fraudulent identity confirmed" and e["area"] == "aml" for e in events)
+    approved = [e for e in as_user("ops.supervisor").get(f"/api/cases/{cid}/audit").json()
+                if e["action"] == "decision_approved"][-1]["detail"]
+    assert "CIP-FRD" in {b["rule_id"] for b in approved["basis"]}
+
+
+def test_a_new_owners_failed_check_reaches_the_ria_but_a_fraud_suspicion_never_does(as_user):
+    adv = as_user("bonneville.advisor")
+    d = adv.post("/api/portal/changes", json={
+        "account_id": "ACC-2002", "change_type": "beneficial_owner", "details": {"owner": "Ana Ruiz, 30%"},
+        "new_parties": [{"name": "Ana Ruiz", "role": "owner", "ownership_pct": 30, "date_of_birth": "1981-02-03",
+                         "address": "9 Elm St, Ogden, UT 84401"}],
+        "documents": [{"doc_type": "change_form", "sample": True}]}).json()
+    cid = d["id"]
+    assert as_user("ops.cip").get(f"/api/cases/{cid}").json()["status"] == "PENDING_VERIFICATION"
+    _identity_check(as_user("ops.cip"), cid, "insufficient_information", "Ana Ruiz", "Send a passport or driver's license")
+    portal = as_user("bonneville.advisor").get(f"/api/cases/{cid}").json()
+    assert portal["status"] == "RETURNED" and any("Send a passport" in i for i in portal["requested_items"])
+    as_user("bonneville.advisor").post(f"/api/cases/{cid}/documents", data={"doc_type": "identity_documents", "sample": "true"})
+    assert as_user("ops.cip").get(f"/api/cases/{cid}").json()["status"] == "PENDING_VERIFICATION"
+    _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Ana Ruiz", "The passport number belongs to someone else")
+    portal = as_user("bonneville.advisor").get(f"/api/cases/{cid}").json()
+    assert portal["status"] == "IN_REVIEW" and "fraud" not in str(portal).lower() and "IDFR" not in str(portal)
+
+
+# --- The timed reviewer walkthrough -------------------------------------------------------------------------------
+
+
+def test_a_timed_walkthrough_runs_from_start_to_open_account_and_is_kept(as_user):
+    ops = as_user("ops.analyst")
+    w = ops.post("/api/walkthrough", json={"first_time": True}).json()
+    cid = w["case_id"]
+    d = ops.get(f"/api/cases/{cid}").json()
+    assert d["status"] == "PENDING_ITEMS" and d["firm"] == "Bonneville Planning LLC" and len(w["steps"]) == 2
+    lpoa = next(x for x in d["documents"] if x["doc_type"] == "lpoa")
+    assert lpoa["status"] == "received"                                   # waiting for operations to check it
+    d = ops.post(f"/api/cases/{cid}/corrections", json={"fields": {"lpoa_signed": True},
+                                                      "documents": {"lpoa_signed": lpoa["id"]}}).json()
+    assert d["status"] == "PENDING_ACCEPTANCE" and "seconds" not in ops.get(f"/api/walkthrough/{cid}").json()
+    assert accept(as_user("rs.principal"), cid)["status"] == "OPEN"
+    done = as_user("ops.analyst").get(f"/api/walkthrough/{cid}").json()
+    assert done["seconds"] >= 0 and done["finished_at"] and done["first_time"] is True
+    m = as_user("ops.supervisor").get("/api/dashboard").json()["walkthrough"]
+    assert (m["runs"], m["first_time_runs"], m["met"]) == (1, 1, True)
+    assert as_user("granite.advisor").post("/api/walkthrough", json={}).status_code == 403
+    assert as_user("admin.platform").post("/api/admin/reset", json={}).status_code == 200
+    assert as_user("ops.supervisor").get("/api/walkthrough/summary").json()["first_time_runs"] == 1   # kept

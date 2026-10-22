@@ -44,6 +44,10 @@ def capabilities(u: User) -> dict[str, bool]:
         "approvals": u.role in APPROVERS,
         "reviews": u.role in REVIEWERS,
         "intake": u.role in OPS_ROLES and u.team == "onboarding",
+        # Onboarding and CIP review what the AI read from a package, each their own values (app/ai_suggestions.py)
+        "ai_review": u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team in ("onboarding", "cip")),
+        # The same teams record why an identity check failed (app/identity_check.py)
+        "identity_check": u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team in ("onboarding", "cip")),
         "restricted_accounts": internal and u.role != "platform_admin",
         "audit": u.role in OVERSIGHT,
         "dashboard": u.role in TEAM_LEADS,

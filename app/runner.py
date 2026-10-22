@@ -54,7 +54,10 @@ def decisions_of(case: Case) -> Decisions:
     return Decisions(compliance_signoff=bool(d.get("compliance_signoff")),
                      sanctions=d.get("sanctions"), sanctions_reference=d.get("sanctions_reference", "DET-UNSET"),
                      edd=d.get("edd"), edd_reference=d.get("edd_reference", "EDD-UNSET"),
-                     acceptance=d.get("acceptance"), acceptance_by=d.get("acceptance_by", "unknown"))
+                     acceptance=d.get("acceptance"), acceptance_by=d.get("acceptance_by", "unknown"),
+                     alert_review=d.get("alert_review"), alert_reference=d.get("alert_review_reference", "ALR-UNSET"),
+                     identity_fraud=d.get("identity_fraud"),
+                     identity_fraud_reference=d.get("identity_fraud_reference", "IDF-UNSET"))
 
 
 def simulated_iapd(app) -> dict:
@@ -78,14 +81,16 @@ def existing_accounts(db: Session, account_row: Account | None, client_key: str)
 
 
 def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
+    from .identity_check import issue_for_engine
     as_of = settings.today()
     decisions = decisions_of(case)
+    identity_issue = issue_for_engine(case)
     if case.kind == "firm":
         app = firm_from(case.application)
         extraction = StoredExtraction(case.extra["extraction"]) if case.extra.get("extraction") else None
         res = onboard_firm(app, as_of, flagged=FLAGGED_LIST, decisions=decisions,
                            registration_lookup=simulated_iapd(app), extraction=extraction,
-                           unreviewed=unreviewed_suggestions(db, case))
+                           unreviewed=unreviewed_suggestions(db, case), identity_issue=identity_issue)
     elif case.kind == "account":
         firm = db.get(Firm, case.firm_id)
         account_row = db.get(Account, case.account_id)
@@ -93,13 +98,13 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         res = open_account(app, firm_from(firm.application), as_of,
                            existing=existing_accounts(db, account_row, account_row.client_key),
                            ria_active=firm.status == "ACTIVE", ria_risk_tier=firm.risk_tier or "LOW",
-                           flagged=FLAGGED_LIST, decisions=decisions)
+                           flagged=FLAGGED_LIST, decisions=decisions, identity_issue=identity_issue)
     elif case.kind == "change":
         data = dict(case.application)
         if case.decisions.get("verification") == "verified":
             data["new_parties"] = [{**p, "identity_verified": True} for p in data.get("new_parties", [])]
         res = process_change(change_from(data), as_of, flagged=FLAGGED_LIST, decisions=decisions,
-                             confirmation=case.decisions.get("confirmation"))
+                             confirmation=case.decisions.get("confirmation"), identity_issue=identity_issue)
     else:
         raise ValueError(f"Unknown case kind {case.kind}")
     rework = (case.extra or {}).get("rework")
@@ -200,6 +205,8 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
         case.closed_at = case.closed_at or now
     else:
         case.closed_at = None
+    from .walkthrough import finish_if_opened
+    finish_if_opened(db, case, res.status)
     audit.record(db, actor, "case_run", "case", case.id, case_id=case.id, status=res.status, previous=previous,
                  rule_ids=res.findings.rule_ids if res.findings else [], path=res.path,
                  policy_version=case.result["policy_version"])
