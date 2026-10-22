@@ -18,6 +18,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY onboarding/ onboarding/
 COPY app/ app/
+COPY synthetic/ synthetic/
 COPY migrations/ migrations/
 COPY alembic.ini .
 COPY --from=web /web/dist web/dist

@@ -1,0 +1,257 @@
+account,client,firm_crd,firm,cusip,ticker,security,asset_type,quantity,price,market_value,location
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,322.0,268.4,86424.8,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,741.0,61.2,45349.2,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,624.0,41.75,26052.0,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,753.718,41.27,31105.94,Fund/SERV (transfer agent)
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,63.0,318.2,20046.6,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,148.0,96.85,14333.8,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,125.0,128.9,16112.5,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,95.0,142.3,13518.5,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,68.0,211.4,14375.2,DTC
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,308.0,97.85,30137.8,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,901.0,268.4,241828.4,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1671.0,61.2,102265.2,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,1617.0,41.75,67509.75,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,1799.512,41.27,74265.86,Fund/SERV (transfer agent)
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,158.0,318.2,50275.6,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,384.0,96.85,37190.4,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,313.0,128.9,40345.7,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,235.0,142.3,33440.5,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,190.0,211.4,40166.0,DTC
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,859.0,97.85,84053.15,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,2279.0,268.4,611683.6,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,5002.0,61.2,306122.4,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,4232.0,41.75,176686.0,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,5379.661,41.27,222018.61,Fund/SERV (transfer agent)
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,421.0,318.2,133962.2,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,988.0,96.85,95687.8,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,722.0,128.9,93065.8,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,589.0,142.3,83814.7,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,507.0,211.4,107179.8,DTC
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,2291.0,97.85,224174.35,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,38.0,318.2,12091.6,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990110AA6,ARBT,Arches Biotech Inc. (synthetic),equity,339.0,22.15,7508.85,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,80.0,128.9,10312.0,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,55.0,142.3,7826.5,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990105AA6,SFLX,Salt Flats Logistics Inc. (synthetic),equity,100.0,47.1,4710.0,DTC
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,50.0,96.85,4842.5,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,7466.0,268.4,2003874.4,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,14231.0,61.2,870937.2,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,12369.0,41.75,516405.75,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,15513.041,41.27,640223.2,Fund/SERV (transfer agent)
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,1154.0,318.2,367202.8,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,3035.0,96.85,293939.75,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,2229.0,128.9,287318.1,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,1823.0,142.3,259412.9,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,1609.0,211.4,340142.6,DTC
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,7118.0,97.85,696496.3,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3698.0,97.85,361849.3,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,25948.71,9.84,255335.31,Fund/SERV (transfer agent)
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,235000.0,100.84,236974.0,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990402AB5,GBE31,Great Basin Energy 5.10% notes 2031 (synthetic),bond,160000.0,98.4,157440.0,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,2952.0,84.3,248853.6,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990204AA7,SSTR,Summit Short Treasury ETF (synthetic),etf,3142.0,50.12,157477.04,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990107AA2,PCFD,Provo Canyon Foods Co. (synthetic),equity,1410.0,33.6,47376.0,DTC
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,1099.0,58.75,64566.25,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,2752.0,268.4,738636.8,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,5015.0,61.2,306918.0,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,4193.0,41.75,175057.75,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,5698.537,41.27,235178.62,Fund/SERV (transfer agent)
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,455.0,318.2,144781.0,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,1329.0,96.85,128713.65,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,911.0,128.9,117427.9,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,644.0,142.3,91641.2,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,558.0,211.4,117961.2,DTC
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,2471.0,97.85,241787.35,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,729.0,268.4,195663.6,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1499.0,61.2,91738.8,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,1325.0,41.75,55318.75,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,1433.175,41.27,59147.13,Fund/SERV (transfer agent)
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,117.0,318.2,37229.4,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,304.0,96.85,29442.4,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,274.0,128.9,35318.6,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,166.0,142.3,23621.8,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,153.0,211.4,32344.2,DTC
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,637.0,97.85,62330.45,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,382.0,268.4,102528.8,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,717.0,61.2,43880.4,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,547.0,84.3,46112.1,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,981.0,97.85,95990.85,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,5817.128,9.84,57240.54,Fund/SERV (transfer agent)
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,46000.0,100.84,46386.4,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,90.0,211.4,19026.0,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,259.0,74.25,19230.75,DTC
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,229.0,58.75,13453.75,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,1763.0,268.4,473189.2,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,3468.0,61.2,212241.6,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,2613.0,84.3,220275.9,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,4780.0,97.85,467723.0,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,25089.955,9.84,246885.16,Fund/SERV (transfer agent)
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,190000.0,100.84,191596.0,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,386.0,211.4,81600.4,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,1153.0,74.25,85610.25,DTC
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,1134.0,58.75,66622.5,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,878.0,268.4,235655.2,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1607.0,61.2,98348.4,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,1151.0,84.3,97029.3,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,2191.0,97.85,214389.35,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,10945.858,9.84,107707.24,Fund/SERV (transfer agent)
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,101000.0,100.84,101848.4,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,178.0,211.4,37629.2,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,532.0,74.25,39501.0,DTC
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,480.0,58.75,28200.0,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,518.0,268.4,139031.2,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1003.0,61.2,61383.6,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,672.0,84.3,56649.6,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,1426.0,97.85,139534.1,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,6892.395,9.84,67821.17,Fund/SERV (transfer agent)
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,55000.0,100.84,55462.0,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,109.0,211.4,23042.6,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,335.0,74.25,24873.75,DTC
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,297.0,58.75,17448.75,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,221.0,268.4,59316.4,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,498.0,61.2,30477.6,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,429.0,41.75,17910.75,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,523.253,41.27,21594.65,Fund/SERV (transfer agent)
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,42.0,318.2,13364.4,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,109.0,96.85,10556.65,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,78.0,128.9,10054.2,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,60.0,142.3,8538.0,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,52.0,211.4,10992.8,DTC
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,217.0,97.85,21233.45,DTC
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990303AA7,RDMIX,Ridgeline Municipal Income Fund (synthetic),mutual_fund,88163.447,10.62,936295.81,Fund/SERV (transfer agent)
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,2875.0,268.4,771650.0,DTC
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,5646.0,61.2,345535.2,DTC
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,3904.0,84.3,329107.2,DTC
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3200.0,97.85,313120.0,DTC
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,SYN-REIT-01,SMREIT,Summit Non-Traded REIT Class I (synthetic),alternative,26390.0,9.62,253871.8,Sponsor (non-traded)
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,612.0,211.4,129376.8,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,3396.0,268.4,911486.4,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,6573.0,61.2,402267.6,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,5520.0,41.75,230460.0,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,6541.781,41.27,269979.3,Fund/SERV (transfer agent)
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,607.0,318.2,193147.4,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,1412.0,96.85,136752.2,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,1260.0,128.9,162414.0,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,802.0,142.3,114124.6,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,753.0,211.4,159184.2,DTC
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3162.0,97.85,309401.7,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,1373.0,268.4,368513.2,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,3225.0,61.2,197370.0,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,2333.0,41.75,97402.75,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,3510.818,41.27,144891.46,Fund/SERV (transfer agent)
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,227.0,318.2,72231.4,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,627.0,96.85,60724.95,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,569.0,128.9,73344.1,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,392.0,142.3,55781.6,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,332.0,211.4,70184.8,DTC
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,1334.0,97.85,130531.9,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,3471.0,268.4,931616.4,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,5998.0,61.2,367077.6,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,5717.0,41.75,238684.75,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,7010.735,41.27,289333.03,Fund/SERV (transfer agent)
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,559.0,318.2,177873.8,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,1618.0,96.85,156703.3,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,1134.0,128.9,146172.6,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,793.0,142.3,112843.9,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,661.0,211.4,139735.4,DTC
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3064.0,97.85,299812.4,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,642.0,268.4,172312.8,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1098.0,61.2,67197.6,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,814.0,84.3,68620.2,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,1571.0,97.85,153722.35,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,9395.475,9.84,92451.47,Fund/SERV (transfer agent)
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,67000.0,100.84,67562.8,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,150.0,211.4,31710.0,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,361.0,74.25,26804.25,DTC
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,388.0,58.75,22795.0,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,1486.0,268.4,398842.4,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,3030.0,61.2,185436.0,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,2090.0,84.3,176187.0,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3616.0,97.85,353825.6,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,21132.621,9.84,207944.99,Fund/SERV (transfer agent)
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,175000.0,100.84,176470.0,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,321.0,211.4,67859.4,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,978.0,74.25,72616.5,DTC
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,851.0,58.75,49996.25,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,788.0,268.4,211499.2,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1610.0,61.2,98532.0,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,1110.0,84.3,93573.0,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,2020.0,97.85,197657.0,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,11088.624,9.84,109112.06,Fund/SERV (transfer agent)
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,101000.0,100.84,101848.4,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,188.0,211.4,39743.2,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,488.0,74.25,36234.0,DTC
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,529.0,58.75,31078.75,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,395.0,268.4,106018.0,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,689.0,61.2,42166.8,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,618.0,41.75,25801.5,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,854.852,41.27,35279.74,Fund/SERV (transfer agent)
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,61.0,318.2,19410.2,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,177.0,96.85,17142.45,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,125.0,128.9,16112.5,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,91.0,142.3,12949.3,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,81.0,211.4,17123.4,DTC
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,341.0,97.85,33366.85,DTC
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990303AA7,RDMIX,Ridgeline Municipal Income Fund (synthetic),mutual_fund,119848.872,10.62,1272795.02,Fund/SERV (transfer agent)
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,3889.0,268.4,1043807.6,DTC
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,6144.0,61.2,376012.8,DTC
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,4711.0,84.3,397137.3,DTC
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,3933.0,97.85,384844.05,DTC
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,692.0,211.4,146288.8,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,2388.0,97.85,233665.8,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,12021.829,9.84,118294.8,Fund/SERV (transfer agent)
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,120000.0,100.84,121008.0,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990402AB5,GBE31,Great Basin Energy 5.10% notes 2031 (synthetic),bond,94000.0,98.4,92496.0,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,1406.0,84.3,118525.8,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990204AA7,SSTR,Summit Short Treasury ETF (synthetic),etf,1813.0,50.12,90867.56,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990107AA2,PCFD,Provo Canyon Foods Co. (synthetic),equity,765.0,33.6,25704.0,DTC
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,621.0,58.75,36483.75,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,372.0,268.4,99844.8,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,686.0,61.2,41983.2,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,557.0,84.3,46955.1,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,897.0,97.85,87771.45,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,5367.988,9.84,52821.0,Fund/SERV (transfer agent)
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,40000.0,100.84,40336.0,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,86.0,211.4,18180.4,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,237.0,74.25,17597.25,DTC
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,224.0,58.75,13160.0,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,493.0,268.4,132321.2,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,870.0,61.2,53244.0,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,669.0,84.3,56396.7,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,1173.0,97.85,114778.05,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,6503.023,9.84,63989.75,Fund/SERV (transfer agent)
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,51000.0,100.84,51428.4,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,96.0,211.4,20294.4,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,305.0,74.25,22646.25,DTC
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,302.0,58.75,17742.5,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,820.0,268.4,220088.0,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,1594.0,61.2,97552.8,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,1322.0,41.75,55193.5,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,1579.931,41.27,65203.75,Fund/SERV (transfer agent)
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,144.0,318.2,45820.8,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,361.0,96.85,34962.85,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,302.0,128.9,38927.8,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,195.0,142.3,27748.5,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,163.0,211.4,34458.2,DTC
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,746.0,97.85,72996.1,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,260.0,268.4,69784.0,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,519.0,61.2,31762.8,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,451.0,41.75,18829.25,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,582.043,41.27,24020.91,Fund/SERV (transfer agent)
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,41.0,318.2,13046.2,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,124.0,96.85,12009.4,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,81.0,128.9,10440.9,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,69.0,142.3,9818.7,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,54.0,211.4,11415.6,DTC
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,225.0,97.85,22016.25,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,200.0,268.4,53680.0,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,407.0,61.2,24908.4,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,333.0,41.75,13902.75,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,442.119,41.27,18246.25,Fund/SERV (transfer agent)
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,33.0,318.2,10500.6,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,92.0,96.85,8910.2,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,64.0,128.9,8249.6,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,43.0,142.3,6118.9,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,39.0,211.4,8244.6,DTC
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,163.0,97.85,15949.55,DTC

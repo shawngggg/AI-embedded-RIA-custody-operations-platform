@@ -1,13 +1,18 @@
 import { useAuth } from "../auth";
+import Preview from "./Preview";
 
-/** Portal features the PRD places in later releases: shown as planned, with what they'll do, not as working forms. */
+/**
+ * Features the PRD places in later releases: a read-only preview on the synthetic book, then what each will do. No
+ * working forms: nothing here changes anything.
+ */
 export type PlannedKey = "transfers" | "trading" | "billing";
+export type OpsPlannedKey = PlannedKey | "settlement";
 
 const VIEWER = "https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/";
 
 type Plan = {
   title: string; release: 2 | 3; lead: string; does: string[]; who: string; client?: string; ai: string;
-  map: [string, string]; why: string;
+  map: [string, string]; map2?: [string, string]; why: string;
 };
 
 export const PLANS: Record<PlannedKey, Plan> = {
@@ -61,7 +66,7 @@ export const PLANS: Record<PlannedKey, Plan> = {
 };
 
 // The same features from the operations side (Shawn's walkthrough, Oct. 13, 2026: ops needs to see them coming)
-export const OPS_PLANS: Record<PlannedKey, Plan> = {
+export const OPS_PLANS: Record<OpsPlannedKey, Plan> = {
   transfers: {
     title: "Asset and money movement", release: 2,
     lead: "The asset transfer team's workbench: every incoming and outgoing transfer, its controls, and its exceptions.",
@@ -107,11 +112,26 @@ export const OPS_PLANS: Record<PlannedKey, Plan> = {
     map: ["ab", "Advisor billing"],
     why: "Fees debit through the ledger and bill only certified periods, so billing follows the ledger and reconciliation.",
   },
+  settlement: {
+    title: "Settlement and reconciliation", release: 2,
+    lead: "Daily settlement through the three-layer ledger, and reconciliation of the books against the street.",
+    does: [
+      "Net each day's settlement by channel (NSCC, Fund/SERV, Fedwire, ACH) and fund it from the settlement bank",
+      "Post every movement at three layers: client account, RIA master account, and general ledger, with the rollup checked on every entry",
+      "Hold unapplied receipts in suspense until they're matched, and age them",
+      "Reconcile positions against DTC, the transfer agents, and sponsors, and cash against the settlement bank",
+      "Give every break a cause, an owner, and a next action; escalate by age and dollar value; certify the period for billing",
+    ],
+    who: "Trade operations for securities fails and breaks, and the asset transfer team for money movement and cash, with the supervisor over both.",
+    ai: "Matches breaks to their likely cause (a fail, a corporate action, a late transfer) and drafts the next action.",
+    map: ["cs", "Cash settlement"], map2: ["pr", "Position reconciliation"],
+    why: "The ledger itself is built in release 2. Until it is, there's nothing to settle or reconcile.",
+  },
 };
 
-export default function Planned({ which, audience = "portal" }: { which: PlannedKey; audience?: "portal" | "ops" }) {
+export default function Planned({ which, audience = "portal" }: { which: OpsPlannedKey; audience?: "portal" | "ops" }) {
   const { user } = useAuth();
-  const p = (audience === "ops" ? OPS_PLANS : PLANS)[which];
+  const p = audience === "ops" ? OPS_PLANS[which] : PLANS[which as PlannedKey];
   const client = user.role === "client";
   return (
     <>
@@ -119,7 +139,10 @@ export default function Planned({ which, audience = "portal" }: { which: Planned
         <h1>{p.title}</h1>
         <span className="pill t-quiet">Release {p.release} · planned</span>
       </div>
-      <p className="muted lead">{p.lead} It isn't built yet: the product plan puts it in release {p.release}.</p>
+      <p className="muted lead">{p.lead} The workflow isn't built yet: the product plan puts it in release {p.release}.
+        Below is a read-only preview on synthetic data, then the plan.</p>
+      <Preview which={which} audience={audience} />
+      <h2>The plan</h2>
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>What it will do</h2>
         <ul className="planned-list">{p.does.map((d) => <li key={d}>{d}</li>)}</ul>
@@ -132,7 +155,9 @@ export default function Planned({ which, audience = "portal" }: { which: Planned
         <h3>Why it isn't here yet</h3>
         <p>{p.why}</p>
         <p className="small" style={{ marginBottom: 0 }}>The process is already mapped:{" "}
-          <a href={`${VIEWER}#${p.map[0]}`} target="_blank" rel="noreferrer">{p.map[1]} process map</a>.</p>
+          <a href={`${VIEWER}#${p.map[0]}`} target="_blank" rel="noreferrer">{p.map[1]} process map</a>
+          {p.map2 && <>{" "}and the{" "}
+            <a href={`${VIEWER}#${p.map2[0]}`} target="_blank" rel="noreferrer">{p.map2[1]} process map</a></>}.</p>
       </div>
     </>
   );

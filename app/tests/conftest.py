@@ -21,11 +21,35 @@ from app.main import app  # noqa: E402
 from app.seed import reset_database, seed  # noqa: E402
 
 
+_SQLITE = os.environ["DATABASE_URL"].startswith("sqlite:///")
+_TEMPLATE = f"{_tmp}/seeded.db"
+
+
+def _fresh_database() -> None:
+    """A freshly seeded database for each test. On SQLite the seeded file is copied from a template made once, which
+    keeps the suite fast now that the seed holds 60-odd cases and their documents; on Postgres it reseeds."""
+    if not _SQLITE:
+        reset_database()
+        with SessionLocal() as db:
+            seed(db)
+        return
+    import shutil
+    from app.db import engine
+    db_file = os.environ["DATABASE_URL"].removeprefix("sqlite:///")
+    engine.dispose()
+    if not os.path.exists(_TEMPLATE):
+        reset_database()
+        with SessionLocal() as db:
+            seed(db)
+        engine.dispose()
+        shutil.copyfile(db_file, _TEMPLATE)
+    else:
+        shutil.copyfile(_TEMPLATE, db_file)
+
+
 @pytest.fixture()
 def client():
-    reset_database()
-    with SessionLocal() as db:
-        seed(db)
+    _fresh_database()
     with TestClient(app) as c:
         yield c
 

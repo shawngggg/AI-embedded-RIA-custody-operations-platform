@@ -81,9 +81,10 @@ export default function App() {
               {can.audit && <NavLink to="/audit">Audit trail</NavLink>}
               {can.dashboard && <NavLink to="/dashboard">Dashboard</NavLink>}
               {can.outbox && <NavLink to="/outbox">Email outbox</NavLink>}
-              {(can.planned_transfers || can.planned_trading || can.planned_billing) && <div className="sep" role="separator" />}
+              {(can.planned_transfers || can.planned_trading || can.planned_billing || can.planned_settlement) && <div className="sep" role="separator" />}
               {can.planned_transfers && <NavLink to="/ops/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>}
               {can.planned_trading && <NavLink to="/ops/trading" className="planned">Trading <span className="badge">R3</span></NavLink>}
+              {can.planned_settlement && <NavLink to="/ops/settlement" className="planned">Settlement and recon <span className="badge">R2</span></NavLink>}
               {can.planned_billing && <NavLink to="/ops/billing" className="planned">Billing <span className="badge">R3</span></NavLink>}
               {can.admin && <><div className="sep" role="separator" /><NavLink to="/admin">Users and rules</NavLink></>}
             </>
@@ -134,6 +135,7 @@ export default function App() {
                 {can.planned_transfers && <Route path="/ops/transfers" element={<Planned which="transfers" audience="ops" />} />}
                 {can.planned_trading && <Route path="/ops/trading" element={<Planned which="trading" audience="ops" />} />}
                 {can.planned_billing && <Route path="/ops/billing" element={<Planned which="billing" audience="ops" />} />}
+                {can.planned_settlement && <Route path="/ops/settlement" element={<Planned which="settlement" audience="ops" />} />}
                 {can.cases && <Route path="/cases/:id" element={<CasePage />} />}
                 <Route path="*" element={<Navigate to="/work" replace />} />
               </>

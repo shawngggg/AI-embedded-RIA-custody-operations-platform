@@ -1,0 +1,21 @@
+order,trade_date,firm,firm_crd,entered_by,side,ticker,security,quantity,filled,avg_price,accounts,status,venue,settle_date,settles_through,account,amount,limit
+BLK-1021-011,2026-10-21,Granite Peak Advisors LLC,310001,RIA (block order),Buy,CDVG,Canyon Dividend Growth ETF (synthetic),1443,1443,84.29,6,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+BLK-1021-012,2026-10-21,Granite Peak Advisors LLC,310001,RIA (block order),Sell,SIEQ,Summit International Equity ETF (synthetic),2080,2080,61.27,7,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+BLK-1021-031,2026-10-21,Bonneville Planning LLC,310003,RIA (block order),Buy,SAGB,Summit Aggregate Bond ETF (synthetic),1532,1532,98.24,6,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+BLK-1021-032,2026-10-21,Bonneville Planning LLC,310003,RIA (block order),Sell,UNTH,Uinta Health Systems Inc. (synthetic),611,611,211.46,5,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+BLK-1021-311,2026-10-21,Timpanogos Wealth Partners LLC,310031,RIA (block order),Sell,CDVG,Canyon Dividend Growth ETF (synthetic),1225,1225,84.22,4,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+BLK-1021-312,2026-10-21,Timpanogos Wealth Partners LLC,310031,RIA (block order),Sell,CSCV,Canyon Small Cap Value ETF (synthetic),1412,1412,41.91,3,Filled and allocated,In-house execution,2026-10-22,NSCC and DTC,,,
+MF-1021-3018,2026-10-21,Bonneville Planning LLC,310003,RIA,Buy,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),2876.016,2876.016,9.84,1,Priced at NAV,Fund/SERV,2026-10-22,Fund/SERV,ACC-3018,28300.0,
+MF-1021-3006,2026-10-21,Granite Peak Advisors LLC,310001,RIA,Buy,RDGIX,Ridgeline Growth Fund Institutional (synthetic),356.191,356.191,41.27,1,Priced at NAV,Fund/SERV,2026-10-22,Fund/SERV,ACC-3006,14700.0,
+MF-1021-2002,2026-10-21,Bonneville Planning LLC,310003,RIA,Buy,RDMIX,Ridgeline Municipal Income Fund (synthetic),3634.652,3634.652,10.62,1,Priced at NAV,Fund/SERV,2026-10-22,Fund/SERV,ACC-2002,38600.0,
+BLK-1022-011,2026-10-22,Granite Peak Advisors LLC,310001,RIA (block order),Sell,KLBS,Kolob Software Inc. (synthetic),670,670,97.09,5,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-012,2026-10-22,Granite Peak Advisors LLC,310001,RIA (block order),Buy,SAGB,Summit Aggregate Bond ETF (synthetic),1605,1605,97.79,8,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-031,2026-10-22,Bonneville Planning LLC,310003,RIA (block order),Sell,CDVG,Canyon Dividend Growth ETF (synthetic),453,453,84.17,3,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-032,2026-10-22,Bonneville Planning LLC,310003,RIA (block order),Sell,SAGB,Summit Aggregate Bond ETF (synthetic),593,593,97.92,5,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-311,2026-10-22,Timpanogos Wealth Partners LLC,310031,RIA (block order),Buy,CSCV,Canyon Small Cap Value ETF (synthetic),4408,4408,41.9,7,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-312,2026-10-22,Timpanogos Wealth Partners LLC,310031,RIA (block order),Sell,UNTH,Uinta Health Systems Inc. (synthetic),592,353,210.85,6,Partially filled: the rest is working,In-house execution,2026-10-23,NSCC and DTC,,,
+MF-1022-3001,2026-10-22,Granite Peak Advisors LLC,310001,RIA,Buy,RDGIX,Ridgeline Growth Fund Institutional (synthetic),,,,1,Waiting for today's NAV,Fund/SERV,2026-10-23,Fund/SERV,ACC-3001,31900.0,
+MF-1022-3020,2026-10-22,Bonneville Planning LLC,310003,RIA,Buy,RDMIX,Ridgeline Municipal Income Fund (synthetic),,,,1,Waiting for today's NAV,Fund/SERV,2026-10-23,Fund/SERV,ACC-3020,7000.0,
+MF-1022-3017,2026-10-22,Timpanogos Wealth Partners LLC,310031,RIA,Buy,RDGIX,Ridgeline Growth Fund Institutional (synthetic),,,,1,Waiting for today's NAV,Fund/SERV,2026-10-23,Fund/SERV,ACC-3017,39800.0,
+SD-1022-20031,2026-10-22,Granite Peak Advisors LLC,310001,Client (self-directed),Buy,TTPY,Teton Payments Inc. (synthetic),25,25,128.9,1,Filled,In-house execution,2026-10-23,NSCC and DTC,ACC-2003,,128.9
+SD-1022-20032,2026-10-22,Granite Peak Advisors LLC,310001,Client (self-directed),Buy,WSMC,Wasatch Semiconductor Corp. (synthetic),10,0,,1,Open: limit not reached,In-house execution,2026-10-23,NSCC and DTC,ACC-2003,,308.65

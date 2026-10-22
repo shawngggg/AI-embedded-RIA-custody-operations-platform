@@ -106,7 +106,9 @@ python onboarding/demo.py           # every scenario, printed step by step
 
 ## MVP web app
 
-`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed. Each internal person sees only the pages their role and team use, and the API refuses (and logs) the rest. Transfers, trading, and fee billing appear in the portal as planned pages marked with their release (2 or 3); they need the ledger, which comes first. In the workbench, each shows only to the team that will run it (asset transfer, trade, billing), the operations supervisor, and, for transfers and trading, the RIA service team.
+`app/` and `web/` hold the MVP from the [PRD](PRD.md): a working web app built on the onboarding module, for the custody operations team (the workbench) and for RIAs and their clients (the portal). It uses synthetic data, and the demo signs you in by role, no password needed. Each internal person sees only the pages their role and team use, and the API refuses (and logs) the rest. Transfers, trading, and fee billing appear in the portal as planned pages marked with their release (2 or 3); they need the ledger, which comes first. In the workbench, each shows only to the team that will run it (asset transfer, trade, billing), the operations supervisor, and, for transfers and trading, the RIA service team; settlement and reconciliation shows to trade, asset transfer, and the supervisor.
+
+Each planned page opens with a read-only preview on one synthetic book, built from the demo's own open accounts so every page tells the same story. It has 31 accounts across three RIAs: positions by model, yesterday's and today's blotter (block orders allocated at one average price, Fund/SERV orders, self-directed orders), and open fails with their Reg SHO close-out dates. It covers ACH, wires, journals, IRA distributions, an R01 and an R03 return, a wire held for callback, and an unapplied wire in suspense. It shows ACATS transfers on FINRA Rule 11870 timing, with the platform's transferability rules choosing each position's route, plus an LOI re-registration and an outgoing ACATS. It has a quarter's fee runs, one waiting for the RIA's approval, tiered by household, pro-rated, and with a refund and other exceptions. It nets today's settlement by channel, rolls client accounts up to RIA master accounts and the general ledger, and lists reconciliation breaks with cause, owner, and next action. Restriction codes do what the catalog says: a DOCS account trades nothing and can't be debited for fees, and a CIPV account's withdrawal is blocked. The ledger is off by exactly the one open cash break, and every fail to receive is a break. Operations sees its whole area. An RIA sees its own firm's accounts, and a client their own account, with no restriction codes, fails, ledger, or reconciliation. The seed also holds 63 onboarding, CIP, and account-change cases across every queue. `python -m synthetic.export` writes all of it to CSV and JSON in [`synthetic/data/`](synthetic/data/README.md).
 
 What each role can do:
 
@@ -133,7 +135,7 @@ To run it locally from the repo root:
 pip install -r requirements.txt
 cd web && npm ci && npm run build && cd ..
 uvicorn app.main:app                 # http://localhost:8000, seeded on first start
-python -m pytest app/tests -v        # 90 API tests
+python -m pytest app/tests -v        # 103 API and synthetic book tests
 python tools/gate_review.py          # MVP gate metrics from the PRD (CI runs it with --check)
 ```
 
@@ -154,6 +156,7 @@ It runs live on Google Cloud Run with a Neon database, at no cost for a demo: ht
 | `tools/sync_console.py` | Copies the modules into the console after a change |
 | `app/` | MVP backend: API, data model, roles, queues, maker-checker, audit log, and its tests |
 | `web/` | MVP screens (React and TypeScript): the operations workbench and the RIA and client portal |
+| `synthetic/` | Synthetic data: the extra seeded cases, the book behind the release 2 and 3 previews, and its export (`synthetic/data/`) |
 | `migrations/` | Database migrations (Alembic) |
 | `Dockerfile`, `docs/DEPLOY.md` | Container build and the Cloud Run and Neon deployment guide |
 | `.github/workflows/ci.yml` | Continuous integration |
