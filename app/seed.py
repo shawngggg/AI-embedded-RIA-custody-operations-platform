@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from account_changes import ChangeType
 from applications import AccountApplication, Person
 from models import AccountGroup
+from synthetic import cases as extra
 from sample_data import (
     ACCOUNT_FIRMS, ACCOUNTS, FIRMS, TODAY as SAMPLE_DAY,
 )
@@ -296,6 +297,17 @@ def seed(db: Session) -> None:
         accept_if_seeded(case, key)
         db.flush()
         backdate(db, case, AGE_HOURS[key])
+    for key, firm_app in extra.FIRMS.items():                  # more firms for the book (synthetic/cases.py)
+        app = shift_dates(firm_app, delta)
+        case = create_firm_case(db, app, system_ops)
+        firms_by_crd[app.crd_number] = db.get(Firm, case.firm_id)
+        seed_documents(db, case, system_ops.display_name, "mail", system_ops)
+        run_case(db, case, system_ops)
+        db.flush()
+        if case.status == "PENDING_ACCEPTANCE":
+            accept_case(db, case, principal, "accepted", reviewed=True)
+        db.flush()
+        backdate(db, case, extra.FIRM_AGE_HOURS[key])
 
     # RIA users belong to their firms before their accounts are seeded, so the account notices reach them
     for username, _name, _role, crd, _account, _note in DEMO_USERS:
@@ -328,6 +340,8 @@ def seed(db: Session) -> None:
         accept_if_seeded(case, key)
         db.flush()
         backdate(db, case, AGE_HOURS[key])
+
+    seed_more_cases(db, users, firms_by_crd)
 
     for username, *_rest in DEMO_USERS:
         u = users[username]
@@ -385,9 +399,10 @@ def seed(db: Session) -> None:
 
 
 def _fingerprint() -> str:
-    """Changes whenever the seed data does: this file and the synthetic sample data it draws on."""
+    """Changes whenever the seed data does: this file and the synthetic data it draws on."""
     import sample_data
-    return hashlib.sha256(Path(__file__).read_bytes() + Path(sample_data.__file__).read_bytes()).hexdigest()[:12]
+    return hashlib.sha256(Path(__file__).read_bytes() + Path(sample_data.__file__).read_bytes()
+                          + Path(extra.__file__).read_bytes()).hexdigest()[:12]
 
 
 SEED_FINGERPRINT = _fingerprint()
@@ -412,6 +427,45 @@ def reseed() -> None:
         db.add_all(AuditEvent(**k) for k in kept)
         db.add_all(AiSuggestion(**r) for r in reviewed)
         db.commit()
+
+
+def seed_more_cases(db: Session, users: dict, firms_by_crd: dict) -> None:
+    """The cases in synthetic/cases.py: accounts across every queue (most opened, forming the book) and changes."""
+    from . import identity_check
+    from sample_data import FIRMS as SAMPLE_FIRMS
+    ops, cip, principal = users["ops.analyst"], users["ops.cip"], users["rs.principal"]
+    crd_of = {k: f.crd_number for k, f in {**SAMPLE_FIRMS, **extra.FIRMS}.items()}
+    submitter = {"310001": users["granite.advisor"], "310003": users["bonneville.advisor"]}
+    for sc in extra.ACCOUNTS:
+        firm = firms_by_crd[crd_of[sc.firm]]
+        actor = submitter.get(firm.crd)
+        case = create_account_case(db, sc.app, firm, actor or ops)
+        seed_documents(db, case, actor.display_name if actor else "Custodian mailroom", "portal" if actor else "mail",
+                       ops)
+        run_case(db, case, actor or ops)
+        db.flush()
+        if sc.accept and case.status == "PENDING_ACCEPTANCE":
+            accept_case(db, case, principal, "accepted", reviewed=True)
+        if sc.identity_issue:
+            identity_check.record(db, case, cip, sc.identity_issue["kind"], sc.identity_issue["person"],
+                                  sc.identity_issue["note"])
+        db.flush()
+        backdate(db, case, sc.age_hours)
+    for ch in extra.CHANGES:
+        account = db.get(Account, ch.account_id)
+        firm = db.get(Firm, account.firm_id)
+        actor = submitter.get(firm.crd) or users["ops.service"]
+        change = {"request_id": f"CHG-{ch.key.upper()[:14]}", "account_id": account.id, "account_group": account.group,
+                  "account_firm": firm.crd, "change_type": ch.change_type, "details": ch.details,
+                  "submitted_by_role": actor.role, "submitted_by_firm": firm.crd if actor.firm_id else None,
+                  "client_signature": ch.client_signature, "medallion_guarantee": ch.medallion,
+                  "new_parties": ch.new_parties,
+                  "recent_changes": account.change_history or [], "path": account.path or "A"}
+        case = create_change_case(db, change, account, actor)
+        seed_documents(db, case, actor.display_name, "portal", ops)
+        run_case(db, case, actor)
+        db.flush()
+        backdate(db, case, ch.age_hours)
 
 
 def seed_access_events(db: Session, users: dict) -> None:

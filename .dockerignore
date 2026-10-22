@@ -10,3 +10,4 @@ bpmn
 docs
 tools
 .env
+synthetic/data

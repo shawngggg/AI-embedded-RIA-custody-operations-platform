@@ -33,6 +33,10 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
 - `app/`: FastAPI, SQLAlchemy, Alembic (`migrations/`). `app/access.py` is the capability model; menus and the API
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
   `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
+- `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds one book (positions,
+  trades, fails, money movement, transfers, billing, settlement, reconciliation) from the demo's open accounts, served
+  read-only by `app/routers/preview.py`; `python -m synthetic.export` writes it all to `synthetic/data/`. The image
+  copies `synthetic/` (the seed imports it).
 - `web/`: React and TypeScript (Vite). `npm run build` in `web/`.
 - `tools/gate_review.py`: the MVP gate metrics (CI runs `--check --no-github`). `tools/smoke_test.py`: live checks.
 
@@ -65,6 +69,9 @@ themselves (the seed fingerprint); AI evaluation runs survive.
 - A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
   RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
   the portal: no note, document review note, notice, or status beyond "In review".
+- The release 2 and 3 pages open with a read-only preview of the synthetic book: operations sees its area (settlement
+  and reconciliation: trade, asset transfer, the supervisor); an RIA its own firm; a client their own account. The
+  portal never gets a restriction code, a fail, the ledger, or reconciliation.
 - The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
   Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
 

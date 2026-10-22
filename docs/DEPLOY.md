@@ -246,8 +246,10 @@ secrets, and scaling. Data in Neon survives deploys.
 
 In demo mode the app fingerprints its seed data. When a deploy brings different seed data, it resets the demo on
 startup, so nobody has to remember to. A platform administrator can also reset it any time with **Users and rules →
-Reset the demo**. Either way, the AI evaluation runs and the reviewed AI suggestions are kept: they're governance
-evidence, not demo data.
+Reset the demo**. Either way, the AI evaluation runs, the reviewed AI suggestions, and the timed walkthrough runs are
+kept: they're governance evidence, not demo data. The seed draws on `synthetic/cases.py`, so the image copies
+`synthetic/`. The read-only previews on the release 2 and 3 pages are computed from the open accounts on each request
+(cached until the accounts or the day change), so they need no reset of their own.
 
 ## Automatic deploys from GitHub
 

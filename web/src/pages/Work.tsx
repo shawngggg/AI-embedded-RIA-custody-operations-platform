@@ -15,7 +15,7 @@ type WorkData = {
 // The planned workbenches, for teams whose function arrives in a later release (and has no queue yet)
 const WORKBENCH: [string, string, string, number][] = [
   ["planned_transfers", "/ops/transfers", "Asset and money movement", 2], ["planned_trading", "/ops/trading", "Trade operations", 3],
-  ["planned_billing", "/ops/billing", "Billing operations", 3]];
+  ["planned_settlement", "/ops/settlement", "Settlement and reconciliation", 2], ["planned_billing", "/ops/billing", "Billing operations", 3]];
 
 function greeting() {
   const h = new Date().getHours();

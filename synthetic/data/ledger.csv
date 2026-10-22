@@ -1,0 +1,7 @@
+account,name,side,balance
+1010,Settlement bank,Asset,1222401.62
+1300,Fails to deliver: receivable from the street,Asset,14527.5
+2100,Client cash,Liability,1160559.44
+2150,"Dividends received, not yet allocated",Liability,2584.68
+2190,Suspense: unapplied receipts,Liability,48250.0
+2300,Fails to receive: payable to the street,Liability,33035.0

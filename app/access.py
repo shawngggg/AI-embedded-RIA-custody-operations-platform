@@ -23,15 +23,17 @@ TEAM_LEADS = {"ops_supervisor", "ria_service_lead"}     # the operations dashboa
 NOTICE_TEAMS = {"onboarding", "cip", "client_service"}
 # The planned workbenches (release 2 and 3) show only to the people who will run them: the operations team for that
 # function, the operations supervisor who oversees every team, and the RIA service team, which works with RIAs on
-# trading and transfers (Shawn, Oct. 13, 2026)
-PLANNED = {"transfers": ("asset_transfer", {"ria_service", "ria_service_lead"}),
-           "trading": ("trade", {"ria_service", "ria_service_lead"}),
-           "billing": ("billing", set())}
+# trading and transfers (Shawn, Oct. 13, 2026). Settlement and reconciliation belong to the teams whose breaks they
+# are: trade operations (securities fails) and asset transfer (money movement and cash).
+PLANNED = {"transfers": ({"asset_transfer"}, {"ria_service", "ria_service_lead"}),
+           "trading": ({"trade"}, {"ria_service", "ria_service_lead"}),
+           "billing": ({"billing"}, set()),
+           "settlement": ({"trade", "asset_transfer"}, set())}
 
 
 def _planned(u: User, which: str) -> bool:
-    team, roles = PLANNED[which]
-    return u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team == team) or u.role in roles
+    teams, roles = PLANNED[which]
+    return u.role == "ops_supervisor" or (u.role == "ops_analyst" and u.team in teams) or u.role in roles
 
 
 def capabilities(u: User) -> dict[str, bool]:
@@ -54,7 +56,7 @@ def capabilities(u: User) -> dict[str, bool]:
         "outbox": u.role in {"ops_supervisor", "platform_admin", "ria_service_lead"}
                   or (u.role == "ops_analyst" and u.team in NOTICE_TEAMS),
         "planned_transfers": _planned(u, "transfers"), "planned_trading": _planned(u, "trading"),
-        "planned_billing": _planned(u, "billing"),
+        "planned_billing": _planned(u, "billing"), "planned_settlement": _planned(u, "settlement"),
         "admin": u.role == "platform_admin",
         "portal": u.role in PORTAL_ROLES,
     }

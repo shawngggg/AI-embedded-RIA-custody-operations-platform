@@ -1,0 +1,4 @@
+check,result,detail
+Each RIA master account equals the sum of its clients' accounts,Matches,"3 RIAs, 31 client accounts"
+The RIA master accounts equal general ledger client cash (2100),Matches,"$1,160,559.44"
+General ledger assets equal liabilities,"Off by $7,500.00",Explained by break CB-R01: the ACH return on ACC-3015 isn't reversed on the client ledger yet

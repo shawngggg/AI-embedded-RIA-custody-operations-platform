@@ -1,0 +1,67 @@
+case,kind,account,entity,name,role,ownership_pct,date_of_birth,residence,nationality,tax_id,occupation,identity_verified,pep,adverse_media,case_status
+1,firm,,Granite Peak Advisors LLC,Dana Whitfield,control_person,60,,United States,United States,,,True,,False,ACTIVE
+1,firm,,Granite Peak Advisors LLC,Marcus Lee,owner,40,,United States,United States,,,True,,False,ACTIVE
+2,firm,,Juniper Ridge Wealth LLC,Helen Ostrander,control_person,100,,United States,United States,,,True,,False,PENDING_ACCEPTANCE
+3,firm,,Bonneville Planning LLC,Sam Okafor,control_person,100,,United States,United States,,,True,,False,ACTIVE
+4,firm,,Lakeshore Global Advisors LLC,Adrian Vell,control_person,30,,United States,Monaco,,,True,foreign,False,PENDING_EDD
+4,firm,,Lakeshore Global Advisors LLC,Celeste Arno,owner,70,,Virgin Islands (UK),Virgin Islands (UK),,,True,,False,PENDING_EDD
+5,firm,,Meridian Gate Capital LLC,Ilya Sorvetin,owner,55,1971-04-18,Cyprus,Cyprus,,,True,,False,PENDING_SANCTIONS
+5,firm,,Meridian Gate Capital LLC,Grace Whitman,control_person,45,,United States,United States,,,True,,False,PENDING_SANCTIONS
+6,firm,,Alta Vista Partners LLC,Rory Castellanos,control_person,70,,United States,United States,,,True,,False,PENDING_ITEMS
+7,firm,,Cottonwood Family Office LLC,Ellis Granger,control_person,100,,United States,United States,,,True,,False,DECLINED
+8,firm,,Timpanogos Wealth Partners LLC,Helena Strand,control_person,55,,United States,United States,,,True,,False,ACTIVE
+8,firm,,Timpanogos Wealth Partners LLC,Gideon Marsh,owner,45,,United States,United States,,,True,,False,ACTIVE
+9,account,ACC-2001,,Maria Chen,account_holder,0.0,1985-03-12,United States,United States,900-00-2001,Software engineer,False,,False,OPEN
+10,account,ACC-2002,,Kenji Tanaka,account_holder,0.0,1979-08-22,Japan,Japan,JP-SYN-77821,Business owner,True,,False,OPEN
+11,account,ACC-1990,,Farid Hosseini,account_holder,0.0,1980-05-01,United States,United States,900-00-2003,Physician,True,,False,OPEN
+12,account,ACC-2003,,Farid Hosseini,account_holder,0.0,1980-05-01,United States,United States,900-00-2003,Physician,True,,False,OPEN
+13,account,ACC-2004,Whitfield Family Holdings LLC,Dana Whitfield,control_person,50,1974-02-09,United States,United States,900-00-2004,,True,,False,OPEN
+13,account,ACC-2004,Whitfield Family Holdings LLC,Owen Whitfield,owner,50,1976-07-30,United States,United States,900-00-2005,,True,,False,OPEN
+14,account,ACC-2005,,Ilya Sorvetkin,account_holder,0.0,1990-11-23,United States,United States,900-00-2006,Naval architect,False,,False,PENDING_SANCTIONS
+15,account,ACC-2006,,Elena Marsh-Duval,account_holder,0.0,1968-05-14,Monaco,Monaco,MC-SYN-4410,Former government minister,False,foreign,False,PENDING_EDD
+16,account,ACC-2007,,Jordan Pike,account_holder,0.0,1992-01-17,United States,United States,900-00-2007,,False,,False,RETURNED
+17,account,ACC-2008,,Rosa Delgado,account_holder,0.0,1983-09-14,United States,United States,900-00-2008,Teacher,True,,False,PENDING_ITEMS
+18,account,ACC-2009,,Lena Park,account_holder,0.0,1991-02-27,United States,United States,900-00-2009,Pharmacist,True,,False,PENDING_ACCEPTANCE
+19,account,ACC-2010,,Owen Gallagher,account_holder,0.0,1976-06-03,United States,United States,900-00-2010,Civil engineer,True,,False,OPEN_RESTRICTED
+20,account,ACC-2011,,Nadia Brooks,account_holder,0.0,1971-09-22,United States,United States,900-00-2011,State legislator,True,domestic,False,PENDING_ALERT_REVIEW
+21,account,ACC-3001,,Harold Benson,account_holder,0.0,1956-02-02,United States,United States,900-00-5001,Retired civil engineer,True,,False,OPEN
+22,account,ACC-3002,,Priscilla Ng,account_holder,0.0,1957-03-03,United States,United States,900-00-5002,Physician,True,,False,OPEN
+23,account,ACC-3003,,Tomas Alvarado,account_holder,0.0,1958-04-04,United States,United States,900-00-5003,Restaurant owner,True,,False,OPEN
+24,account,ACC-3004,,Wendy Kowalski,account_holder,0.0,1959-05-05,United States,United States,900-00-5004,Teacher,True,,False,OPEN
+25,account,ACC-3005,,Gregory Holm,account_holder,0.0,1960-06-06,United States,United States,900-00-5005,Pharmacist,True,,False,OPEN
+25,account,ACC-3005,,Anita Holm,account_holder,0.0,1961-07-07,United States,United States,900-00-5006,Architect,True,,False,OPEN
+26,account,ACC-3006,,Samuel Adeyemi,account_holder,0.0,1962-08-08,United States,United States,900-00-5007,Software engineer,True,,False,OPEN
+26,account,ACC-3006,,Ruth Adeyemi,account_holder,0.0,1963-09-09,United States,United States,900-00-5008,Nurse,True,,False,OPEN
+27,account,ACC-3007,,Douglas Pratt,account_holder,0.0,1964-10-10,United States,United States,900-00-5009,Electrician,True,,False,OPEN
+28,account,ACC-3008,,Leah Castellanos,account_holder,0.0,1965-11-11,United States,United States,900-00-5010,Product manager,True,,False,OPEN
+29,account,ACC-3009,Benson Family Trust,Harold Benson,trustee,0.0,1966-12-12,United States,United States,900-00-5011,Retired civil engineer,True,,False,OPEN
+30,account,ACC-3010,Canyon Ridge Holdings LLC,Victor Haines,control_person,100,1967-01-13,United States,United States,900-00-5012,Real estate developer,True,,False,OPEN
+31,account,ACC-3011,,Imogen Fairweather,account_holder,0.0,1968-02-14,United States,United States,900-00-5013,Attorney,True,,False,OPEN
+32,account,ACC-3012,,Rajesh Kulkarni,account_holder,0.0,1969-03-15,United States,United States,900-00-5014,Cardiologist,True,,False,OPEN
+33,account,ACC-3013,,Beatrice Okoro,account_holder,0.0,1970-04-16,United States,United States,900-00-5015,University professor,True,,False,OPEN
+34,account,ACC-3014,,Colin Ferris,account_holder,0.0,1971-05-17,United States,United States,900-00-5016,Pilot,True,,False,OPEN
+34,account,ACC-3014,,Mei Ferris,account_holder,0.0,1972-06-18,United States,United States,900-00-5017,Dentist,True,,False,OPEN
+35,account,ACC-3015,,Arthur Lindgren,account_holder,0.0,1973-07-19,United States,United States,900-00-5018,Retired banker,True,,False,OPEN
+36,account,ACC-3016,,Yolanda Price,account_holder,0.0,1974-08-20,United States,United States,900-00-5019,Accountant,True,,False,OPEN
+37,account,ACC-3017,Kulkarni Living Trust,Rajesh Kulkarni,trustee,0.0,1975-09-21,United States,United States,900-00-5020,Cardiologist,True,,False,OPEN
+38,account,ACC-3018,,Dale Henriksen,account_holder,0.0,1976-10-22,United States,United States,900-00-5021,Farmer,True,,False,OPEN
+39,account,ACC-3019,,Marjorie Quist,account_holder,0.0,1977-11-23,United States,United States,900-00-5022,Retired nurse,True,,False,OPEN
+40,account,ACC-3020,,Neil Durant,account_holder,0.0,1978-12-24,United States,United States,900-00-5023,Contractor,True,,False,OPEN
+40,account,ACC-3020,,Carla Durant,account_holder,0.0,1979-01-25,United States,United States,900-00-5024,Office manager,True,,False,OPEN
+41,account,ACC-3021,,Ezra Whitlock,account_holder,0.0,1980-02-26,United States,United States,900-00-5025,Veterinarian,True,,False,OPEN
+42,account,ACC-3022,,Fiona Gallardo,account_holder,0.0,1981-03-27,United States,United States,900-00-5026,Graphic designer,True,,False,OPEN_RESTRICTED
+43,account,ACC-3023,,Oscar Feldman,account_holder,0.0,1982-04-01,United States,United States,900-00-5027,Chef,True,,False,OPEN_RESTRICTED
+44,account,ACC-3024,,Hazel Montoya,account_holder,0.0,1983-05-02,United States,United States,900-00-5028,Paralegal,False,,False,OPEN
+45,account,ACC-3025,,Rupert Asante,account_holder,0.0,1984-06-03,United States,United States,900-00-5029,Engineer,False,,False,OPEN
+46,account,ACC-3026,,Clara Whitcombe,account_holder,0.0,1985-07-04,United States,United States,900-00-5030,Marketing director,True,,False,PENDING_ITEMS
+47,account,ACC-3027,,Desmond Kirby,account_holder,0.0,1986-08-05,United States,United States,900-00-5031,Firefighter,True,,False,PENDING_ITEMS
+48,account,ACC-3028,Calloway Family Trust,Ruth Calloway,trustee,0.0,1987-09-06,United States,United States,900-00-5032,Retired judge,True,,False,PENDING_ITEMS
+49,account,ACC-3029,,Lionel Fairfax,account_holder,0.0,1988-10-07,United States,United States,900-00-5033,Sales manager,False,,False,PENDING_ITEMS
+50,account,ACC-3030,,Ingrid Solberg,account_holder,0.0,1989-11-08,United States,United States,900-00-5034,Consultant,False,,False,PENDING_FRAUD_REVIEW
+51,account,ACC-3031,,Gordon Achterberg,account_holder,0.0,1955-12-09,United States,United States,900-00-5035,City council member,True,domestic,False,PENDING_ALERT_REVIEW
+52,account,ACC-3032,,Bartholomew Crane,account_holder,0.0,1956-01-10,United States,United States,900-00-5036,Investment promoter,True,,True,PENDING_EDD
+53,account,ACC-3033,,Teodor M. Halloran,account_holder,0.0,1971-11-30,United States,United States,900-00-5037,Shipping executive,True,,False,PENDING_SANCTIONS
+54,account,ACC-3034,,Miriam Talbot,account_holder,0.0,1958-03-12,United States,United States,900-00-5038,Librarian,True,,False,PENDING_ACCEPTANCE
+55,account,ACC-3035,,Patrick Sorensen,account_holder,0.0,1959-04-13,United States,United States,900-00-5039,Surveyor,True,,False,PENDING_ACCEPTANCE
+56,account,ACC-3036,,Celeste Rhee,account_holder,0.0,1960-05-14,United States,United States,900-00-5040,Data scientist,True,,False,PENDING_ACCEPTANCE
+60,change,ACC-3020,,Paul Durant,owner,0,1998-04-11,,,900-00-5099,,,,,PENDING_VERIFICATION

@@ -115,6 +115,13 @@ def main() -> None:
     check("reviewer walkthrough is timed", status == 200 and "first_time_runs" in wt,
           f"{wt.get('first_time_runs')} first-time runs, median {wt.get('median_seconds')}s, "
           f"{wt.get('under_target')} under {wt.get('target_seconds')}s")
+    sup = Session(args.base).sign_in("ops.supervisor")
+    status, st = sup.get("/api/preview/settlement")
+    st = st if isinstance(st, dict) else {}
+    checks = (st.get("settlement") or {}).get("checks", [])
+    check("settlement preview: the synthetic book balances but for its open break",
+          status == 200 and len(checks) == 3 and any("CB-R01" in c.get("detail", "") for c in checks),
+          f"{len(st.get('breaks', []))} breaks, business day {st.get('as_of')}")
     status, risk = admin.get("/api/risk-events")
     areas = {e["area"] for e in risk.get("events", [])} if isinstance(risk, dict) else set()
     check("platform admin: only access and authentication risk events", areas <= {"access"}, str(sorted(areas)))
@@ -130,7 +137,12 @@ def main() -> None:
             leaks.append(cases[0]["id"])
         check("RIA user: no case audit trail", rias.get(f"/api/cases/{cases[0]['id']}/audit")[0] == 403)
     check("RIA user: no custodian operations in requests", not leaks, f"leaking requests {leaks}" if leaks else "")
-    for path in ("/api/queues", "/api/risk-events", "/api/admin/rules", "/api/restrictions/accounts"):
+    status, tr = rias.get("/api/preview/transfers")
+    firms = {r.get("firm_crd") for r in (tr.get("transfers", []) + tr.get("movements", []))} if isinstance(tr, dict) else set()
+    check("RIA user: transfers preview shows only the firm's accounts", status == 200 and firms <= {"310001"},
+          str(sorted(firms)))
+    for path in ("/api/queues", "/api/risk-events", "/api/admin/rules", "/api/restrictions/accounts",
+                 "/api/preview/settlement"):
         check(f"RIA user: {path} refused", rias.get(path)[0] in (403, 404))
 
     failed = [r for r in results if not r[1]]
