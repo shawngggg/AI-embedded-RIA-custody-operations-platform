@@ -22,6 +22,7 @@ import Messages from "./pages/Messages";
 import Outbox from "./pages/Outbox";
 import Planned from "./pages/Planned";
 import { Loading } from "./util";
+import { WalkthroughBanner } from "./walkthrough";
 
 type Counts = { queues: { key: string; count: number; breached: number }[]; pending_approvals: number };
 
@@ -114,6 +115,7 @@ export default function App() {
             </div>
             <button className="secondary small" onClick={signOut}>{user.is_demo ? "Switch user" : "Sign out"}</button>
           </div>
+          {internal && <WalkthroughBanner />}
           <Routes>
             {internal ? (
               <>

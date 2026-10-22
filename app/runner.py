@@ -205,6 +205,8 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
         case.closed_at = case.closed_at or now
     else:
         case.closed_at = None
+    from .walkthrough import finish_if_opened
+    finish_if_opened(db, case, res.status)
     audit.record(db, actor, "case_run", "case", case.id, case_id=case.id, status=res.status, previous=previous,
                  rule_ids=res.findings.rule_ids if res.findings else [], path=res.path,
                  policy_version=case.result["policy_version"])

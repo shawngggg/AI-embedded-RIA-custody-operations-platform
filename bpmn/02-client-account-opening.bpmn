@@ -14,11 +14,12 @@
 <bpmn:messageFlow id="ao_msg7" name="Screening request" sourceRef="ao_t5" targetRef="ao_svc" />
 <bpmn:textAnnotation id="ao_ann0"><bpmn:text>Path A: a pure RIA account under a reliance-eligible RIA, using only RIA-provided information. Path B: the client&#39;s self-directed account, or any account under an RIA that isn&#39;t reliance-eligible. Reliance doesn&#39;t shift accountability: the custodian stays responsible for its AML program, SARs, and sanctions.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann1"><bpmn:text>Entity accounts add formation and registration documents, operating agreement, memorandum and articles of association.</bpmn:text></bpmn:textAnnotation>
-<bpmn:textAnnotation id="ao_ann2"><bpmn:text>Identity that can't be verified follows the CIP failure procedure: request more documents, then decline.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ao_ann2"><bpmn:text>A failed identity check: insufficient information or the wrong document goes back to the RIA to resubmit. A suspected fraudulent identity is held (IDFR) for AML compliance, which confirms it (declined) or clears it; the RIA isn't told.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann5"><bpmn:text>A registered principal on the RIA service team (Series 24 or 9/10) accepts the account, never someone who prepared the case.</bpmn:text></bpmn:textAnnotation>
 <bpmn:messageFlow id="ao_msg8" name="Decline notice" sourceRef="ao_ep" targetRef="ao_req" />
 <bpmn:textAnnotation id="ao_ann3"><bpmn:text>Regulatory items hold the account: the client&#39;s signature, the LPOA, CIP information, entity documents, and CDD. A missing fee authorization or tax form doesn&#39;t: the account opens restricted (DOCS: no trading or fee deduction) until it arrives.</bpmn:text></bpmn:textAnnotation>
 <bpmn:textAnnotation id="ao_ann4"><bpmn:text>Undoing an acceptance: rescission is for a regulatory issue or an acceptance made before the review, and the restriction is immediate. A non-regulatory document found wrong after opening is reopened instead: the account stays open, restricted (DOCS), and an operational risk event is logged.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="ao_ann6"><bpmn:text>Every PEP or adverse-media alert goes to AML compliance: in EDD when the rating calls for it; otherwise compliance clears the alert or requires EDD. Sanctions hits go to the sanctions team.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="ao_process" name="Client account opening (paths A and B)" isExecutable="false">
 <bpmn:laneSet id="ao_laneset">
@@ -351,7 +352,7 @@
 <bpmndi:BPMNShape id="ao_e_di" bpmnElement="ao_e"><dc:Bounds x="5362" y="1111" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="5320" y="1153" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann0_di" bpmnElement="ao_ann0"><dc:Bounds x="1345" y="347" width="340" height="104" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ann1_di" bpmnElement="ao_ann1"><dc:Bounds x="305" y="347" width="190" height="64" /></bpmndi:BPMNShape>
-<bpmndi:BPMNShape id="ao_ann2_di" bpmnElement="ao_ann2"><dc:Bounds x="1685" y="747" width="190" height="64" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="ao_ann2_di" bpmnElement="ao_ann2"><dc:Bounds x="1685" y="737" width="340" height="84" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_p1_di" bpmnElement="ao_p1" bioc:stroke="#8A5A00" bioc:fill="#FFF4DE" color:background-color="#FFF4DE" color:border-color="#8A5A00"><dc:Bounds x="4300" y="904" width="160" height="90" /></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_gp_di" bpmnElement="ao_gp" isMarkerVisible="true"><dc:Bounds x="4555" y="924" width="50" height="50" /><bpmndi:BPMNLabel><dc:Bounds x="4515" y="894" width="130" height="28" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
 <bpmndi:BPMNShape id="ao_ep_di" bpmnElement="ao_ep"><dc:Bounds x="4762" y="931" width="36" height="36" /><bpmndi:BPMNLabel><dc:Bounds x="4720" y="973" width="120" height="40" /></bpmndi:BPMNLabel></bpmndi:BPMNShape>
@@ -421,5 +422,6 @@
 <bpmndi:BPMNEdge id="ao_flow42_di" bpmnElement="ao_flow42"><di:waypoint x="6380" y="974" /><di:waypoint x="6380" y="1129" /><di:waypoint x="6500" y="1129" /><bpmndi:BPMNLabel><dc:Bounds x="6386" y="1109" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="ao_flow43_di" bpmnElement="ao_flow43"><di:waypoint x="6660" y="1129" /><di:waypoint x="6780" y="1129" /><di:waypoint x="6780" y="994" /></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="ao_flow44_di" bpmnElement="ao_flow44"><di:waypoint x="6860" y="949" /><di:waypoint x="6962" y="949" /></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="ao_ann6_di" bpmnElement="ao_ann6"><dc:Bounds x="3200" y="700" width="340" height="84" /></bpmndi:BPMNShape>
 </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </bpmn:definitions>

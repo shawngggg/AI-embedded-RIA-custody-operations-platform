@@ -391,7 +391,8 @@ def _fingerprint() -> str:
 
 
 SEED_FINGERPRINT = _fingerprint()
-KEEP_ON_RESET = ("ai_evaluation_run",)      # governance evidence, not demo data: it survives a demo reset
+# Governance evidence, not demo data: AI evaluation runs and finished timed walkthroughs survive a demo reset
+KEEP_ON_RESET = ("ai_evaluation_run", "walkthrough_completed")
 
 
 def reseed() -> None:

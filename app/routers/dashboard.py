@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import ai_suggestions
+from .. import ai_suggestions, walkthrough
 from ..db import get_db
 from ..orm import Case, CaseTransition, Restriction, User
 from ..queues import QUEUES
@@ -62,4 +62,5 @@ def dashboard(user: User = Depends(require_capability("dashboard")), db: Session
         "hours_in_state": {k: {"cases": len(v), "average": round(sum(v) / len(v), 1)} for k, v in hours.items()},
         "active_codes": dict(code_counts),
         "ai_suggestions": ai_suggestions.summary(db, changes=True),
+        "walkthrough": walkthrough.summary(db),
     }

@@ -110,6 +110,11 @@ def main() -> None:
     check("AI suggestion acceptance is tracked", isinstance(live, dict) and "share_accepted" in live,
           f"{live['accepted']} of {live['reviewed']} live values accepted unchanged, {live['pending']} waiting"
           if isinstance(live, dict) else "no suggestion summary")
+    status, wt = ops.get("/api/walkthrough/summary")
+    wt = wt if isinstance(wt, dict) else {}
+    check("reviewer walkthrough is timed", status == 200 and "first_time_runs" in wt,
+          f"{wt.get('first_time_runs')} first-time runs, median {wt.get('median_seconds')}s, "
+          f"{wt.get('under_target')} under {wt.get('target_seconds')}s")
     status, risk = admin.get("/api/risk-events")
     areas = {e["area"] for e in risk.get("events", [])} if isinstance(risk, dict) else set()
     check("platform admin: only access and authentication risk events", areas <= {"access"}, str(sorted(areas)))

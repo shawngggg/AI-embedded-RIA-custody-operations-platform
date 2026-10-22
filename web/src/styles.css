@@ -241,3 +241,4 @@ table.review .narrow { max-width: 420px; }
   table.review td { border: 0; padding: 2px 0; }
   table.review td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
 }
+.panel.walkthrough { border-color: var(--focus); margin-bottom: 14px; }

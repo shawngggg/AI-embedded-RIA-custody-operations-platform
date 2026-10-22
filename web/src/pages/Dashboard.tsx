@@ -1,6 +1,7 @@
 import { api, type SuggestionSummary } from "../api";
 import { CaseLink } from "../caselink";
 import { Loading, STATUS, useLoad, when } from "../util";
+import { clock } from "../walkthrough";
 
 const pct = (x: number | null) => (x === null ? "–" : `${Math.round(x * 100)}%`);
 
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const breached = x.queues.reduce((n: number, q: any) => n + q.breached, 0);
   const max = Math.max(1, ...x.queues.map((q: any) => q.count));
   const ai: SuggestionSummary = x.ai_suggestions;
+  const w = x.walkthrough;
   return (
     <>
       <h1>Operations dashboard</h1>
@@ -22,6 +24,8 @@ export default function Dashboard() {
         <div className="tile"><div className="label">Past SLA</div><div className="value">{breached}</div><div className={`sub ${breached ? "alert" : ""}`}>across all queues</div></div>
         <div className="tile"><div className="label">AI suggestions accepted unchanged</div><div className="value">{pct(ai.live.share_accepted)}</div>
           <div className="sub">{ai.live.reviewed ? `${ai.live.accepted} of ${ai.live.reviewed} live values reviewed` : "no live values reviewed yet"}</div></div>
+        <div className="tile"><div className="label">Reviewer walkthrough (median)</div><div className="value">{w.median_seconds === null ? "–" : clock(w.median_seconds)}</div>
+          <div className={`sub ${w.first_time_runs && !w.met ? "alert" : ""}`}>{w.first_time_runs ? `${w.under_target} of ${w.first_time_runs} first-time runs under 5:00` : "no first-time runs yet"}</div></div>
       </div>
       <h2>Queues</h2>
       <div className="panel">

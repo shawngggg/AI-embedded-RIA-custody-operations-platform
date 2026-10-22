@@ -65,6 +65,8 @@ themselves (the seed fingerprint); AI evaluation runs survive.
 - A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
   RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
   the portal: no note, document review note, notice, or status beyond "In review".
+- The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
+  Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
 
 ## Docs to keep current with each change
 

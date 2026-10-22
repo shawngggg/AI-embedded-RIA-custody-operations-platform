@@ -16,6 +16,8 @@
 <bpmn:textAnnotation id="rf_ann1"><bpmn:text>The reliance result decides whether discretionary client accounts can use path A.</bpmn:text></bpmn:textAnnotation>
 <bpmn:messageFlow id="rf_msg8" name="Decline notice" sourceRef="rf_ep" targetRef="rf_ria" />
 <bpmn:textAnnotation id="rf_ann2"><bpmn:text>A registered principal on the RIA service team (Series 24 or 9/10, never the case&#39;s preparer) accepts the relationship before the master accounts open. Once the firm has open client accounts, the acceptance isn&#39;t rescinded; the firm is restricted instead.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="rf_ann3"><bpmn:text>A failed identity check: insufficient information or the wrong document goes back to the RIA to resubmit. A suspected fraudulent identity is held (IDFR) for AML compliance, which confirms it (declined) or clears it; the RIA isn't told.</bpmn:text></bpmn:textAnnotation>
+<bpmn:textAnnotation id="rf_ann4"><bpmn:text>Every PEP or adverse-media alert goes to AML compliance: in EDD when the rating calls for it; otherwise compliance clears the alert or requires EDD. Sanctions hits go to the sanctions team.</bpmn:text></bpmn:textAnnotation>
 </bpmn:collaboration>
 <bpmn:process id="rf_process" name="RIA firm onboarding and due diligence" isExecutable="false">
 <bpmn:laneSet id="rf_laneset">
@@ -302,5 +304,7 @@
 <bpmndi:BPMNEdge id="rf_flow28_di" bpmnElement="rf_flow28"><di:waypoint x="4180" y="914" /><di:waypoint x="4180" y="1069" /><di:waypoint x="4300" y="1069" /><bpmndi:BPMNLabel><dc:Bounds x="4186" y="1049" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="rf_flow29_di" bpmnElement="rf_flow29"><di:waypoint x="4205" y="889" /><di:waypoint x="4362" y="889" /><bpmndi:BPMNLabel><dc:Bounds x="4211" y="869" width="40" height="14" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
 <bpmndi:BPMNEdge id="rf_msg8_di" bpmnElement="rf_msg8" bioc:stroke="#5B6578" color:border-color="#5B6578"><di:waypoint x="4380" y="871" /><di:waypoint x="4380" y="60" /><bpmndi:BPMNLabel><dc:Bounds x="4387" y="66" width="98" height="30" /></bpmndi:BPMNLabel></bpmndi:BPMNEdge>
+<bpmndi:BPMNShape id="rf_ann3_di" bpmnElement="rf_ann3"><dc:Bounds x="1500" y="650" width="340" height="84" /></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="rf_ann4_di" bpmnElement="rf_ann4"><dc:Bounds x="2500" y="820" width="340" height="84" /></bpmndi:BPMNShape>
 </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
 </bpmn:definitions>

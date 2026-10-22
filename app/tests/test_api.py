@@ -1409,3 +1409,27 @@ def test_a_new_owners_failed_check_reaches_the_ria_but_a_fraud_suspicion_never_d
     _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Ana Ruiz", "The passport number belongs to someone else")
     portal = as_user("bonneville.advisor").get(f"/api/cases/{cid}").json()
     assert portal["status"] == "IN_REVIEW" and "fraud" not in str(portal).lower() and "IDFR" not in str(portal)
+
+
+# --- The timed reviewer walkthrough -------------------------------------------------------------------------------
+
+
+def test_a_timed_walkthrough_runs_from_start_to_open_account_and_is_kept(as_user):
+    ops = as_user("ops.analyst")
+    w = ops.post("/api/walkthrough", json={"first_time": True}).json()
+    cid = w["case_id"]
+    d = ops.get(f"/api/cases/{cid}").json()
+    assert d["status"] == "PENDING_ITEMS" and d["firm"] == "Bonneville Planning LLC" and len(w["steps"]) == 2
+    lpoa = next(x for x in d["documents"] if x["doc_type"] == "lpoa")
+    assert lpoa["status"] == "received"                                   # waiting for operations to check it
+    d = ops.post(f"/api/cases/{cid}/corrections", json={"fields": {"lpoa_signed": True},
+                                                      "documents": {"lpoa_signed": lpoa["id"]}}).json()
+    assert d["status"] == "PENDING_ACCEPTANCE" and "seconds" not in ops.get(f"/api/walkthrough/{cid}").json()
+    assert accept(as_user("rs.principal"), cid)["status"] == "OPEN"
+    done = as_user("ops.analyst").get(f"/api/walkthrough/{cid}").json()
+    assert done["seconds"] >= 0 and done["finished_at"] and done["first_time"] is True
+    m = as_user("ops.supervisor").get("/api/dashboard").json()["walkthrough"]
+    assert (m["runs"], m["first_time_runs"], m["met"]) == (1, 1, True)
+    assert as_user("granite.advisor").post("/api/walkthrough", json={}).status_code == 403
+    assert as_user("admin.platform").post("/api/admin/reset", json={}).status_code == 200
+    assert as_user("ops.supervisor").get("/api/walkthrough/summary").json()["first_time_runs"] == 1   # kept

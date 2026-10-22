@@ -224,6 +224,20 @@ def work_the_seeded_cases() -> None:
                   {"aml_compliance"}, {"aml_compliance"}, matrix=True)
 
 
+def walkthrough_tracking() -> dict:
+    """The timed walkthrough measures itself: a run here (not first-time, so it isn't counted) must be timed from Start
+    to the account opening and kept. The measure itself needs first-time reviewers on the live site."""
+    ops = as_user("ops.analyst")
+    w = ops.post("/api/walkthrough", json={"first_time": False}).json()
+    d = ops.get(f"/api/cases/{w['case_id']}").json()
+    lpoa = next(x for x in d["documents"] if x["doc_type"] == "lpoa")
+    ops.post(f"/api/cases/{w['case_id']}/corrections", json={"fields": {"lpoa_signed": True},
+                                                          "documents": {"lpoa_signed": lpoa["id"]}})
+    accept(w["case_id"])
+    run = as_user("ops.analyst").get(f"/api/walkthrough/{w['case_id']}").json()
+    return {"timed": "seconds" in run, "seconds": run.get("seconds"), "status": run["status"]}
+
+
 def suggestion_tracking() -> dict:
     """Every suggestion the AI made is stored with what the reviewer did, by whom, and why (PRD guardrail 6)."""
     with SessionLocal() as db:
@@ -358,11 +372,13 @@ def main() -> None:
         "build_health": {"measured": False, "why": "skipped"} if args.no_github else build_health(),
         "nigo_test_set": nigo_test_set(),
         "ai_suggestion_tracking": suggestion_tracking(),
+        "walkthrough_tracking": walkthrough_tracking(),
         "not_measured": {
             "nigo_detection_recall": "Needs the live model: run Users and rules → AI evaluation in the deployed app",
             "ai_suggestion_acceptance": "Needs live values reviewed in the deployed app (New application, then review "
                                         "each value); the share shows on the dashboard and Users and rules → AI evaluation",
-            "reviewer_walkthrough": "Needs a person: a first-time reviewer, timed from sign-in to open account"},
+            "reviewer_walkthrough": "Needs first-time reviewers on the live site: Start the clock on the sign-in page; "
+                                    "the median shows on the dashboard"},
     }
     t, s, r = report["decision_traceability"], report["straight_through"], report["role_enforcement"]
     print("MVP gate review (synthetic data)\n")
@@ -384,6 +400,8 @@ def main() -> None:
     print(f"AI suggestion tracking: {a['reviewed']}/{a['suggestions']} sample values reviewed and recorded with the reviewer "
           f"({a['with_reviewer']}), {a['audited']} audit events, {a['changes_with_reason']}/{a['changes']} changes with a reason "
           f"(illustrative; {a['live']} live)")
+    wt = report["walkthrough_tracking"]
+    print(f"Walkthrough timing    : a run from Start to open account was timed ({wt['seconds']}s, {wt['status']}) and kept")
     for k, v in report["not_measured"].items():
         print(f"Not measured          : {k}: {v}")
     if args.json:
@@ -396,7 +414,9 @@ def main() -> None:
             ("NIGO test set consistent with its answer key", n["recall"] == 1.0 and n["false_nigo"] == 0),
             ("every AI suggestion review recorded with the reviewer and audited",
              a["reviewed"] == a["suggestions"] == a["with_reviewer"] == a["audited"] > 0
-             and a["changes_with_reason"] == a["changes"])) if not ok]
+             and a["changes_with_reason"] == a["changes"]),
+            ("the timed walkthrough records a run from Start to open account", wt["timed"] and wt["status"] == "OPEN"))
+            if not ok]
         print("\nGate check: " + ("all measured targets met" if not missed else "MISSED: " + "; ".join(missed)))
         sys.exit(1 if missed else 0)
 
