@@ -30,13 +30,22 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
 - `onboarding/`: the decision engine (rules, restriction codes, flagged list, risk, transferability, AI extraction
   behind the controls gate, the NIGO test set). Every module is also loaded by the browser console in `docs/console/`:
   after changing one, run `python tools/sync_console.py`.
+- `custody/`: the release 2 engine (pure Python, no database): `ledger.py` (three layers, the rollup check),
+  `money.py` (map 08 transfers, the simulated rails), `settlement.py`, `recon.py`, `policy.py` (every threshold as a
+  dated rule with its source), and the engines not yet in the app (`entitlements.py`, `products.py`, `lifecycle.py`).
+  A workflow is a function of the case's request, approved decisions, and recorded events; `app/servicing.py` replays
+  it and posts what's missing (each posting has a stable ref). The later queues stay hidden while
+  `LATER_ENABLED = False` in `app/queues.py`.
 - `app/`: FastAPI, SQLAlchemy, Alembic (`migrations/`). `app/access.py` is the capability model; menus and the API
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
   `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
-- `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds one book (positions,
-  trades, fails, money movement, transfers, billing, settlement, reconciliation) from the demo's open accounts, served
-  read-only by `app/routers/preview.py`; `python -m synthetic.export` writes it all to `synthetic/data/`. The image
-  copies `synthetic/` (the seed imports it).
+- `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle; `app/recon.py` reconciles;
+  `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 17 transfer scenarios, receipts, breaks);
+  `app/routers/money.py` is the transfers, settlement, recon, and ledger API.
+- `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds the release 3 book
+  (trading and billing) on the ledger's positions, served read-only by `app/routers/preview.py` (the seed also uses its
+  funding rows); `python -m synthetic.export` writes everything, ledger postings included, to `synthetic/data/` (rerun
+  it after a seed change). The image copies `synthetic/` (the seed imports it).
 - `web/`: React and TypeScript (Vite). `npm run build` in `web/`.
 - `tools/gate_review.py`: the MVP gate metrics (CI runs `--check --no-github`). `tools/smoke_test.py`: live checks.
 
@@ -44,6 +53,7 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
 
 ```
 python -m pytest onboarding -q
+python -m pytest custody -q
 python -m pytest app/tests -q                     # also on Postgres: TEST_DATABASE_URL=postgresql+psycopg://...
 python tools/gate_review.py --check --no-github
 cd web && npx tsc --noEmit && npm run build
@@ -51,13 +61,18 @@ cd web && npx tsc --noEmit && npm run build
 
 A schema change needs an Alembic migration (autogenerate against Postgres, name constraints the way Postgres does,
 then `alembic upgrade head` and `alembic check`). Seed data changes reseed the live demo on the next deploy by
-themselves (the seed fingerprint); AI evaluation runs survive.
+themselves (the seed fingerprint); AI evaluation runs survive. On Postgres, `seed_database()` builds the seed in a
+local SQLite file and bulk-copies it across (Neon is a network hop away; the seed is about 5,600 statements, the copy
+about 140), and the Postgres tests take the same path: keep the seed free of Postgres-only SQL.
 
 ## Access model (what each person sees)
 
 - Menus and API by role and team (`capabilities()`); a refused request is logged (`audit.refuse`).
-- Operations teams: onboarding (intake), CIP, client service (account maintenance), and teams whose workbench comes in
-  a later release (asset transfer, trade, billing): planned page, channel, restricted accounts, area risk events.
+- Operations teams: onboarding (intake), CIP, client service (account maintenance), asset transfer (Money movement:
+  requests by mail or from a receiving firm, callbacks, fixes, release under maker-checker; ops.transfers makes,
+  ops.money checks, the supervisor checks above $50,000), settlement (ops.settlement: the cycle, receipts, recon; trade
+  and asset transfer read it), and teams whose workbench comes in release 3 (trade, billing): planned page, channel,
+  restricted accounts, area risk events.
 - Risk events belong to an area; each person sees their area's (the platform admin: access and authentication only).
 - The platform admin has no case files. The portal sees no custodian operations: every review state is "In review".
 - Every team that works with accounts sees a case's decisions, sanctions determinations included.
@@ -69,9 +84,11 @@ themselves (the seed fingerprint); AI evaluation runs survive.
 - A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
   RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
   the portal: no note, document review note, notice, or status beyond "In review".
-- The release 2 and 3 pages open with a read-only preview of the synthetic book: operations sees its area (settlement
-  and reconciliation: trade, asset transfer, the supervisor); an RIA its own firm; a client their own account. The
-  portal never gets a restriction code, a fail, the ledger, or reconciliation.
+- Money leaves only under maker-checker and the controls gate (MM-005, MM-006). The portal sees transfers in its own
+  words (`portal_view.KIND_STATUS`) and balances at the client layer only: never the master, the GL, a risk review, or
+  a sanctions hold.
+- The release 3 pages (trading, billing) open with a read-only preview of the synthetic book: operations sees its
+  area; an RIA its own firm; a client their own account. The portal never gets a restriction code or a fail.
 - The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
   Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
 

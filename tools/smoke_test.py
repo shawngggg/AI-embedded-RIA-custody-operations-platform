@@ -19,7 +19,8 @@ import urllib.error
 import urllib.request
 
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
-                   "CONFIRMING", "IN_REVIEW", "SUBMITTED"}
+                   "CONFIRMING", "IN_REVIEW", "SUBMITTED",
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT"}         # release 2 transfers, in the portal's words
 INTERNAL_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "sla", "path", "application"}
 results: list[tuple[str, bool, str]] = []
 
@@ -116,12 +117,12 @@ def main() -> None:
           f"{wt.get('first_time_runs')} first-time runs, median {wt.get('median_seconds')}s, "
           f"{wt.get('under_target')} under {wt.get('target_seconds')}s")
     sup = Session(args.base).sign_in("ops.supervisor")
-    status, st = sup.get("/api/preview/settlement")
+    status, st = sup.get("/api/settlement")
     st = st if isinstance(st, dict) else {}
-    checks = (st.get("settlement") or {}).get("checks", [])
-    check("settlement preview: the synthetic book balances but for its open break",
-          status == 200 and len(checks) == 3 and any("CB-R01" in c.get("detail", "") for c in checks),
-          f"{len(st.get('breaks', []))} breaks, business day {st.get('as_of')}")
+    checks = st.get("checks", [])
+    check("release 2 ledger: client accounts, RIA masters, and the general ledger agree",
+          status == 200 and len(checks) == 3 and all(c.get("ok") for c in checks),
+          f"business day {st.get('as_of')}, last cycle {(st.get('last_run') or {}).get('business_date')}")
     status, risk = admin.get("/api/risk-events")
     areas = {e["area"] for e in risk.get("events", [])} if isinstance(risk, dict) else set()
     check("platform admin: only access and authentication risk events", areas <= {"access"}, str(sorted(areas)))
@@ -137,12 +138,15 @@ def main() -> None:
             leaks.append(cases[0]["id"])
         check("RIA user: no case audit trail", rias.get(f"/api/cases/{cases[0]['id']}/audit")[0] == 403)
     check("RIA user: no custodian operations in requests", not leaks, f"leaking requests {leaks}" if leaks else "")
-    status, tr = rias.get("/api/preview/transfers")
-    firms = {r.get("firm_crd") for r in (tr.get("transfers", []) + tr.get("movements", []))} if isinstance(tr, dict) else set()
-    check("RIA user: transfers preview shows only the firm's accounts", status == 200 and firms <= {"310001"},
-          str(sorted(firms)))
+    status, tr = rias.get("/api/money/transfers")
+    tr = tr if isinstance(tr, list) else []
+    firms = {r.get("account") for r in tr}
+    status_a, mine = rias.get("/api/money/accounts")
+    allowed = {a["id"] for a in mine} if isinstance(mine, list) else set()
+    check("RIA user: money movement shows only the firm's accounts", status == 200 and firms <= allowed,
+          f"{len(tr)} transfers on {len(firms)} accounts")
     for path in ("/api/queues", "/api/risk-events", "/api/admin/rules", "/api/restrictions/accounts",
-                 "/api/preview/settlement"):
+                 "/api/settlement", "/api/recon"):
         check(f"RIA user: {path} refused", rias.get(path)[0] in (403, 404))
 
     failed = [r for r in results if not r[1]]

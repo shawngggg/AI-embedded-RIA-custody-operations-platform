@@ -14,6 +14,13 @@ export const STATUS: Record<string, [string, string]> = {
   // The portal's own words (app/portal_view.py): every review state is "In review"
   IN_REVIEW: ["In review", "refer"], CONFIRMING: ["Confirming with you", "refer"], SUBMITTED: ["Submitted", "quiet"],
   PENDING: ["Opening", "quiet"],
+  // Release 2: money movement and transfers
+  PENDING_RELEASE: ["Waiting for release", "refer"], PENDING_CALLBACK: ["Callback", "escalate"],
+  PENDING_RISK_REVIEW: ["Risk review", "escalate"], PENDING_FIX: ["Fix before sending", "refer"],
+  PENDING_CORRECTION: ["Correction", "escalate"], OVERDUE: ["Overdue", "block"],
+  AWAITING_SETTLEMENT: ["In transit", "quiet"], AWAITING_REREGISTRATION: ["LOI out", "quiet"],
+  WAITING_PRODUCT: ["Product acceptance", "refer"], COMPLETED: ["Completed", "clear"],
+  IN_TRANSIT: ["In transit", "quiet"], BANK_RETURNED: ["Returned by the bank", "refer"], CLOSED: ["Closed", "quiet"],
 };
 
 export function Status({ status, stamp }: { status: string; stamp?: boolean }) {

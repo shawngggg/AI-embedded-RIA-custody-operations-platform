@@ -1,0 +1,32 @@
+id,account,bank,last4,owner,method,status
+BL-1990,ACC-1990,Bear River Savings Bank,8757,Farid Hosseini,micro_deposits,verified
+BL-2001,ACC-2001,Bear River Savings Bank,9267,Maria Chen,micro_deposits,verified
+BL-2002,ACC-2002,Cottonwood Heights Credit Union,4956,Kenji Tanaka,micro_deposits,verified
+BL-2003,ACC-2003,Cottonwood Heights Credit Union,8629,Farid Hosseini,micro_deposits,verified
+BL-2004,ACC-2004,Sawtooth National Bank,4419,Whitfield Family Holdings LLC,micro_deposits,verified
+BL-2010,ACC-2010,Great Salt Lake Trust Company,1673,Owen Gallagher,micro_deposits,verified
+BL-3001,ACC-3001,Sawtooth National Bank,2781,Harold Benson,micro_deposits,verified
+BL-3002,ACC-3002,Sawtooth National Bank,1081,Priscilla Ng,micro_deposits,verified
+BL-3003,ACC-3003,Wasatch Community Bank,9933,Tomas Alvarado,micro_deposits,verified
+BL-3004,ACC-3004,Great Salt Lake Trust Company,8720,Wendy Kowalski,micro_deposits,verified
+BL-3005,ACC-3005,Great Salt Lake Trust Company,9800,Gregory Holm,micro_deposits,verified
+BL-3006,ACC-3006,Sawtooth National Bank,8426,Samuel Adeyemi,micro_deposits,verified
+BL-3007,ACC-3007,Bear River Savings Bank,1686,Douglas Pratt,micro_deposits,verified
+BL-3008,ACC-3008,Wasatch Community Bank,3410,Leah Castellanos,micro_deposits,verified
+BL-3009,ACC-3009,Great Salt Lake Trust Company,6067,Benson Family Trust,micro_deposits,verified
+BL-3010,ACC-3010,Wasatch Community Bank,9147,Canyon Ridge Holdings LLC,micro_deposits,verified
+BL-3011,ACC-3011,Sawtooth National Bank,8540,Imogen Fairweather,micro_deposits,verified
+BL-3012,ACC-3012,Wasatch Community Bank,3678,Rajesh Kulkarni,micro_deposits,verified
+BL-3013,ACC-3013,Great Salt Lake Trust Company,9325,Beatrice Okoro,micro_deposits,verified
+BL-3014,ACC-3014,Sawtooth National Bank,2362,Colin Ferris,micro_deposits,verified
+BL-3015,ACC-3015,Wasatch Community Bank,1024,Arthur Lindgren,micro_deposits,verified
+BL-3016,ACC-3016,Cottonwood Heights Credit Union,2407,Yolanda Price,micro_deposits,verified
+BL-3017,ACC-3017,Bear River Savings Bank,4456,Kulkarni Living Trust,micro_deposits,verified
+BL-3018,ACC-3018,Cottonwood Heights Credit Union,8553,Dale Henriksen,micro_deposits,verified
+BL-3019,ACC-3019,Sawtooth National Bank,5465,Marjorie Quist,micro_deposits,verified
+BL-3020,ACC-3020,Sawtooth National Bank,2257,Neil Durant,micro_deposits,verified
+BL-3021,ACC-3021,Cottonwood Heights Credit Union,2735,Ezra Whitlock,micro_deposits,verified
+BL-3022,ACC-3022,Bear River Savings Bank,3433,Fiona Gallardo,micro_deposits,verified
+BL-3023,ACC-3023,Lakeview Federal Credit Union,3983,Oscar Feldman,micro_deposits,verified
+BL-3024,ACC-3024,Lakeview Federal Credit Union,1810,Hazel Montoya,micro_deposits,verified
+BL-3025,ACC-3025,Great Salt Lake Trust Company,4271,Rupert Asante,micro_deposits,verified

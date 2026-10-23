@@ -1,23 +1,29 @@
-cusip,ticker,name,asset_type,price,location
-990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,142.3,DTC
-990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,58.75,DTC
-990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,211.4,DTC
-990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,318.2,DTC
-990105AA6,SFLX,Salt Flats Logistics Inc. (synthetic),equity,47.1,DTC
-990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,96.85,DTC
-990107AA2,PCFD,Provo Canyon Foods Co. (synthetic),equity,33.6,DTC
-990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,74.25,DTC
-990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,128.9,DTC
-990110AA6,ARBT,Arches Biotech Inc. (synthetic),equity,22.15,DTC
-990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,268.4,DTC
-990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,61.2,DTC
-990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,97.85,DTC
-990204AA7,SSTR,Summit Short Treasury ETF (synthetic),etf,50.12,DTC
-990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,84.3,DTC
-990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,41.75,DTC
-990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,9.84,Fund/SERV (transfer agent)
-990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,41.27,Fund/SERV (transfer agent)
-990303AA7,RDMIX,Ridgeline Municipal Income Fund (synthetic),mutual_fund,10.62,Fund/SERV (transfer agent)
-990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,100.84,DTC
-990402AB5,GBE31,Great Basin Energy 5.10% notes 2031 (synthetic),bond,98.4,DTC
-SYN-REIT-01,SMREIT,Summit Non-Traded REIT Class I (synthetic),alternative,9.62,Sponsor (non-traded)
+id,ticker,name,asset_type,price,price_as_of,location,accepted,dtc_eligible,fundserv_eligible,sponsor_agreement,proprietary_to,sponsor,settlement_method,valuation_source
+990101AA5,BNVR,Bonneville Robotics Inc. (synthetic),equity,142.3,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990102AA3,GBEC,Great Basin Energy Corp. (synthetic),equity,58.75,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990103AA1,UNTH,Uinta Health Systems Inc. (synthetic),equity,211.4,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990104AA9,WSMC,Wasatch Semiconductor Corp. (synthetic),equity,318.2,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990105AA6,SFLX,Salt Flats Logistics Inc. (synthetic),equity,47.1,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990106AA4,KLBS,Kolob Software Inc. (synthetic),equity,96.85,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990107AA2,PCFD,Provo Canyon Foods Co. (synthetic),equity,33.6,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990108AA0,DSRM,Deseret Materials Inc. (synthetic),equity,74.25,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990109AA8,TTPY,Teton Payments Inc. (synthetic),equity,128.9,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990110AA6,ARBT,Arches Biotech Inc. (synthetic),equity,22.15,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990201AA3,STUM,Summit Total US Market ETF (synthetic),etf,268.4,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990202AA1,SIEQ,Summit International Equity ETF (synthetic),etf,61.2,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990203AA9,SAGB,Summit Aggregate Bond ETF (synthetic),etf,97.85,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990204AA7,SSTR,Summit Short Treasury ETF (synthetic),etf,50.12,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990205AA4,CDVG,Canyon Dividend Growth ETF (synthetic),etf,84.3,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990206AA2,CSCV,Canyon Small Cap Value ETF (synthetic),etf,41.75,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),Pricing vendor (synthetic)
+990301AA1,EVCBX,Evergreen Core Bond Fund Institutional (synthetic),mutual_fund,9.84,2026-10-22,Fund/SERV (transfer agent),True,False,True,False,,,Fund/SERV,Pricing vendor (synthetic)
+990302AA9,RDGIX,Ridgeline Growth Fund Institutional (synthetic),mutual_fund,41.27,2026-10-22,Fund/SERV (transfer agent),True,False,True,False,,,Fund/SERV,Pricing vendor (synthetic)
+990303AA7,RDMIX,Ridgeline Municipal Income Fund (synthetic),mutual_fund,10.62,2026-10-22,Fund/SERV (transfer agent),True,False,True,False,,,Fund/SERV,Pricing vendor (synthetic)
+990401AB7,UST30,US Treasury note 4.25% 2030 (synthetic),bond,1.0084,2026-10-22,DTC,True,True,False,False,,,DTC,Pricing vendor (synthetic)
+990402AB5,GBE31,Great Basin Energy 5.10% notes 2031 (synthetic),bond,0.984,2026-10-22,DTC,True,True,False,False,,,DTC,Pricing vendor (synthetic)
+SYN-ANN-05,,Pinnacle Variable Annuity (synthetic),annuity,1.0,2026-10-22,Sponsor (non-traded),True,False,False,True,,Pinnacle Life (synthetic),Insurer,
+SYN-LP-02,,Harbor Creek Private Credit LP (synthetic),alternative,1000.0,2026-10-22,Sponsor (non-traded),False,False,False,False,,Harbor Creek Capital (synthetic),Sponsor subscription,
+SYN-MF-03,,Evergreen Balanced Fund Class A (synthetic),mutual_fund,18.42,2026-10-22,Fund/SERV (transfer agent),True,False,True,False,,Evergreen Funds (synthetic),Fund/SERV,
+SYN-NWF-B,,Northwind Frontier Fund Class B (synthetic),alternative,7.75,2026-10-22,Sponsor (non-traded),True,False,False,True,,Northwind Fund Administration (synthetic),Sponsor subscription,
+SYN-PRV-01,,Proprietary Core Bond Fund (delivering firm only),mutual_fund,10.25,2026-10-22,Fund/SERV (transfer agent),False,False,False,False,Delivering firm,,Fund/SERV,
+SYN-REIT-01,SMREIT,Summit Non-Traded REIT Class I (synthetic),alternative,9.62,2026-10-22,Sponsor (non-traded),True,False,False,True,,Summit REIT Sponsor (synthetic),Sponsor subscription,Sponsor's quarterly NAV
+SYN-RST-04,,Bluebird Robotics Inc. restricted shares (synthetic),equity,12.1,2026-10-22,DTC,True,True,False,False,,,DTC (NSCC CNS),

@@ -153,6 +153,7 @@ SECURITIES = [
              "Sponsor (non-traded)"),
 ]
 BY_TICKER = {s.ticker: s for s in SECURITIES}
+BY_CUSIP = {s.cusip: s for s in SECURITIES}
 
 MODELS = {
     "Growth": [("STUM", .30), ("SIEQ", .14), ("CSCV", .08), ("RDGIX", .10), ("WSMC", .06), ("KLBS", .05),
@@ -234,7 +235,7 @@ def _dispositions(review, quantities: dict | None = None) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- the book
-def build(accounts: list[dict], firms: dict[str, str], as_of: date) -> dict:
+def build(accounts: list[dict], firms: dict[str, str], as_of: date, ledger: dict | None = None) -> dict:
     """
     accounts: the open accounts, each {id, name, firm_crd, group, registration_type, path, opened_on (date), codes
     (active restriction codes), household, purpose, funding}. firms: CRD -> legal name. as_of: the business day shown
@@ -248,6 +249,7 @@ def build(accounts: list[dict], firms: dict[str, str], as_of: date) -> dict:
         a["target_value"] = max(a.get("funding") or 0, 50_000) * _rng("value", a["id"]).uniform(0.94, 1.12)
         accts.append(a)
     b = _Book(today, accts, firms)
+    b.ledger = ledger
     b.transfers_in()
     b.positions_and_cash()
     b.trading()
@@ -267,6 +269,7 @@ class _Book:
         self.orders, self.allocations, self.fails, self.movements, self.transfers = [], [], [], [], []
         self.billing_runs, self.fees, self.breaks = [], [], []
         self.settlement: dict = {}
+        self.ledger: dict | None = None
         self.in_transit: set[str] = set()       # incoming ACATS still running: only the opening deposit is here
         self.loi_pending: set[str] = set()      # the REIT waits for the sponsor's re-registration
         self.closing: dict | None = None
@@ -377,6 +380,8 @@ class _Book:
 
     # ------------------------------------------------------------ positions and cash
     def positions_and_cash(self) -> None:
+        if self.ledger is not None:
+            return self._from_ledger()
         q_start = quarter_bounds(self.today)[0]
         short_cash = set()
         for crd, sched in FEE_SCHEDULES.items():          # one fully invested account per custodian-billed RIA
@@ -410,6 +415,31 @@ class _Book:
             self.value[a["id"]] = _money(invested + self.cash[a["id"]])
 
     # ------------------------------------------------------------ trading
+    def _from_ledger(self) -> None:
+        """Release 2 is live: positions and cash come from the ledger (app/book.py passes them in), not the models.
+        An account with nothing settled yet is still being funded; one with an outgoing transfer is frozen."""
+        for a in self.accounts:
+            led = self.ledger.get(a["id"], {})
+            invested = 0.0
+            for cusip, qty in sorted((led.get("holdings") or {}).items()):
+                s = BY_CUSIP.get(cusip)
+                if s is None or qty <= 0:
+                    continue
+                mv = _money(qty * s.per_unit)
+                invested += mv
+                p = self._ref(a) | {"firm": self.firm(a["firm_crd"]), "cusip": s.cusip, "ticker": s.ticker,
+                                    "security": s.name, "asset_type": s.asset_type, "quantity": qty,
+                                    "price": s.price, "market_value": mv, "location": s.location}
+                self.positions.append(p)
+                self.holdings.setdefault(a["id"], {})[s.ticker] = p
+            self.cash[a["id"]] = _money(led.get("cash") or 0)
+            self.value[a["id"]] = _money(invested + self.cash[a["id"]])
+            if not self.holdings.get(a["id"]):
+                self.in_transit.add(a["id"])
+            if led.get("leaving_on"):
+                self.in_transit.add(a["id"])              # frozen for its outgoing transfer: no trading
+        self.loi_pending = set()
+
     def _can_trade(self, a: dict) -> bool:
         return (a["id"] not in self.in_transit and not blocking(a, Activity.BUY)
                 and not blocking(a, Activity.SELL))
@@ -660,6 +690,12 @@ class _Book:
 
     # ------------------------------------------------------------ an outgoing ACATS: the client is leaving
     def transfer_out(self) -> None:
+        if self.ledger is not None:                     # the ledger names the account that's leaving
+            a = next((a for a in self.accounts if self.ledger.get(a["id"], {}).get("leaving_on")), None)
+            if a is not None:
+                a["leaves_on"] = date.fromisoformat(self.ledger[a["id"]]["leaving_on"])
+                self.closing = a
+            return
         pool = [a for a in self.accounts if a["registration_type"] == "ira" and self.holdings.get(a["id"])
                 and not blocking(a, Activity.TRANSFER_OUT) and a["opened_on"] < quarter_bounds(self.today)[0]]
         if not pool:

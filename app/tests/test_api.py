@@ -47,11 +47,13 @@ def test_seeded_cases_are_aged(as_user):
 def test_queues_have_seeded_work(as_user):
     def counts(username):
         return {q["key"]: q["count"] for q in as_user(username).get("/api/queues").json()["queues"]}
-    assert counts("sanctions.maker") == {"sanctions_review": 3}
+    assert counts("sanctions.maker") == {"sanctions_review": 4}            # 3 onboarding cases, 1 wire (release 2)
     aml = counts("aml.maker")
-    assert aml["edd_review"] == 3 and aml["compliance_review"] == 3 and aml["reviews"] >= 2   # 2 PEP alerts, 1 fraud
+    assert aml["edd_review"] == 3 and aml["compliance_review"] == 4 and aml["reviews"] >= 2   # + a transfer risk review
     ops = counts("ops.supervisor")                         # the supervisor oversees every operations queue
     assert ops["items_requested"] == 9 and ops["confirmation"] == 1
+    assert ops["money_release"] == 1 and ops["callbacks"] == 1 and ops["transfer_exceptions"] == 3
+    assert ops["in_transit"] >= 3
     assert ops["verification"] == 1 and ops["maintenance_items"] == 1      # CIP and client service have work too
     assert counts("rs.principal") == {"principal_acceptance": 5}
 
@@ -72,9 +74,11 @@ def test_ria_user_sees_only_their_firms_accounts_and_changes(as_user):
     assert as_user("granite.advisor").get(f"/api/cases/{firm_case}").status_code == 404
 
 
-def test_client_sees_only_changes_on_their_account(as_user):
+def test_client_sees_only_requests_on_their_account(as_user):
     c = as_user("client.farid")
-    assert c.get("/api/cases").json() == []
+    cases = c.get("/api/cases").json()
+    assert cases and {x["account_id"] for x in cases} == {"ACC-2003"} and {x["kind"] for x in cases} <= {"change",
+                                                                                                         "transfer"}
     accounts = c.get("/api/portal/accounts").json()
     assert [a["id"] for a in accounts] == ["ACC-2003"]
 
@@ -597,7 +601,9 @@ def test_missed_refresh_restricts_until_the_review_completes(as_user):
     assert codes == ["KYCR"]
     review = [r for r in rv.get("/api/reviews").json() if r["subject_id"] == "ACC-2004"][0]
     done = rv.post(f"/api/reviews/{review['id']}/complete", json={"outcome": "no_change", "new_tier": "LOW"}).json()
-    assert done["status"] == "complete" and done["next_review"] == "2027-10-10"
+    from app.config import settings
+    from risk import add_months
+    assert done["status"] == "complete" and done["next_review"] == add_months(settings.today(), 12).isoformat()
     assert rv.get("/api/restrictions?target=ACC-2004").json() == []
 
 
@@ -785,7 +791,10 @@ def test_queues_are_marked_by_team(as_user):
     assert mine("ops.analyst") == {"ai_review", "items_requested", "rework"}
     assert mine("ops.cip") == {"ai_review", "verification"}
     assert mine("ops.service") == {"confirmation", "maintenance_items"}     # account maintenance
-    assert {"ai_review", "items_requested", "confirmation", "verification", "rework", "maintenance_items"} <= mine("ops.supervisor")
+    money = {"money_release", "callbacks", "transfer_exceptions", "in_transit", "transfers_waiting"}
+    assert mine("ops.transfers") == money and mine("ops.money") == money and mine("ops.settlement") == set()
+    assert {"ai_review", "items_requested", "confirmation", "verification", "rework", "maintenance_items"} | money \
+        <= mine("ops.supervisor")
 
 
 def test_work_page_shows_what_needs_each_person(as_user):
@@ -922,7 +931,7 @@ def test_microsoft_365_sends_through_graph(monkeypatch):
 
 # --- Who sees what (the per-role sanity check of Oct. 13) ------------------------------------
 
-PLANNED_ALL = {"planned_transfers", "planned_trading", "planned_billing", "planned_settlement"}
+PLANNED_ALL = {"transfers", "settlement", "planned_trading", "planned_billing"}
 EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams that will run them
     "ops.analyst": {"work", "cases", "queues", "messages", "risk_events", "intake", "ai_review", "identity_check",
                     "restricted_accounts", "outbox"},
@@ -930,10 +939,13 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
                 "outbox"},
     "ops.service": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "outbox"},
     # Teams whose workbench arrives in a later release: no queue or notices yet, their own planned page
-    "ops.transfers": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_transfers",
-                      "planned_settlement"},
-    "ops.trade": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_trading",
-                  "planned_settlement"},
+    # Release 2: asset transfer works the money movement queues and checks releases; settlement runs the daily cycle
+    "ops.transfers": {"work", "cases", "queues", "approvals", "messages", "risk_events", "restricted_accounts",
+                      "outbox", "transfers", "settlement"},
+    "ops.money": {"work", "cases", "queues", "approvals", "messages", "risk_events", "restricted_accounts", "outbox",
+                  "transfers", "settlement"},
+    "ops.settlement": {"work", "cases", "messages", "risk_events", "restricted_accounts", "settlement"},
+    "ops.trade": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_trading", "settlement"},
     "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake", "ai_review",
                        "identity_check",
@@ -944,8 +956,8 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
                         "audit"},
     "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},
     "rs.lead": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
-                "dashboard", "outbox", "planned_transfers", "planned_trading"},
-    "rs.principal": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "planned_transfers",
+                "dashboard", "outbox", "transfers", "planned_trading"},
+    "rs.principal": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "transfers",
                      "planned_trading"},
     "admin.platform": {"work", "messages", "risk_events", "audit", "outbox", "admin"},
     "granite.admin": {"portal"}, "granite.advisor": {"portal"}, "client.farid": {"portal"},
@@ -981,7 +993,8 @@ INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "qu
                       "extra", "application", "acceptance", "manual_steps", "nigo_count", "rescission", "rework",
                       "available_decisions", "queue_entered_at"}
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
-                   "CONFIRMING", "IN_REVIEW", "SUBMITTED"}
+                   "CONFIRMING", "IN_REVIEW", "SUBMITTED",
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT"}         # release 2 transfers, in the portal's words
 
 
 def test_rias_and_clients_see_nothing_of_custody_operations(as_user):
@@ -1116,10 +1129,12 @@ def test_a_sanctions_determination_is_seen_by_every_team_on_the_account_but_not_
 
 
 def test_the_new_teams_see_their_planned_workbench_and_channel(as_user):
-    marisol = as_user("ops.transfers")
-    assert marisol.get("/api/queues").json()["queues"] == []                 # no release 1 queue
+    marisol = as_user("ops.transfers")                                       # release 2: the money movement queues
+    assert {q["key"] for q in marisol.get("/api/queues").json()["queues"]} == {
+        "money_release", "callbacks", "transfer_exceptions", "in_transit", "transfers_waiting"}
     assert "asset-transfer" in [c["key"] for c in marisol.get("/api/channels").json()["channels"]]
-    assert marisol.get("/api/outbox").status_code == 403
+    assert marisol.get("/api/outbox").status_code == 200                    # transfer notices go through it
+    assert as_user("ops.billing").get("/api/outbox").status_code == 403
     assert as_user("ops.trade").get("/api/restrictions/accounts").status_code == 200   # restricted accounts can't trade
 
 
@@ -1439,47 +1454,42 @@ def test_a_timed_walkthrough_runs_from_start_to_open_account_and_is_kept(as_user
     assert as_user("ops.supervisor").get("/api/walkthrough/summary").json()["first_time_runs"] == 1   # kept
 
 
-# --- Release 2 and 3 previews: the synthetic book, read-only (app/routers/preview.py) ----------------------------
+# --- Release 3 previews: trading and billing on the release 2 ledger's positions (app/routers/preview.py) -------
 
 def test_previews_go_to_the_teams_that_will_run_them(as_user):
     c = as_user("ops.trade")
     t = c.get("/api/preview/trading").json()
     assert t["label"].startswith("Preview: synthetic data") and t["release"] == 3
     assert t["orders"] and t["allocations"] and t["fails"] and t["holdings"]
-    s = c.get("/api/preview/settlement").json()
-    assert {x["id"] for x in s["breaks"]} >= {"CB-R01", "CB-SUSP"} and s["settlement"]["checks"]
     assert c.get("/api/preview/billing").status_code == 403
     assert as_user("ops.billing").get("/api/preview/billing").json()["runs"]
-    assert as_user("ops.billing").get("/api/preview/settlement").status_code == 403
+    for gone in ("transfers", "settlement"):                    # release 2 is built: real pages, not previews
+        assert as_user("ops.supervisor").get(f"/api/preview/{gone}").status_code == 404
     refused = {e["target_id"] for e in as_user("ops.supervisor").get("/api/audit?action=access_refused").json()}
-    assert {"GET /api/preview/billing", "GET /api/preview/settlement"} <= refused
+    assert "GET /api/preview/billing" in refused
 
 
-def test_previews_open_accounts_hold_the_book(as_user):
-    """The book is built from the demo's own open accounts: a restricted account trades nothing."""
+def test_previews_hold_the_ledgers_positions(as_user):
+    """The trading preview's holdings are what the ledger holds, and a restricted account trades nothing."""
     c = as_user("ops.supervisor")
-    accounts = {a["account"]: a for a in c.get("/api/preview/trading").json()["accounts"]}
-    assert "ACC-2001" in accounts and "ACC-3022" in accounts
-    traded = {x["account"] for x in c.get("/api/preview/trading").json()["allocations"]}
+    t = c.get("/api/preview/trading").json()
+    accounts = {a["account"]: a for a in t["accounts"]}
+    traded = {x["account"] for x in t["allocations"]}
     assert not {a for a, x in accounts.items() if "DOCS" in x["codes"]} & traded
+    bal = c.get("/api/money/accounts/ACC-3001").json()
+    assert [p for p in bal["positions"] if p["asset"] != "USD"]
+    assert abs(accounts["ACC-3001"]["value"] - bal["value"]) < 0.02
 
 
 def test_the_portal_sees_its_own_slice_and_no_custodian_operations(as_user):
     c = as_user("granite.advisor")
-    tr = c.get("/api/preview/transfers").json()
-    rows = tr["transfers"] + tr["movements"]
-    assert rows and {r["firm_crd"] for r in rows} == {"310001"}
     bill = c.get("/api/preview/billing").json()
     assert {r["firm_crd"] for r in bill["runs"]} == {"310001"} and bill["fees"]
     trading = c.get("/api/preview/trading").json()
     assert "fails" not in trading and {o["firm_crd"] for o in trading["orders"]} == {"310001"}
-    text = str([tr, bill, trading])
-    for leak in ("DOCS", "CIPV", "CB-R01", "hold_code", "portal_note", "maker-checker"):
+    text = str([bill, trading])
+    for leak in ("DOCS", "CIPV", "hold_code", "portal_note", "maker-checker"):
         assert leak not in text, leak
-    assert c.get("/api/preview/settlement").status_code == 403
-    held = as_user("bonneville.advisor").get("/api/preview/transfers").json()["movements"]
-    assert any(m["status"] == "On hold" and m["note"].startswith("Identity verification in progress") for m in held)
-    assert "CIPV" not in str(held)
 
 
 def test_a_client_sees_only_their_own_account(as_user):
@@ -1487,5 +1497,4 @@ def test_a_client_sees_only_their_own_account(as_user):
     t = c.get("/api/preview/trading").json()
     assert {p["account"] for p in t["positions"]} <= {"ACC-2003"}
     assert {o["account"] for o in t["orders"]} <= {"ACC-2003"}
-    assert {x["account"] for x in c.get("/api/preview/transfers").json()["movements"]} <= {"ACC-2003"}
     assert c.get("/api/preview/billing").status_code == 403

@@ -113,12 +113,64 @@ def queue(db: Session, *, to: str, subject: str, body: str, template: str, to_na
 
 # --- Notices on case transitions ---------------------------------------------------------
 
+# Release 2 notices: who needs to act or know, never why a review is happening (no sanctions, risk, or fraud wording)
+R2_NOTICES = {
+    "transfer": {
+        "COMPLETED": ("transfer_completed", "Transfer complete", "The transfer is complete."),
+        "RETURNED": ("transfer_returned", "Returned by the bank", "The bank returned this transfer:\n{reason}"),
+        "REJECTED": ("transfer_declined", "Request not processed", "We weren't able to process this request. Your "
+                     "RIA service team will follow up."),
+        "BLOCKED": ("transfer_declined", "Request not processed", "We weren't able to process this request. Your "
+                    "RIA service team will follow up."),
+        "PENDING_CALLBACK": ("transfer_callback", "We'll call to confirm", "Before we release this request we'll call "
+                             "the client on the phone number we already have on file."),
+    },
+    "entitlement": {
+        "ACTIVE": ("capability_active", "Capability active", "The capability is active. Every request needs a "
+                   "one-time passcode."),
+        "PENDING_LINK_VERIFICATION": ("bank_link_verify", "Verify your bank link", "We sent two small deposits to "
+                                      "the bank account. Enter their amounts in the portal to verify it."),
+        "DECLINED": ("capability_declined", "Capability not granted", "We couldn't record this grant:\n{reason}"),
+        "REVOKED": ("capability_revoked", "Capability revoked", "The capability was revoked."),
+    },
+    "product": {
+        "AVAILABLE": ("product_available", "Product available", "The product is available on the platform."),
+        "DECLINED": ("product_declined", "Product not accepted", "We can't hold this product. The client can keep "
+                     "it at the current firm, or you can use another custodian for it."),
+        "PENDING_DOCUMENTS": ("product_documents", "Documents needed", "We need:\n{reason}"),
+    },
+    "offboarding": {
+        "AWAITING_TRANSFER": ("offboarding_started", "Account closing", "The account now takes only outgoing "
+                              "transfers. The client can pick another RIA on the platform, or have the receiving firm "
+                              "start an ACATS transfer."),
+        "CLOSED": ("account_closed", "Account closed", "The account is closed. Final-year tax forms follow."),
+    },
+    "deceased": {
+        "AWAITING_CERTIFICATE": ("death_notice", "Account on hold", "We received notice of the account owner's "
+                                 "death and placed a hold. Your authority on the account has ended. Please ask the "
+                                 "family for a certified death certificate."),
+        "AWAITING_ESTATE_DOCS": ("estate_documents", "Estate documents needed", "We need:\n{reason}"),
+        "SETTLED": ("estate_settled", "Estate settled", "The account has been distributed and closed."),
+    },
+    "advisor_move": {
+        "COMPLETED": ("advisor_move_done", "Account moved", "The account is now with the new RIA. No assets moved."),
+        "PENDING_ITEMS": ("advisor_move_items", "Items needed", "We need:\n{reason}"),
+    },
+}
+
+
 def _recipients(db: Session, case: Case) -> list[User]:
     """Who hears about a case: the firm's RIA users, or the client for a change they asked for."""
-    if case.kind == "change" and case.created_by:
+    if case.kind in ("change", "transfer", "entitlement") and case.created_by:
         submitter = db.get(User, case.created_by)
         if submitter and submitter.role == "client":
             return [submitter]
+    if case.kind == "entitlement" and case.account_id:
+        clients = [u for u in db.scalars(select(User).where(User.client_account_id == case.account_id,
+                                                            User.active.is_(True))).all() if u.email]
+        firm = [u for u in db.scalars(select(User).where(User.firm_id == case.firm_id, User.active.is_(True),
+                                                        User.role.in_(("ria_user", "ria_admin")))).all() if u.email]
+        return clients + firm
     if not case.firm_id:
         return []
     return [u for u in db.scalars(select(User).where(User.firm_id == case.firm_id, User.active.is_(True),
@@ -147,9 +199,17 @@ def notify_transition(db: Session, case: Case, previous: str | None, status: str
                        "Changes to a pure RIA account come from the RIA; changes to the self-directed account come "
                        "from the client."),
     }
-    if status not in notices or previous == status or case.kind == "firm":
+    if case.kind in R2_NOTICES:
+        if previous == status or status not in R2_NOTICES[case.kind]:
+            return
+        template, subject, text = R2_NOTICES[case.kind][status]
+        subject = f"{subject}: {name}"
+        if "{reason}" in text:
+            text = text.replace("{reason}", "\n".join(f"- {i}" for i in items) or "-")
+    elif status not in notices or previous == status or case.kind == "firm":
         return
-    template, subject, text = notices[status]
+    else:
+        template, subject, text = notices[status]
     for u in _recipients(db, case):
         body = f"Hello {u.display_name.split()[0]},\n\n{text}\n\nOpen it in the portal: {link}\n\nYour RIA service team"
         queue(db, to=u.email, to_name=u.display_name, subject=subject, body=body, template=template, case=case)

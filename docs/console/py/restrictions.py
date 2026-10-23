@@ -81,6 +81,13 @@ CATALOG = {c.code: c for c in [
     CodeType("RSCN", "Principal acceptance being rescinded: no activity", Function.RIA_SERVICE, ALL, True,
              "FINRA Rule 4512 (account acceptance); platform policy: a regulatory issue found after acceptance "
              "restricts the account at once, while the rescission waits for the RIA service team lead"),
+    CodeType("OUTO", "Closing: outgoing transfers only (no new purchases or deposits)", Function.OPERATIONS,
+             frozenset({Activity.BUY, Activity.DEPOSIT}), False,
+             "Platform policy (client offboarding map, 16): the account takes an outgoing-only code while it closes"),
+    CodeType("DTHN", "Death notice received: hold until the death certificate is verified", Function.OPERATIONS,
+             frozenset({Activity.BUY, Activity.SELL, Activity.WITHDRAWAL, Activity.TRANSFER_OUT,
+                        Activity.FEE_DEDUCTION}), False,
+             "Platform policy (deceased client account map, 17): restrict on credible notice from anyone"),
     CodeType("DECD", "Owner deceased: RIA authority has ended", Function.OPERATIONS,
              frozenset({Activity.BUY, Activity.SELL, Activity.WITHDRAWAL, Activity.TRANSFER_OUT,
                         Activity.FEE_DEDUCTION}), True,

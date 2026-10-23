@@ -44,6 +44,7 @@ USERS = {  # one demo user per role, plus second people for maker-checker
     "ria_service_lead": "rs.lead", "platform_admin": "admin.platform", "ria_admin": "granite.admin",
     "ria_user": "granite.advisor", "client": "client.farid",
 }
+# The analysts below share the ops_analyst role with ops.analyst; release 2 checks their team as well as their role
 DECISION_EVENTS = ("decision_approved", "decision_rejected", "principal_accepted", "principal_declined")
 ACCOUNT_DOCS = [{"doc_type": t, "sample": True} for t in ("account_application", "lpoa", "fee_authorization", "w9")]
 
@@ -59,9 +60,11 @@ def as_user(username: str) -> TestClient:
     return _clients[username]
 
 
-def case_id(title_part: str) -> int:
+def case_id(title_part: str, kind: str | None = None) -> int:
+    """The first onboarding or change case titled like `title_part` (release 2 transfers carry client names too)."""
     rows = as_user("ops.analyst").get("/api/cases").json()
-    return next(c["id"] for c in rows if title_part in c["title"])
+    r2 = {"transfer", "entitlement", "product", "offboarding", "deceased", "advisor_move", "merger", "transition"}
+    return next(c["id"] for c in rows if title_part in c["title"] and (c["kind"] == kind if kind else c["kind"] not in r2))
 
 
 def refusals_for(username: str) -> int:
@@ -277,6 +280,66 @@ def clean_applications(n_a: int = 12, n_b: int = 8) -> list[dict]:
     return out
 
 
+def work_release2() -> None:
+    """Release 2 core: money leaves only under maker-checker and the controls gate, only the asset transfer team enters
+    requests that arrive by mail or from a receiving firm, and only the settlement team runs the cycle."""
+    rows = as_user("ops.transfers").get("/api/money/transfers").json()
+    release = next(r["id"] for r in rows if r["status"] == "PENDING_RELEASE")
+    for u in ("ops.analyst", "ops.cip", "ops.service", "ops.settlement"):       # analysts on other teams
+        attempt("release: propose outside asset transfer", u, "post", f"/api/cases/{release}/decisions",
+                {"decision_type": "release", "value": "released", "reference": "REL-GATE-X"})
+    maker_checker(release, "release", "released", "REL-GATE-01", "ops.transfers", "ops.money",
+                  {"ops_analyst", "ops_supervisor"}, {"ops_analyst", "ops_supervisor"}, matrix=True)
+    big = next(r["id"] for r in rows if r["status"] == "PENDING_CALLBACK")
+    for u in ("ops.analyst", "ops.service", "granite.advisor"):
+        attempt("callback outside asset transfer", u, "post", f"/api/cases/{big}/actions/callback",
+                {"data": {"confirmed": "yes", "phone": "801-555-0110"}})
+    r = as_user("ops.transfers").post(f"/api/cases/{big}/actions/callback",
+                                      json={"data": {"confirmed": "yes", "phone": "801-555-0110"}})
+    assert r.status_code == 200 and r.json()["case"]["status"] == "PENDING_RELEASE", r.text
+    d = as_user("ops.transfers").post(f"/api/cases/{big}/decisions", json={
+        "decision_type": "release", "value": "released", "reference": "REL-GATE-02"}).json()
+    attempt("release: approve over an analyst's dollar authority", "ops.money", "post", f"/api/decisions/{d['id']}/approve")
+    assert as_user("ops.supervisor").post(f"/api/decisions/{d['id']}/approve", json={}).status_code == 200
+    risky = next(r["id"] for r in rows if r["status"] == "PENDING_RISK_REVIEW")
+    maker_checker(risky, "risk_review", "approved", "RSK-GATE-01", "aml.maker", "aml.checker",
+                  {"aml_compliance", "ops_supervisor"}, {"aml_compliance", "ops_supervisor"}, matrix=True)
+    request = {"type": "wire_out", "account_id": "ACC-2001", "amount": 1_000, "requester": "signed_form",
+               "client_signed": True, "counterparty": {"owner_name": "Maria Chen", "institution": "Wasatch Community Bank"}}
+    for u in ("ops.analyst", "ops.cip", "ops.service", "ops.settlement", "ops.trade", "aml.maker", "sanctions.maker",
+              "review.analyst", "rs.associate", "admin.platform"):
+        attempt("money request outside asset transfer", u, "post", "/api/money/transfers", request)
+    for u in [x for x in USERS.values() if x != "ops.supervisor"] + ["ops.transfers", "ops.trade", "ops.money"]:
+        attempt("settlement cycle outside the settlement team", u, "post", "/api/settlement/run")
+    breaks = as_user("ops.settlement").get("/api/recon").json()["breaks"]
+    item = next(b for b in breaks if b["status"] != "resolved")
+    for u in ("ops.transfers", "ops.trade", "ops.analyst", "granite.advisor", "admin.platform"):
+        attempt("reconciliation break outside the settlement team", u, "post", f"/api/recon/breaks/{item['id']}/resolve",
+                {"resolution": "Gate review: not this person's call"})
+    assert as_user("ops.settlement").post("/api/settlement/run").status_code == 200
+    assert as_user("ops.settlement").post("/api/recon/run").status_code == 200
+
+
+def release2_metrics() -> dict:
+    """The PRD's release 2 metrics on the synthetic data: postings that break the three-layer rollup (target 0), and
+    ACATS transfers accepted on first submission (target 90% or higher)."""
+    from app import ledger
+    from app.orm import LedgerEntry, LedgerLeg
+    with SessionLocal() as db:
+        proof = ledger.proof(db)
+        breaks = sum(len(c["differences"]) for c in proof["checks"])
+        entries, legs = db.query(LedgerEntry).count(), db.query(LedgerLeg).count()
+        acats = [c for c in db.query(Case).filter(Case.kind == "transfer").all()
+                 if (c.application or {}).get("type") in ("acats_in", "acats_out")
+                 and any(e.get("type") == "submitted" for e in (c.extra or {}).get("events", []))]
+        rejected = [c.id for c in acats if any(e.get("type") == "rail" and e.get("outcome") == "rejected"
+                                               for e in (c.extra or {}).get("events", []))]
+    return {"ledger": {"entries": entries, "legs": legs, "invariant_breaks": breaks,
+                       "checks": [{"check": c["check"], "ok": c["ok"]} for c in proof["checks"]]},
+            "acats": {"submitted": len(acats), "first_pass": len(acats) - len(rejected), "rejected": rejected,
+                      "share": round((len(acats) - len(rejected)) / len(acats), 3) if acats else None}}
+
+
 # --------------------------------------------------------------------------- metrics
 def traceability() -> dict:
     with SessionLocal() as db:
@@ -349,6 +412,7 @@ def main() -> None:
     args = ap.parse_args()
     with TestClient(app):                                # runs startup: migrations-free create + seed
         work_the_seeded_cases()
+        work_release2()
         stp = clean_applications()
     trace = traceability()
     refused = sum(a["refused"] for a in attempts)
@@ -373,6 +437,7 @@ def main() -> None:
         "nigo_test_set": nigo_test_set(),
         "ai_suggestion_tracking": suggestion_tracking(),
         "walkthrough_tracking": walkthrough_tracking(),
+        "release2": release2_metrics(),
         "not_measured": {
             "nigo_detection_recall": "Needs the live model: run Users and rules → AI evaluation in the deployed app",
             "ai_suggestion_acceptance": "Needs live values reviewed in the deployed app (New application, then review "
@@ -402,6 +467,11 @@ def main() -> None:
           f"(illustrative; {a['live']} live)")
     wt = report["walkthrough_tracking"]
     print(f"Walkthrough timing    : a run from Start to open account was timed ({wt['seconds']}s, {wt['status']}) and kept")
+    r2 = report["release2"]
+    print(f"Ledger invariant (R2) : {r2['ledger']['invariant_breaks']} breaks across {r2['ledger']['entries']} entries and "
+          f"{r2['ledger']['legs']} legs at three layers")
+    print(f"ACATS first pass (R2) : {r2['acats']['first_pass']}/{r2['acats']['submitted']} synthetic transfers accepted without "
+          f"a reject (one is a seeded reject scenario)")
     for k, v in report["not_measured"].items():
         print(f"Not measured          : {k}: {v}")
     if args.json:
@@ -415,7 +485,10 @@ def main() -> None:
             ("every AI suggestion review recorded with the reviewer and audited",
              a["reviewed"] == a["suggestions"] == a["with_reviewer"] == a["audited"] > 0
              and a["changes_with_reason"] == a["changes"]),
-            ("the timed walkthrough records a run from Start to open account", wt["timed"] and wt["status"] == "OPEN"))
+            ("the timed walkthrough records a run from Start to open account", wt["timed"] and wt["status"] == "OPEN"),
+            ("release 2: no posting breaks the three-layer rollup", r2["ledger"]["invariant_breaks"] == 0
+             and all(c["ok"] for c in r2["ledger"]["checks"])),
+            ("release 2: ACATS first-pass acceptance 90% or higher", (r2["acats"]["share"] or 0) >= 0.90))
             if not ok]
         print("\nGate check: " + ("all measured targets met" if not missed else "MISSED: " + "; ".join(missed)))
         sys.exit(1 if missed else 0)

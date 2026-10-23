@@ -82,6 +82,9 @@ def existing_accounts(db: Session, account_row: Account | None, client_key: str)
 
 def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
     from .identity_check import issue_for_engine
+    from .servicing import R2_KINDS, run as run_r2
+    if case.kind in R2_KINDS:            # release 2 workflows (custody/): transfers, products, lifecycle, ...
+        return run_r2(db, case, actor)
     as_of = settings.today()
     decisions = decisions_of(case)
     identity_issue = issue_for_engine(case)
@@ -207,6 +210,9 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
         case.closed_at = None
     from .walkthrough import finish_if_opened
     finish_if_opened(db, case, res.status)
+    if previous != res.status and case.kind in ("firm", "account", "change") and (case.extra or {}).get("parents"):
+        from .servicing import notify_parents       # an account a joining RIA's transition opened
+        notify_parents(db, case)
     audit.record(db, actor, "case_run", "case", case.id, case_id=case.id, status=res.status, previous=previous,
                  rule_ids=res.findings.rule_ids if res.findings else [], path=res.path,
                  policy_version=case.result["policy_version"])

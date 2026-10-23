@@ -14,14 +14,14 @@ from .. import rescission
 from ..db import get_db
 from ..orm import PORTAL_ROLES, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
 from .. import portal_view
-from ..access import capabilities, require_capability
+from ..access import approval_refusal, capabilities, may_propose, require_capability
 from ..queues import DECISIONS, QUEUES, works_queue
 from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
-from ..views import (CORRECTIONS, case_detail, case_summary, decision_dict, get_case_for, review_dict,
-                     sla_state)
+from ..views import (CLIENT_KINDS, CORRECTIONS, RIA_KINDS, case_detail, case_summary, decision_dict, get_case_for,
+                     review_dict, sla_state)
 
 router = APIRouter(prefix="/api", tags=["cases"])
 
@@ -47,7 +47,8 @@ def queues(user: User = Depends(require_capability("cases")), db: Session = Depe
                     "count": sum(1 for r in reviews if r["due"] or r["overdue"] or r["status"] == "restricted"),
                     "breached": sum(1 for r in reviews if r["overdue"]), "mine": user.role == "periodic_review"})
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")).all()
-    mine = sum(1 for d in pending if user.role in DECISIONS[d.decision_type]["approver"] and d.proposed_by != user.id)
+    mine = sum(1 for d in pending if d.proposed_by != user.id
+               and approval_refusal(user, d.decision_type, db.get(Case, d.case_id)) is None)
     return {"queues": out, "pending_approvals": mine}
 
 
@@ -64,9 +65,9 @@ def list_cases(queue: str | None = None, status: str | None = None, kind: str | 
     if open_only:
         q = q.where(Case.closed_at.is_(None))
     if user.role in ("ria_admin", "ria_user"):
-        q = q.where(Case.firm_id == user.firm_id, Case.kind.in_(["account", "change"]))
+        q = q.where(Case.firm_id == user.firm_id, Case.kind.in_(RIA_KINDS))
     elif user.role == "client":
-        q = q.where(Case.account_id == user.client_account_id, Case.kind == "change")
+        q = q.where(Case.account_id == user.client_account_id, Case.kind.in_(CLIENT_KINDS))
     elif not capabilities(user)["cases"]:
         audit.refuse(db, user, "access", "Case files aren't part of your role", target_type="endpoint",
                      target_id="GET /api/cases")
@@ -192,6 +193,21 @@ def review_suggestion(case_id: int, suggestion_id: int, body: SuggestionReview,
     return case_detail(db, case, user)
 
 
+class TakeAction(BaseModel):
+    data: dict = Field(default_factory=dict)
+
+
+@router.post("/cases/{case_id}/actions/{key}")
+def take_action(case_id: int, key: str, body: TakeAction, user: User = Depends(current_user),
+                db: Session = Depends(get_db)):
+    """A people-step on a release 2 case (app/actions.py): a fix, a callback, a recommendation, a consent."""
+    from .. import actions
+    case = get_case_for(db, user, case_id)
+    message = actions.take(db, case, user, key, body.data)
+    db.commit()
+    return {"message": message, "case": case_detail(db, case, user)}
+
+
 @router.post("/cases/{case_id}/rerun")
 def rerun(case_id: int, user: User = Depends(require_roles("ops_analyst", "ops_supervisor")),
           db: Session = Depends(get_db)):
@@ -218,11 +234,13 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
         raise HTTPException(422, "A registered principal records acceptance directly: POST /api/cases/{id}/acceptance")
     if spec.get("custom"):
         raise HTTPException(422, "Ask for a rescission with POST /api/cases/{id}/rescission")
-    if user.role not in spec["proposer"]:
+    if not may_propose(user, body.decision_type):
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
                      decision_type=body.decision_type, reason="wrong role")
         db.commit()
-        raise HTTPException(403, f"Only {', '.join(spec['proposer'])} can propose a {spec['label'].lower()}")
+        raise HTTPException(403, f"Only {', '.join(spec['proposer'])}" + (f" on the {', '.join(spec['teams'])} team"
+                                                                         if spec.get("teams") else "")
+                            + f" can propose a {spec['label'].lower()}")
     if case.status not in spec["statuses"]:
         raise HTTPException(409, f"The case isn't waiting for a {spec['label'].lower()}")
     if db.scalar(select(PendingDecision).where(PendingDecision.case_id == case.id,
@@ -248,8 +266,11 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_capa
     out = []
     for d in rows:
         item = decision_dict(db, d)
-        item["can_approve"] = user.role in DECISIONS[d.decision_type]["approver"] and user.id != d.proposed_by
-        item["case_title"] = db.get(Case, d.case_id).title
+        case = db.get(Case, d.case_id)
+        item["can_approve"] = approval_refusal(user, d.decision_type, case) is None and user.id != d.proposed_by
+        item["case_title"] = case.title
+        if not item["can_approve"] and user.role == "ops_analyst" and not may_propose(user, d.decision_type):
+            continue
         out.append(item)
     return out
 
@@ -316,11 +337,12 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
         raise HTTPException(404, "No pending decision with that id")
     spec = DECISIONS[d.decision_type]
     case = db.get(Case, d.case_id)
-    if user.role not in spec["approver"]:
+    why = approval_refusal(user, d.decision_type, case)
+    if why:
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
-                     decision_type=d.decision_type, reason="wrong role for approval")
+                     decision_type=d.decision_type, reason="wrong role for approval", detail=why)
         db.commit()
-        raise HTTPException(403, f"Only {', '.join(spec['approver'])} can approve a {spec['label'].lower()}")
+        raise HTTPException(403, why)
     if user.id == d.proposed_by:
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
                      decision_type=d.decision_type, reason="maker cannot be checker")
@@ -351,7 +373,8 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
-        if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud"):
+        if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud", "release", "risk_review",
+                               "product", "estate_docs", "legal_hold", "merger_classification", "negative_consent"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)

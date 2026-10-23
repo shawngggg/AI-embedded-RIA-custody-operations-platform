@@ -45,6 +45,17 @@ DOC_TYPES = {
     "change_form": {"label": "Client-signed change form", "signed": True},
     "medallion": {"label": "Medallion signature guarantee", "signed": True},
     "application_package": {"label": "RIA application package", "signed": False},
+    # Release 2: transfers, products, and the account lifecycle
+    "transfer_form": {"label": "Client-signed transfer or disbursement form", "signed": True},
+    "cost_basis_statement": {"label": "Cost-basis transfer statement", "signed": False},
+    "offering": {"label": "Prospectus or private placement memorandum", "signed": False},
+    "subscription": {"label": "Subscription documents", "signed": True},
+    "financials": {"label": "Audited financials", "signed": False},
+    "death_certificate": {"label": "Certified death certificate", "signed": False},
+    "claim_form": {"label": "Claim form and ID from the beneficiary or surviving owner", "signed": True},
+    "letters_testamentary": {"label": "Letters testamentary or of administration", "signed": False},
+    "small_estate_affidavit": {"label": "Small-estate affidavit", "signed": True},
+    "lpoa_new_ria": {"label": "Client-signed LPOA naming the new RIA", "signed": True},
     "other": {"label": "Other document", "signed": False},
 }
 TAX_DOCS = {"w9", "w8ben", "w8bene"}
@@ -111,9 +122,11 @@ def subject_names(db: Session, case: Case) -> tuple[list[str], list[str]]:
     if case.kind == "firm":
         people = [p for p in app.get("people", []) if p.get("role") == "control_person"]
         return [app.get("legal_name", "")] + [p["name"] for p in people], [app.get("ein") or ""]
-    if case.kind == "change":
+    if case.kind != "account" and case.account_id:      # changes and release 2 cases on an account
         account = db.get(Account, case.account_id)
         app = account.application if account else {}
+    elif case.kind != "account":
+        return [app.get("description") or app.get("sponsor") or case.title], []
     holders = app.get("holders", [])
     names = ([app["entity_name"]] if app.get("entity_name") else []) + [h["name"] for h in holders]
     tax_ids = ([app["entity_ein"]] if app.get("entity_ein") else []) + [h.get("tax_id") or "" for h in holders]

@@ -27,13 +27,15 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Onboarding engine tests
         run: python -m pytest onboarding -q
+      - name: Release 2 engine tests (ledger, money movement, settlement, reconciliation)
+        run: python -m pytest custody -q
       - name: API tests on SQLite
         run: python -m pytest app/tests -q
       - name: API tests on Postgres
         env:
           TEST_DATABASE_URL: postgresql://app:app@localhost:5432/mvp_test
         run: python -m pytest app/tests -q
-      - name: MVP gate metrics (traceability, straight-through, role enforcement)
+      - name: MVP gate metrics (traceability, straight-through, role enforcement, release 2 ledger)
         run: python tools/gate_review.py --check --no-github
       - name: Migrations match the data model
         env:
