@@ -6,8 +6,8 @@ Oct 11, 2026 · Shawn Ghodrati
 
 The product is an operations platform for RIA custody that runs the account lifecycle from RIA onboarding to escheatment. AI handles the messy inputs; deterministic rules and people make every decision; one three-layer ledger records the result.
 
-- **Status:** Phase 1, the process architecture, is done: 25 detailed process maps, the platform overview, and the integration architecture are published. Release 1's onboarding engine is built, and the MVP workbench on it is live on synthetic data.
-- **Next:** close the MVP gate: 4 success metrics meet their targets and 1 is tracked; the other 3 need live AI or a timed first-time reviewer; release 2 starts when the gate closes.
+- **Status:** Phase 1, the process architecture, is done: 25 detailed process maps, the platform overview, and the integration architecture are published. Release 1's onboarding engine is built, and the MVP workbench on it is live on synthetic data. Release 2's core is built (Oct. 22, 2026): the three-layer ledger, asset and money transfers, cash settlement, and position reconciliation.
+- **Next:** close the MVP gate: 5 success metrics meet their targets and 1 is tracked; the other 2 need live AI values reviewed and a timed first-time reviewer. Release 2's core was built while the gate stays open (decided Oct. 22). The rest of release 2 (client entitlements, product acceptance, offboarding, deceased accounts, and transitions) is next; its engines are built and not yet in the app.
 - **Form:** a product-grade web app on synthetic data, with simulated external connections behind production-shaped interfaces.
 - **Links:** [live process viewer](https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/) and [repository](https://github.com/shawngggg/AI-embedded-RIA-custody-operations-platform).
 
@@ -164,7 +164,7 @@ The MVP is a deployed web app where a custody operations team works onboarding c
 - MVP-10 Operations dashboard: queue counts, SLA breaches, straight-through rate, NIGO rate, and time spent in each waiting state.
 - MVP-11 Synthetic data: seeded scenarios, more generated on demand, and a demo reset.
 - MVP-12 User and entitlement administration. The platform administrator adds team members and assigns roles; an RIA administrator adds the firm's users and grants entitlements within the RIA's own permissions. Every grant is logged, and a grant of a decision role needs a second approver.
-- MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status. The portal shows none of the custodian's internal work: each request carries a status in the portal's own words (every review state reads "In review", so a sanctions or EDD escalation is never disclosed), the items needed, the documents sent, what was submitted, and a history; engine steps, rule findings, the risk rating, due-diligence flags, queues and SLA clocks, restriction owners, staff names, and the audit trail stay internal, and the API refuses and logs any attempt to reach them. Transfers, trading, and fee billing show in the portal menu as planned pages, marked with their release, that describe what each will do. In the workbench, each shows as a planned workbench only to the team that will run it (asset transfer, trade, billing), the operations supervisor, and, for transfers and trading, the RIA service team.
+- MVP-13 RIA portal: RIA users submit applications, documents, and NIGO responses, and track each request's status. The portal shows none of the custodian's internal work: each request carries a status in the portal's own words (every review state reads "In review", so a sanctions or EDD escalation is never disclosed), the items needed, the documents sent, what was submitted, and a history; engine steps, rule findings, the risk rating, due-diligence flags, queues and SLA clocks, restriction owners, staff names, and the audit trail stay internal, and the API refuses and logs any attempt to reach them. Trading and fee billing show in the portal menu as planned pages, marked with release 3, that describe what each will do. In the workbench, each shows as a planned workbench only to the team that will run it (trade, billing), the operations supervisor, and, for trading, the RIA service team. Transfers were planned pages here until release 2 built them (Oct. 22, 2026; see release 2 requirements).
 - MVP-14 Account changes along map 04: the RIA submits changes to pure RIA accounts, including beneficial owner updates, with the client's signature on owner-level changes; the client submits changes on the self-directed account. Each change runs the authority, fraud-pattern, and flagged-list checks and re-runs due diligence when ownership changes. Account maintenance sits with the client service team: a change waiting on a confirmation or returned for items is in client service's queues, and a change that arrives by mail is entered there. Identity verification of a new owner stays with CIP.
 - MVP-15 Principal acceptance. The custodian provides the trading platform, so it is a FINRA member broker-dealer, and every account it opens, an RIA's master account included, is accepted by a registered principal (FINRA Rule 4512(a)(1)(D)). The RIA service team, which works with RIAs on trading, transfers, and account acceptance, holds the FINRA registrations; operations prepares the case and needs none. The app checks the person's registration (Series 24 or Series 9/10), not just the role, and the principal can't be someone who prepared the case. Straight-through means no manual work before acceptance. An account whose KYC, CDD, EDD, CIP, and AML requirements are met may open with non-regulatory items outstanding (the fee authorization or the tax form), restricted from trading and fee deduction until they arrive. The client's signature and the LPOA are regulatory and hold the account: without the signature the custodian can't process the client's information, and without the LPOA the RIA can't act on the account or see the client's information.
 - MVP-16 Documents as evidence. An item counts as received only when its document is attached. Each file keeps its SHA-256 fingerprint, channel, and who added it. Automated pre-checks read the text for the client's name, tax ID, the right tax form, and a signature line; a document that passes every check is in good order by rule, and anything else waits for operations, who confirms good order or records why a failed check is acceptable.
@@ -189,9 +189,9 @@ Added for the MVP gate (Oct. 20, 2026):
 
 Added for a realistic demo (Oct. 22, 2026):
 
-- MVP-29 Synthetic data across the lifecycle. The seed holds 63 onboarding, CIP, and account-change cases spread over every queue: clean openings at three RIAs, accounts open with DOCS or CIPV, missing items, failed identity checks of both kinds, a PEP alert, EDD, a sanctions near-match, and accounts waiting for the principal. The release 2 and 3 pages (transfers and money movement, trading, billing, and a new settlement and reconciliation page) open with a read-only preview of one synthetic book. The book is built from the demo's own open accounts and labeled "Preview: synthetic data", and nothing on it can be changed. It has positions, a two-day blotter, and open fails. It has ACH, wires, journals, returns, a callback hold, and suspense. It has ACATS and LOI transfers routed by the transferability rules, a quarter's fee runs with an approval pending, three-layer settlement, and reconciliation breaks. Restriction codes act as the catalog says, the ledger is off by exactly the one open cash break, and the book is the same every time for the same accounts and date. Operations sees its whole area; settlement and reconciliation is for trade, asset transfer, and the supervisor. An RIA sees its own firm, and a client their own account, never a restriction code, a fail, the ledger, or reconciliation. `python -m synthetic.export` writes the cases and the book to CSV and JSON.
+- MVP-29 Synthetic data across the lifecycle. The seed holds 63 onboarding, CIP, and account-change cases spread over every queue: clean openings at three RIAs, accounts open with DOCS or CIPV, missing items, failed identity checks of both kinds, a PEP alert, EDD, a sanctions near-match, and accounts waiting for the principal. The release 3 pages (trading and billing) open with a read-only preview of one synthetic book, built from the demo's own open accounts and the positions and cash the release 2 ledger holds for them, and labeled "Preview: synthetic data"; nothing on it can be changed. It has positions, a two-day blotter, open fails, and a quarter's fee runs with an approval pending. Restriction codes act as the catalog says: a DOCS account trades nothing and can't be debited for fees, and an account with an outgoing transfer trades nothing. The book is the same every time for the same ledger and date. Operations sees its whole area. An RIA sees its own firm, and a client their own account, never a restriction code or a fail. Until Oct. 22 the transfers and settlement pages were previews too; release 2 replaced them with working pages on the real ledger, seeded with the scenarios in AP-5. `python -m synthetic.export` writes the cases, the ledger and its postings, the transfers, receipts, and breaks, and the release 3 book to CSV and JSON.
 
-Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. The current browser console stays as the no-sign-in preview.
+Out of the MVP: options approval by a Registered Options Principal (FINRA Rule 2360), which arrives with trading; fee posting, transfers, and trading, which join the same portal in releases 2 and 3 with the same entitlements; the ledger; and every later module except account maintenance. Release 2's core added the ledger and transfers on Oct. 22, 2026. The current browser console stays as the no-sign-in preview.
 
 ## MVP architecture
 
@@ -278,9 +278,59 @@ The decision engine for firm onboarding, account opening, and the shared service
 - **RE-2** Add rule sets for reliance eligibility, the path decision, firm registration, PEP and EDD triggers, SOF and SOW requirements, flagged-list matching, and transferability.
 - **RE-3** Fail safe: a rule that references a missing case field routes the case to human review instead of erroring.
 
+## Release 2 requirements: the books (core)
+
+Release 2's core gives the platform its books: the three-layer ledger, asset and money transfers, cash settlement, and position reconciliation. It was built on Oct. 22, 2026, while the release 1 gate stays open, so the gate's two people-measured metrics can be gathered on the live app at the same time.
+
+**Draft for review.** Claude drafted these requirements from maps 08, 12, and 13 for Shawn's review. Map 12 (cash settlement) is validated; maps 08 (transfers) and 13 (reconciliation) are partially validated, so their unvalidated steps are reference design. Every threshold below is a versioned rule in `custody/policy.py` with its source; the ones marked "platform policy" are this reference design's choices, not any custodian's terms.
+
+### Three-layer ledger
+
+- **LG-1** Every posting has legs at three layers: the client account (ACC-2001), its RIA's master account (MASTER-310001), and the general ledger. Amounts are whole millionths of a dollar or a share, so cash and fractional fund shares are exact.
+- **LG-2** Each posting is checked before it's written. For every asset and bucket, the clients of each RIA sum to its master, the masters sum to minus the client control accounts (GL 2100 for cash, 2500 for securities), and the general ledger balances. A posting that would break any of the three is refused (LED-001, NF-5).
+- **LG-3** Balances sit in three buckets: settled, pending, and restricted. A transfer in flight sits in an in-transit suspense account, so the books balance mid-transfer (LED-002).
+- **LG-4** Every posting carries a stable reference, and a case replays from its request, its approved decisions, and its recorded events. A replay posts only what's missing and never posts twice (NF-6).
+- **LG-5** The security master records what the platform can hold, where it's held (DTC, a transfer agent, or a sponsor), and its price. Every security and price is synthetic.
+
+### Asset and money transfers (map 08)
+
+- **MT-1** Request types: ACH deposit and withdrawal, wire out, journal, IRA distribution, ACATS transfer in and out, and re-registration by LOI. Each request is a case, and every write takes an idempotency key (API-2).
+- **MT-2** Who may ask (MM-001): the RIA on its pure RIA accounts, under its LPOA; the client on the self-directed account (deposits now; outgoing money needs the RIA's grant, which arrives with client entitlements); operations, for a client-signed request or a receiving firm's ACATS request on any account. Anyone else is refused, and the refusal logged.
+- **MT-3** Checks, in map order: requester authority; restriction codes that block the activity (MM-002); outgoing cash within the settled, unrestricted cash (MM-003); the first-line flagged-list check on the counterparty and its bank, which calls sanctions escalation on a hit; risk signals to AML compliance (MM-004: a third-party payee, an address, bank, or contact change in the last 30 days, a deposit of securities under $5, or an outgoing amount over $250,000; platform policy); and the transferability review for every position (MM-010).
+- **MT-4** Controls gate: every outgoing release needs a maker and a different checker. An asset transfer analyst checks up to $50,000; above that, the operations supervisor checks (MM-005). Before releasing a client-signed request or any amount over $100,000, operations calls the client on a number already on file, never one on the request (MM-006). Both thresholds are platform policy. A self-approval or an over-authority approval is refused and logged.
+- **MT-5** Rails and timing (MM-008): ACH settles the next business day, Fedwire the same day, and journals at once. ACATS validates within 1 business day and completes within 3 after (FINRA Rule 11870). An LOI re-registration can take up to 40 business days, with a follow-up after 20 (a platform assumption; sponsors vary). The rails are simulated, and their answers arrive on their dates through the daily settlement cycle.
+- **MT-6** Postings follow the rail. A request posts to pending when it goes out and settles on the rail's confirmation. An outgoing ACATS freezes the positions it's delivering. A position the platform can't hold is sold at the delivering firm and arrives as cash. A returned ACH (R01, R03) reverses its postings.
+- **MT-7** Incoming ACH deposits stay restricted for 2 business days after settlement, the window in which most returns arrive (MM-007, NACHA). A cash distribution from a traditional IRA withholds 10% federal tax unless the client elects otherwise (MM-009, IRC 3405(b)).
+- **MT-8** Exceptions: a request missing information waits for a fix; an ACATS rejected by the delivering firm (a title that doesn't match, say) waits for a correction and resubmission; a transfer past its expected date is chased.
+- **MT-9** Queues with SLA clocks, owned by the asset transfer team: release (4 hours), callbacks (8 hours), fixes, corrections, and chases (24 hours), and in transit (72 hours). Transfer risk reviews go to AML compliance and counterparty hits to the sanctions team, both under maker-checker.
+- **MT-10** The portal shows each request in its own words (In review, Confirming with you, In transit, Completed, Returned by the bank, Declined) with balances and activity at the client layer only. A risk review, a sanctions hold, a restriction code, the RIA master, and the general ledger never reach it.
+
+### Cash settlement (map 12)
+
+- **CS-1** The settlement team runs the daily cycle, and each step is recorded: deliver the rails' answers, release ACH funds whose hold has passed, match unapplied incoming cash, check the three-layer invariant, and net the day's funding by channel.
+- **CS-2** Money that arrives with no request behind it waits in suspense (GL 2190). A match to an account from the wire memo or ACH addenda at 0.90 confidence or above applies itself; a lower match waits for an analyst (STL-001). Money nobody can match goes back to the sender after 10 business days (STL-002). Both are platform policy. Applying or returning a receipt by hand needs a note.
+- **CS-3** Net funding at the settlement bank by channel (ACH, Fedwire, NSCC), and each RIA master account's cash by bucket and securities value.
+
+### Position reconciliation (map 13)
+
+- **PR-1** The books are the general ledger's location accounts (DTC 1500, transfer agents 1510, sponsors 1520, the settlement bank 1010), which LG-2 already ties to the client and master layers. The street is what DTC, the transfer agents, the sponsors, and the bank report (simulated). Positions must agree exactly and cash to the cent (REC-001).
+- **PR-2** Each break is classified (a reinvested dividend, a bank fee, a late delivery, an ACH return not yet booked, or unexplained) and routed (REC-002, platform policy): a known pattern up to $25,000 is fixed automatically; a classified break gets a drafted resolution an analyst approves; an unexplained break, or one over $100,000, is investigated by hand. Every resolution needs a note and posts through the ledger.
+- **PR-3** A break open more than 5 business days, or worth more than $10,000, goes to the supervisor and logs a financial risk event for the settlement area (REC-003). SEC Rule 17a-13 sets the securities counts, and Rule 15c3-1 takes a capital charge for short differences unresolved after 7 business days; platform policy escalates earlier.
+- **PR-4** The books are certified for a day only when no break is open except expected in-transit items and the three layers balance (REC-004). Billing bills only certified periods (map 14).
+
+### In the app
+
+- **AP-1** Operations: a Money movement page (transfers by status, in transit, enter a client-signed or receiving-firm request, and any account's ledger) for the asset transfer team, the supervisor, and the RIA service team. A Settlement and reconciliation page (the cycle, suspense, reconciliation and certification, and the general ledger) for the settlement team and the supervisor, who act, and the trade and asset transfer teams, who read.
+- **AP-2** A transfer's case page shows what it needs from the person viewing it (record a callback, release, fix, correct, or resubmit), its summary, its step trace, and a Ledger tab with every posting at all three layers.
+- **AP-3** Portal: a Transfers page to request ACH, wires, journals, and incoming ACATS for the firm's pure RIA accounts (an RIA) or deposits to the self-directed account (a client), follow each request, and see balances and activity.
+- **AP-4** Demo users: Marisol Vega (asset transfer, maker), Hana Sato (asset transfer, checker), and Omar Haddad (settlement).
+- **AP-5** Seeded scenarios on the real ledger: each open account's opening balance or incoming ACATS; a $250,000 wire waiting for a callback; an $18,000 wire waiting for release; a client-signed $45,000 wire to a title company in risk review; a $40,000 wire to a flagged bank in sanctions review; a withdrawal blocked by CIPV; a household journal; an IRA distribution with withholding; R01 and R03 returns; restricted ACH deposits; an incoming ACATS the pre-screen expects to be rejected, waiting for an analyst to apply its suggested fix, one the delivering firm rejected for a title mismatch, and one overdue; an outgoing ACATS and an LOI re-registration in transit; two unapplied receipts (one a near-match, one due back); and five reconciliation breaks: two fixed automatically, two with a drafted resolution for an analyst, and one escalated after 5 business days.
+
+Not in release 2's core: client entitlements (grants, one-time passcodes, and bank-link verification), product acceptance, client offboarding, deceased client accounts, and RIA transitions, advisor moves, and mergers. Their engines are built and tested in `custody/` and come into the app next, with requirements drafted from maps 05, 16, 17, 22, 23, and 24. Real rails, real prices, and AI on transfer forms come later.
+
 ## Later releases: module requirements
 
-Later modules reuse release 1's shared services; each gets full requirements once its process map is validated.
+Later modules reuse release 1's shared services; each gets full requirements once its process map is validated. Transfers, cash settlement, and position reconciliation have theirs above.
 
 | Module | Release | Core requirements | AI role |
 | --- | --- | --- | --- |
@@ -453,7 +503,7 @@ RIAs and their technology vendors reach every RIA-channel action through APIs, a
 
 ## Core data model
 
-Sixteen entities carry the platform; release 1 needs all but entitlements and ledger entries, which arrive in release 2.
+Sixteen entities carry the platform; release 1 needs all but entitlements and ledger entries. Release 2's core added ledger entries and positions (Oct. 22, 2026); entitlements come with the rest of release 2.
 
 | Entity | Key fields | Relates to |
 | --- | --- | --- |
@@ -532,20 +582,31 @@ Six of the eight release 1 metrics are measured on synthetic data: five meet the
 
 | Metric | Target | Result | Status |
 | --- | --- | --- | --- |
-| Decision traceability | 100% | 73 of 73 decisions carry the approver, rule version, and citation (rerun Oct. 22 on the larger seed of MVP-29) | Met |
+| Decision traceability | 100% | 79 of 79 decisions carry the approver, rule version, and citation (rerun Oct. 22 with release 2's seeded transfer decisions) | Met |
 | NIGO detection recall | 90% or higher | 18 of 19 seeded defects caught (94.7%) with no false NIGO, on 20 synthetic firm packages read by Claude Haiku 5.5. The one miss: a contents page listed an ownership chart as attached when it wasn't. The prompt now says a mention isn't the document, and a re-run on the new prompt caught that trap | Met |
 | Straight-through opening | 70% or higher | 20 of 20 clean applications (100%); the 8 Path B accounts open with CIPV until identity is verified | Met |
 | AI suggestion acceptance | Tracked | Tracking built Oct. 20 (MVP-25): every live value waits for onboarding to accept, edit, or reject it, and the share accepted unchanged is reported by field and prompt version. Not measured yet: no live values reviewed. The gate check confirms that every review is recorded with the reviewer, and every change with a reason | Open |
 | Escalation SLA adherence | Tracked | 2 of 2 sanctions escalations decided within the 24-hour SLA (synthetic ages) | Tracked |
 | Reviewer walkthrough | Under 5 minutes | Timed by the app since Oct. 21 (MVP-28): Start the clock on the sign-in page, and the dashboard shows the median of first-time runs. Not measured yet: no first-time runs | Open |
-| Role enforcement | 100% | 219 of 219 wrong-role attempts refused and logged (rerun Oct. 20 with AI suggestion review, PEP alert review, and identity checks) | Met |
+| Role enforcement | 100% | 293 of 293 wrong-role attempts refused and logged (rerun Oct. 22 with release 2's money release, callbacks, risk review, transfer requests, the settlement cycle, and break resolution) | Met |
 | Build health | 100% | 12 of 12 CI runs on main passed (Oct. 21) | Met |
 
-The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips. On Oct. 13 it gained 24 attempts from the walkthrough's changes: applications from outside the onboarding team, posts to the sanctions channel, and email re-sends by anyone but the platform administrator. On Oct. 20 it gained 64 more: reviews of the AI's values by anyone outside onboarding and CIP or by the other team; failed identity checks recorded outside onboarding and CIP; and PEP alert and identity fraud decisions by anyone outside AML compliance or by the person who proposed them.
+The review found two gaps, both fixed: decisions didn't record their rule version and citation (0 of 41 before), and 59 of 131 refusals weren't logged. The measurement is rerun by `tools/gate_review.py`, and CI fails if a measured target slips. On Oct. 13 it gained 24 attempts from the walkthrough's changes: applications from outside the onboarding team, posts to the sanctions channel, and email re-sends by anyone but the platform administrator. On Oct. 20 it gained 64 more: reviews of the AI's values by anyone outside onboarding and CIP or by the other team; failed identity checks recorded outside onboarding and CIP; and PEP alert and identity fraud decisions by anyone outside AML compliance or by the person who proposed them. On Oct. 22 it gained 74 more from release 2: releases of outgoing money by analysts outside asset transfer, by the maker, or above the checker's $50,000 authority; callbacks recorded outside asset transfer; transfer risk reviews outside AML compliance; money requests by users who may not ask; and settlement cycles and break resolutions outside the settlement team.
+
+### Release 2 core measures (Oct. 22, 2026)
+
+Both release 2 metrics are measured on the seeded books by the same gate check, and CI fails if either slips. They describe the synthetic seed, not real transfer volumes.
+
+| Metric | Target | Result | Status |
+| --- | --- | --- | --- |
+| Ledger invariant breaks | 0 | 0 breaks across 112 postings and 2,459 legs at three layers, after a settlement cycle and a reconciliation run | Met |
+| ACATS first-pass acceptance | 90% or higher | 15 of 16 synthetic ACATS transfers accepted without a reject (93.8%); the one reject is the seeded title-mismatch scenario | Met |
+
+Release 2's gate also needs the rest of release 2 built and the release 1 gate closed.
 
 ## Release plan
 
-Phase 1 is done and release 1's engine is built; the MVP workbench is live, and each later release starts only when the previous gate is met.
+Phase 1 is done and release 1's engine is built; the MVP workbench is live, and each later release starts only when the previous gate is met. One exception, decided Oct. 22, 2026: release 2's core was built while release 1's gate waits on its two people-measured metrics, because those need live use, not more building.
 
 ![Release plan: Phase 1 done, Release 1 (MVP) next, then Releases 2 to 4, each behind a gate](docs/prd/release-plan.png)
 

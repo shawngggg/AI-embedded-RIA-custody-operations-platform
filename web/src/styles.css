@@ -68,7 +68,7 @@ button.tile:hover { border-color: var(--line-strong); }
 
 /* Forms */
 label { font-weight: 600; font-size: 0.88rem; display: block; margin-bottom: 4px; }
-input[type="text"], input[type="search"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+input:not([type]), input[type="text"], input[type="search"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
   width: 100%; font: 400 0.95rem var(--sans); color: var(--text); background: var(--field);
   border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; min-height: 40px; }
 textarea { min-height: 120px; font-family: var(--mono); font-size: 0.8rem; }
@@ -114,6 +114,7 @@ ol.steps > li::before { content: ""; position: absolute; left: -7px; top: 6px; w
 .lane { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--lane, var(--muted)); }
 .stepname { font-weight: 600; display: block; }
 .outcome::before { content: "→ "; color: var(--muted); }
+ol.steps > li > .mono { display: block; font-size: 0.78rem; margin-top: 2px; }
 ol.steps ul { margin: 3px 0 0; padding-left: 18px; color: var(--muted); font-size: 0.86rem; }
 .decide { border: 1px solid var(--line-strong); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--escalate) 5%, var(--surface)); }
 .decide h3 { margin-top: 0; }
@@ -260,3 +261,21 @@ table.review .narrow { max-width: 420px; }
 .preview .mono { white-space: nowrap; }
 .preview td.wide-cell { min-width: 200px; }
 @media (max-width: 640px) { .preview .tile .value { font-size: 1.1rem; } }
+/* Release 2: case actions, ledger legs, receipts, and breaks */
+.r2-action { margin: 8px 0; }
+.r2-action-form { margin: 8px 0 4px; display: grid; gap: 8px; max-width: 560px; }
+.r2-action-form label { display: grid; gap: 4px; font-size: 0.88rem; }
+table.legs { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.r2-receipt { display: grid; gap: 4px; min-width: 220px; }
+.r2-break { border-top: 1px solid var(--line); padding: 10px 0; }
+.r2-break:first-of-type { border-top: 0; }
+ul.r2-checks li { padding: 6px 0; border-top: 1px solid var(--line); }
+ul.r2-checks li:first-child { border-top: 0; }
+.inline-check { display: inline-flex; gap: 6px; align-items: center; }
+.inline-check input { width: auto; min-height: 0; }
+.r2-action-form textarea, .r2-receipt textarea { min-height: 64px; font-family: inherit; font-size: 0.9rem; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.filters select, .filters input { width: auto; min-width: 140px; max-width: 280px; }
+.panel > label, .r2-form label { display: grid; gap: 4px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; }
+.panel > label input, .panel > label select { font-weight: 400; }

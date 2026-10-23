@@ -5,8 +5,8 @@ import Preview from "./Preview";
  * Features the PRD places in later releases: a read-only preview on the synthetic book, then what each will do. No
  * working forms: nothing here changes anything.
  */
-export type PlannedKey = "transfers" | "trading" | "billing";
-export type OpsPlannedKey = PlannedKey | "settlement";
+export type PlannedKey = "trading" | "billing";
+export type OpsPlannedKey = PlannedKey;
 
 const VIEWER = "https://shawngggg.github.io/AI-embedded-RIA-custody-operations-platform/";
 
@@ -16,22 +16,6 @@ type Plan = {
 };
 
 export const PLANS: Record<PlannedKey, Plan> = {
-  transfers: {
-    title: "Money movement and transfers", release: 2,
-    lead: "Wires, ACH, journals, and ACATS or non-ACATS transfers, requested here and tracked until they settle.",
-    does: [
-      "Request wires, ACH, journals, and ACATS or non-ACATS transfers, and track each one's status",
-      "Check the requester's permission and run the flagged-list check on every party",
-      "Review the transferability of assets coming in or going out, and review deposits of low-priced securities",
-      "Pass a controls gate before money moves: dollar authority, maker-checker, RIA confirmation, a one-time passcode from the client, or a callback on a signed request",
-      "Post pending and suspense entries, route to the right payment rail, and wait for confirmation, a reject, or a timeout",
-    ],
-    who: "RIA users, on the firm's pure RIA accounts.",
-    client: "You, on your self-directed account: deposits, and any outgoing movement your RIA has granted.",
-    ai: "Reads transfer requests and forms, predicts likely rejects, and sorts exceptions for review.",
-    map: ["tr", "Asset and money transfers"],
-    why: "Every transfer posts to the three-layer ledger (client account, RIA master account, custodian general ledger), and the ledger is built in release 2. A transfer screen without it would take requests that go nowhere.",
-  },
   trading: {
     title: "Trading", release: 3,
     lead: "Block orders and allocations from the RIA, and orders from the client in the self-directed account.",
@@ -67,21 +51,6 @@ export const PLANS: Record<PlannedKey, Plan> = {
 
 // The same features from the operations side (Shawn's walkthrough, Oct. 13, 2026: ops needs to see them coming)
 export const OPS_PLANS: Record<OpsPlannedKey, Plan> = {
-  transfers: {
-    title: "Asset and money movement", release: 2,
-    lead: "The asset transfer team's workbench: every incoming and outgoing transfer, its controls, and its exceptions.",
-    does: [
-      "Queues for ACATS and non-ACATS transfers, wires, ACH, and journals, each with an SLA clock",
-      "The transferability review before assets move: the custodian's agreement with the asset manager, LOIs, and liquidation of positions that can't be held",
-      "A controls gate on outgoing money: dollar authority, maker-checker, RIA confirmation, and a callback on signed requests",
-      "Exceptions worked in one place: rejects, partial transfers, suspense items, and in-transit positions aging past their window",
-      "Postings at all three layers (client, RIA master, general ledger), with the rollup checked on every entry",
-    ],
-    who: "The asset transfer team, with the supervisor as checker for money movement over their dollar authority.",
-    ai: "Reads transfer forms, predicts likely rejects before submission, and sorts exceptions by cause.",
-    map: ["tr", "Asset and money transfers"],
-    why: "Transfers post to the three-layer ledger, which is built in release 2. Until then there are no positions or cash to move.",
-  },
   trading: {
     title: "Trade operations", release: 3,
     lead: "The trade team's workbench: orders, allocations, settlement, and fails.",
@@ -111,21 +80,6 @@ export const OPS_PLANS: Record<OpsPlannedKey, Plan> = {
     ai: "Parses fee schedules at setup and flags fees that look out of line against the account's value and history.",
     map: ["ab", "Advisor billing"],
     why: "Fees debit through the ledger and bill only certified periods, so billing follows the ledger and reconciliation.",
-  },
-  settlement: {
-    title: "Settlement and reconciliation", release: 2,
-    lead: "Daily settlement through the three-layer ledger, and reconciliation of the books against the street.",
-    does: [
-      "Net each day's settlement by channel (NSCC, Fund/SERV, Fedwire, ACH) and fund it from the settlement bank",
-      "Post every movement at three layers: client account, RIA master account, and general ledger, with the rollup checked on every entry",
-      "Hold unapplied receipts in suspense until they're matched, and age them",
-      "Reconcile positions against DTC, the transfer agents, and sponsors, and cash against the settlement bank",
-      "Give every break a cause, an owner, and a next action; escalate by age and dollar value; certify the period for billing",
-    ],
-    who: "Trade operations for securities fails and breaks, and the asset transfer team for money movement and cash, with the supervisor over both.",
-    ai: "Matches breaks to their likely cause (a fail, a corporate action, a late transfer) and drafts the next action.",
-    map: ["cs", "Cash settlement"], map2: ["pr", "Position reconciliation"],
-    why: "The ledger itself is built in release 2. Until it is, there's nothing to settle or reconcile.",
   },
 };
 

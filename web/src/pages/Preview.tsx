@@ -6,7 +6,7 @@ import { Loading, useLoad } from "../util";
  * Read-only previews of the release 2 and 3 workbenches, from the synthetic book (app/routers/preview.py). Operations
  * sees its whole area; an RIA its own firm's accounts; a client their own account.
  */
-export type PreviewKey = "transfers" | "trading" | "billing" | "settlement";
+export type PreviewKey = "trading" | "billing";
 
 type Row = Record<string, any>;
 type Data = Row & { area: PreviewKey; release: number; as_of: string; label: string; assumptions: string[] };
@@ -19,11 +19,6 @@ const day = (iso: string | null | undefined) =>
   iso ? new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
 const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
 
-const ROUTE: Record<string, string> = {
-  acats_in_kind: "ACATS in kind", loi: "LOI to the sponsor", liquidate: "Liquidate first",
-  product_acceptance: "Product acceptance", review: "Manual review",
-};
-const RELEASE_TONE: Record<string, string> = { full: "clear", partial: "refer", hold: "escalate" };
 
 function tone(status: string): string {
   const s = status.toLowerCase();
@@ -59,81 +54,13 @@ export default function Preview({ which, audience }: { which: PreviewKey; audien
         <strong>Preview</strong>
         <span>{d.label} Business day {day(d.as_of)}.</span>
       </div>
-      {d.area === "transfers" && <Transfers d={d} ops={ops} />}
       {d.area === "trading" && <Trading d={d} ops={ops} />}
       {d.area === "billing" && <Billing d={d} ops={ops} />}
-      {d.area === "settlement" && <Settlement d={d} />}
       <details className="small preview-notes">
         <summary>What's synthetic here</summary>
         <ul>{d.assumptions.map((a) => <li key={a}>{a}</li>)}</ul>
       </details>
     </section>
-  );
-}
-
-// ------------------------------------------------------------------ transfers and money movement
-function Transfers({ d, ops }: { d: Data; ops: boolean }) {
-  const [tab, setTab] = useState<"transfers" | "money">("transfers");
-  const [open, setOpen] = useState<string | null>(null);
-  const [exceptionsOnly, setExceptionsOnly] = useState(false);
-  const transfers: Row[] = d.transfers;
-  const moves: Row[] = d.movements;
-  const running = transfers.filter((t) => t.direction === "Incoming" && !/^Completed|^Re-registered/.test(t.status));
-  const exception = (m: Row) => !["Settled", "Sent"].includes(m.status) && !m.status.startsWith("Pending");
-  const exceptions = moves.filter(exception);
-  const shown = exceptionsOnly ? exceptions : moves;
-  return (
-    <>
-      <div className="grid tiles">
-        <Tile label="Incoming, in progress" value={running.length} sub="ACATS and LOI" />
-        <Tile label="Completed lately" value={transfers.filter((t) => /^Completed|^Re-registered/.test(t.status)).length} sub="Last 15 business days" />
-        <Tile label="Outgoing" value={transfers.filter((t) => t.direction === "Outgoing").length} />
-        <Tile label="Money movement exceptions" value={exceptions.length} sub={exceptions.length ? "Returns, holds, suspense" : "None"} alert={exceptions.length > 0} />
-      </div>
-      <Tabs tabs={[["transfers", `Transfers (${transfers.length})`], ["money", `Money movement (${moves.length})`]]} on={tab} set={setTab} />
-      {tab === "transfers" && (transfers.length === 0 ? <Empty what="No transfers in the last 15 business days." /> :
-        <div className="scroll"><table>
-          <thead><tr><th>Requested</th><th>Transfer</th><th>Account</th><th>Other firm</th><th>Business days</th><th>Status</th><th>Release</th></tr></thead>
-          <tbody>{transfers.map((t) => (
-            <Fragment key={t.id}>
-              <tr className="link" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>
-                <td>{day(t.requested)}</td>
-                <td><span className="mono">{t.id}</span><div className="small muted">{t.direction} · {t.type}</div></td>
-                <td><span className="mono">{t.account}</span><div className="small">{t.client}</div></td>
-                <td>{t.other_firm}</td><td>{t.business_days}</td>
-                <td>{t.status}</td>
-                <td><Pill t={RELEASE_TONE[t.release]}>{t.release}</Pill></td>
-              </tr>
-              {open === t.id && <tr className="detail"><td colSpan={7}>
-                {t.note && <p style={{ marginTop: 0 }}>{t.note}</p>}
-                <table><thead><tr><th>Position</th><th>Quantity</th><th>Route</th><th>Why</th></tr></thead>
-                  <tbody>{t.positions.map((x: Row, i: number) => (
-                    <tr key={i}><td>{x.security}</td><td>{qty(x.quantity)}</td><td>{ROUTE[x.route] ?? x.route}</td>
-                      <td>{x.reason}{x.action ? <div className="small muted">{x.action}</div> : null}</td></tr>))}</tbody>
-                </table>
-                <p className="small muted" style={{ marginBottom: 0 }}>Routes come from the platform's transferability rules.</p>
-              </td></tr>}
-            </Fragment>))}</tbody>
-        </table></div>)}
-      {tab === "money" && <>
-        {ops && <label className="small inline-check"><input type="checkbox" checked={exceptionsOnly}
-          onChange={(e) => setExceptionsOnly(e.target.checked)} /> Exceptions only</label>}
-        {shown.length === 0 ? <Empty what="No money movement in the last 10 business days." /> :
-          <div className="scroll"><table>
-            <thead><tr><th>Date</th><th>Account</th><th>Type</th><th style={{ textAlign: "right" }}>Amount</th><th>Rail</th><th>Status</th><th>Note</th></tr></thead>
-            <tbody>{shown.map((m) => (
-              <tr key={m.id}>
-                <td>{day(m.date)}</td>
-                <td>{m.account ? <><span className="mono">{m.account}</span><div className="small">{m.client}</div></> : <span className="muted">No match</span>}</td>
-                <td>{m.type}{m.counterparty && <div className="small muted">{m.counterparty}</div>}</td>
-                <td className="num">{usd(m.direction === "In" ? m.amount : -m.amount, true)}</td>
-                <td>{m.rail}</td>
-                <td>{exception(m) ? <Pill>{m.status}</Pill> : m.status}</td>
-                <td className="small">{m.note}</td>
-              </tr>))}</tbody>
-          </table></div>}
-      </>}
-    </>
   );
 }
 
@@ -288,63 +215,3 @@ function Billing({ d, ops }: { d: Data; ops: boolean }) {
   );
 }
 
-// ------------------------------------------------------------------ settlement and reconciliation
-function Settlement({ d }: { d: Data }) {
-  const s: Row = d.settlement;
-  const breaks: Row[] = d.breaks;
-  const off = s.checks.filter((c: Row) => c.result !== "Matches");
-  return (
-    <>
-      <div className="grid tiles">
-        <Tile label="Net settlement today" value={usd(s.net)} sub={s.net >= 0 ? "The bank receives" : "The bank pays"} />
-        <Tile label="Client assets" value={usd(d.summary.assets)} sub={`${d.summary.accounts} accounts, ${usd(d.summary.client_cash)} cash`} />
-        <Tile label="Open breaks" value={breaks.length} sub={breaks.length ? `Oldest ${breaks[0].age_days} business days` : "None"} alert={breaks.some((b) => b.age_days > 5)} />
-        <Tile label="Ledger checks" value={`${s.checks.length - off.length} of ${s.checks.length}`} sub={off.length ? "One off: see the break it names" : "All match"} alert={off.length > 0} />
-      </div>
-      <div className="panel">
-        <h3>Today's settlement</h3>
-        <p className="small muted">Yesterday's trades settle today (T+1), netted by channel, with today's ACH and wires.</p>
-        <div className="scroll"><table>
-          <thead><tr><th>Channel</th><th>Direction</th><th style={{ textAlign: "right" }}>Net</th></tr></thead>
-          <tbody>{s.flows.map((f: Row) => <tr key={f.channel}><td>{f.channel}</td><td>{f.direction}</td><td className="num">{usd(f.net, true)}</td></tr>)}
-            <tr><td><strong>Net</strong></td><td>{s.net >= 0 ? "Receive" : "Pay"}</td><td className="num"><strong>{usd(s.net, true)}</strong></td></tr></tbody>
-        </table></div>
-        <p className="small" style={{ marginBottom: 0 }}>{s.funding}</p>
-      </div>
-      <div className="panel">
-        <h3>Three layers: client accounts, RIA master accounts, general ledger</h3>
-        <div className="scroll"><table>
-          <thead><tr><th>RIA</th><th style={{ textAlign: "right" }}>Client accounts</th><th style={{ textAlign: "right" }}>Client cash</th><th style={{ textAlign: "right" }}>RIA master account</th><th style={{ textAlign: "right" }}>Difference</th></tr></thead>
-          <tbody>{s.layers.map((l: Row) => <tr key={l.firm_crd}><td>{l.firm}</td><td className="num">{l.client_accounts}</td>
-            <td className="num">{usd(l.client_cash)}</td><td className="num">{usd(l.ria_master_cash)}</td><td className="num">{usd(l.difference)}</td></tr>)}</tbody>
-        </table></div>
-        <div className="scroll" style={{ marginTop: 12 }}><table>
-          <thead><tr><th>General ledger account</th><th>Side</th><th style={{ textAlign: "right" }}>Balance</th></tr></thead>
-          <tbody>{s.gl.map((g: Row) => <tr key={g.account}><td><span className="mono">{g.account}</span> {g.name}</td><td>{g.side}</td><td className="num">{usd(g.balance)}</td></tr>)}</tbody>
-        </table></div>
-        <ul className="checks">{s.checks.map((c: Row) => (
-          <li key={c.check}><Pill t={c.result === "Matches" ? "clear" : "block"}>{c.result}</Pill> <strong>{c.check}</strong>
-            <div className="small muted">{c.detail}</div></li>))}</ul>
-      </div>
-      <div className="panel">
-        <h3>Reconciliation breaks</h3>
-        <p className="small muted">Books against DTC, the transfer agents, the sponsor, and the settlement bank, oldest first.</p>
-        {breaks.length === 0 ? <Empty what="No open breaks." /> : <div className="scroll"><table>
-          <thead><tr><th>Break</th><th>Item</th><th style={{ textAlign: "right" }}>Books</th><th style={{ textAlign: "right" }}>Street</th><th style={{ textAlign: "right" }}>Value</th><th>Age</th><th>Owner</th><th>Cause and next action</th></tr></thead>
-          <tbody>{breaks.map((b) => (
-            <tr key={b.id}>
-              <td><span className="mono">{b.id}</span><div className="small muted">{b.kind}</div></td>
-              <td className="wide-cell">{b.item}<div className="small muted">{b.location}</div></td>
-              <td className="num">{b.kind === "Cash" ? usd(b.books) : qty(b.books)}</td>
-              <td className="num">{b.kind === "Cash" ? usd(b.street) : qty(b.street)}</td>
-              <td className="num">{usd(b.value)}</td>
-              <td>{b.age_days} day{b.age_days === 1 ? "" : "s"}</td>
-              <td>{b.owner}</td>
-              <td className="wide-cell"><Pill>{b.status}</Pill><div className="small">{b.cause}</div>
-                <div className="small"><strong>Next:</strong> {b.next_action}</div></td>
-            </tr>))}</tbody>
-        </table></div>}
-      </div>
-    </>
-  );
-}

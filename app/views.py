@@ -12,7 +12,7 @@ from restrictions import CATALOG
 from . import ai_suggestions, audit, identity_check
 from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
-from .access import capabilities
+from .access import capabilities, may_propose
 from .orm import OPS_TEAMS, PORTAL_ROLES, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .queues import DECISIONS, QUEUES
 
@@ -58,11 +58,21 @@ def user_dict(db: Session, u: User) -> dict:
             "workspace": "portal" if u.role in ("ria_admin", "ria_user", "client") else "workbench"}
 
 
+# What the portal sees: an RIA its firm's requests (and an advisor move bringing a client to it); a client the requests
+# on their own account. Sanctions, risk, and compliance cases stay inside even when they're about the firm's account.
+RIA_KINDS = ("account", "change", "transfer", "entitlement", "offboarding", "deceased", "product", "advisor_move")
+CLIENT_KINDS = ("change", "transfer", "entitlement")
+
+
 def can_see(db: Session, user: User, case: Case) -> bool:
     if user.role in ("ria_admin", "ria_user"):
-        return case.firm_id == user.firm_id and case.kind in ("account", "change")
+        if case.kind == "advisor_move" and user.firm_id:
+            firm = db.get(Firm, user.firm_id)
+            if (case.application or {}).get("new_firm_crd") == firm.crd:
+                return True
+        return case.firm_id == user.firm_id and case.kind in RIA_KINDS
     if user.role == "client":
-        return case.account_id == user.client_account_id and case.kind == "change"
+        return case.account_id == user.client_account_id and case.kind in CLIENT_KINDS
     return True
 
 
@@ -151,7 +161,7 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
 def available_decisions(case: Case, user: User) -> list[dict]:
     out = []
     for key, spec in DECISIONS.items():
-        if case.status in spec["statuses"] and user.role in spec["proposer"] and not spec.get("direct") \
+        if case.status in spec["statuses"] and may_propose(user, key) and not spec.get("direct") \
                 and not spec.get("custom"):
             out.append({"decision_type": key, "label": spec["label"],
                         "values": [{"value": v, "label": l} for v, l in spec["values"].items()],
@@ -196,7 +206,28 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],
         "identity_check": identity_check.state(c, user),
     })
+    data.update(r2_detail(db, c, user))
     return data
+
+
+def r2_detail(db: Session, c: Case, user: User) -> dict:
+    """What a release 2 case adds to the case page: its map, summary, people-steps open to this person, ledger
+    entries, and the cases it opened or belongs to."""
+    from . import actions, ledger, servicing
+    if c.kind not in servicing.R2_KINDS:
+        return {"map": None, "summary": {}, "actions": [], "ledger_entries": [], "linked": []}
+    linked = []
+    for key, cid in ((c.extra or {}).get("children") or {}).items():
+        ch = db.get(Case, cid)
+        if ch:
+            linked.append({"id": ch.id, "title": ch.title, "status": ch.status, "relation": "opened", "key": key})
+    for pid in (c.extra or {}).get("parents", []):
+        p = db.get(Case, pid)
+        if p:
+            linked.append({"id": p.id, "title": p.title, "status": p.status, "relation": "part of", "key": None})
+    return {"map": servicing.MAP[c.kind], "summary": (c.result or {}).get("summary") or {},
+            "actions": actions.available(db, c, user), "ledger_entries": ledger.entries(db, case_id=c.id),
+            "linked": linked, "expected": (c.result or {}).get("expected")}
 
 
 def review_dict(r: Review, today) -> dict:

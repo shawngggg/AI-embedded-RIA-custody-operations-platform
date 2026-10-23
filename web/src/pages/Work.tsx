@@ -12,10 +12,10 @@ type WorkData = {
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
 };
 
-// The planned workbenches, for teams whose function arrives in a later release (and has no queue yet)
-const WORKBENCH: [string, string, string, number][] = [
-  ["planned_transfers", "/ops/transfers", "Asset and money movement", 2], ["planned_trading", "/ops/trading", "Trade operations", 3],
-  ["planned_settlement", "/ops/settlement", "Settlement and reconciliation", 2], ["planned_billing", "/ops/billing", "Billing operations", 3]];
+// Workbenches for teams without a queue of their own: release 2's settlement page, and the planned release 3 pages
+const WORKBENCH: [string, string, string, number | null][] = [
+  ["settlement", "/ops/settlement", "Settlement and reconciliation", null],
+  ["planned_trading", "/ops/trading", "Trade operations", 3], ["planned_billing", "/ops/billing", "Billing operations", 3]];
 
 function greeting() {
   const h = new Date().getHours();
@@ -62,7 +62,7 @@ export default function Work() {
         {!can.queues && WORKBENCH.filter(([cap]) => can[cap]).map(([cap, to, label, release]) => (
           <Link key={cap} className="tile" to={to}>
             <div className="label">Your team's workbench</div><div className="value small-value">{label}</div>
-            <div className="sub">Planned for release {release}: see what it will do</div></Link>))}
+            <div className="sub">{release ? `Planned for release ${release}: a preview and the plan` : "The daily cycle and the breaks"}</div></Link>))}
         {user.role === "platform_admin" && <Link className="tile" to="/admin">
           <div className="label">Grants to approve</div><div className="value">{d.grants_waiting ?? 0}</div>
           <div className="sub">Requested by another administrator</div></Link>}

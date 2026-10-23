@@ -22,7 +22,8 @@ from .queues import QUEUES
 
 RISK_TYPES = {"operational": "Operational", "regulatory": "Regulatory", "financial": "Financial"}
 SOURCES = {"rescission": "Rescission", "document": "Document reopened", "sanctions": "Sanctions true match",
-           "sla": "SLA breach", "access": "Access control", "manual": "Reported by a team member"}
+           "sla": "SLA breach", "access": "Access control", "manual": "Reported by a team member",
+           "recon": "Reconciliation break (aged or large)"}
 # The function a risk pertains to: every operations team, the second-line and service teams, and access
 AREAS = {**OPS_TEAMS, "aml": "AML compliance (EDD and compliance review)", "sanctions": "Sanctions",
          "periodic_review": "Periodic review", "ria_service": "RIA service (principal acceptance)",
@@ -35,7 +36,10 @@ AREA_OWNER = {**{t: "ops_supervisor" for t in OPS_TEAMS}, "aml": "aml_compliance
               "periodic_review": "periodic_review", "ria_service": "ria_service_lead", "access": "platform_admin"}
 QUEUE_AREA = {"items_requested": "onboarding", "rework": "onboarding", "verification": "cip",
               "confirmation": "client_service", "maintenance_items": "client_service", "compliance_review": "aml",
-              "edd_review": "aml", "sanctions_review": "sanctions", "principal_acceptance": "ria_service"}
+              "edd_review": "aml", "sanctions_review": "sanctions", "principal_acceptance": "ria_service",
+              "money_release": "asset_transfer", "callbacks": "asset_transfer", "transfer_exceptions": "asset_transfer",
+              "in_transit": "asset_transfer", "transfers_waiting": "asset_transfer", "product_review": "product",
+              "lifecycle": "client_service", "transitions": "transitions"}
 ROLE_AREAS = {"aml_compliance": {"aml"}, "sanctions": {"sanctions"}, "periodic_review": {"periodic_review"},
               "ria_service": {"ria_service"}, "ria_service_lead": {"ria_service"}, "platform_admin": {"access"},
               "ops_supervisor": set(OPS_TEAMS)}       # the supervisor oversees every operations team

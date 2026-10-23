@@ -1,5 +1,5 @@
 channel,net,direction
-ACH (settling today),45830.0,Receive
-Fedwire (client wires),-21000.0,Pay
-Fund/SERV,-81600.0,Pay
-NSCC (CNS),146855.93,Receive
+ACH,17400.0,Receive
+Fedwire,125000.0,Receive
+NSCC (ACATS),12812.5,Receive
+Other,-35.0,Pay

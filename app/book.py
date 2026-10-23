@@ -1,7 +1,7 @@
 """
-The synthetic book (synthetic/book.py) built from the demo's own open accounts, so the release 2 and 3 previews tell the
-same story as the cases: the accounts the principal accepted hold positions, and their restriction codes shape what
-they can do. Built once per state of the accounts and cached.
+The synthetic book (synthetic/book.py) for the release 3 previews (trading and billing), built from the demo's open
+accounts and the positions and cash the release 2 ledger holds for them, so every page tells the same story. Built once
+per state of the ledger and the accounts, and cached.
 """
 from __future__ import annotations
 
@@ -43,16 +43,39 @@ def open_accounts(db: Session) -> tuple[list[dict], dict[str, str]]:
     return rows, {f.crd: f.legal_name for f in firms.values()}
 
 
-def as_of(accounts: list[dict]):
-    """The demo's date, or the latest opening if the seed's clock ran ahead of a fixed test date."""
-    return max([settings.today()] + [a["opened_on"] for a in accounts])
+def ledger_view(db: Session) -> dict:
+    """Each open account's settled holdings and cash from the release 2 ledger. An account with an outgoing ACATS in
+    progress still counts the positions it's delivering (they're frozen, not gone) and is marked as leaving."""
+    from . import ledger
+    from .orm import Case
+    out = {}
+    leaving = {c.account_id: c for c in db.scalars(select(Case).where(
+        Case.kind == "transfer", Case.status.in_(("AWAITING_SETTLEMENT", "OVERDUE")))).all()
+        if (c.application or {}).get("type") == "acats_out"}
+    for a in db.scalars(select(Account).where(Account.status == "OPEN")).all():
+        cash, holdings = ledger.settled(db, a.id)
+        view = {"holdings": dict(holdings), "cash": cash}
+        if a.id in leaving:
+            c = leaving[a.id]
+            for asset, u in ledger.case_legs(db, c.id, a.id, "settled").items():
+                if asset == "USD":
+                    view["cash"] -= ledger.rules.amount(u)
+                else:
+                    view["holdings"][asset] = view["holdings"].get(asset, 0) - ledger.rules.amount(u)
+            view["leaving_on"] = (c.result or {}).get("summary", {}).get("Expected to settle")
+        out[a.id] = view
+    return out
 
 
 def current(db: Session) -> dict:
+    """The release 3 previews' book: the ledger's positions and cash, with synthetic trading and billing on top."""
+    from sqlalchemy import func
+    from .orm import LedgerEntry
     accounts, firms = open_accounts(db)
-    day = as_of(accounts)
-    key = (day.isoformat(), tuple((a["id"], a["opened_on"].isoformat(), tuple(a["codes"])) for a in accounts))
+    day = settings.today()
+    key = (day.isoformat(), db.scalar(select(func.max(LedgerEntry.id))),
+           tuple((a["id"], tuple(a["codes"])) for a in accounts))
     if key not in _cache:
         _cache.clear()
-        _cache[key] = synthetic_book.build(accounts, firms, day)
+        _cache[key] = synthetic_book.build(accounts, firms, day, ledger=ledger_view(db))
     return _cache[key]

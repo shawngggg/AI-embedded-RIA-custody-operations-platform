@@ -17,6 +17,7 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY onboarding/ onboarding/
+COPY custody/ custody/
 COPY app/ app/
 COPY synthetic/ synthetic/
 COPY migrations/ migrations/

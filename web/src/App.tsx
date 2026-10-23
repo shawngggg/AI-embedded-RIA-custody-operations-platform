@@ -21,6 +21,9 @@ import Work from "./pages/Work";
 import Messages from "./pages/Messages";
 import Outbox from "./pages/Outbox";
 import Planned from "./pages/Planned";
+import MoneyMovement from "./pages/MoneyMovement";
+import PortalTransfers from "./pages/PortalTransfers";
+import Settlement from "./pages/Settlement";
 import { Loading } from "./util";
 import { WalkthroughBanner } from "./walkthrough";
 
@@ -81,10 +84,11 @@ export default function App() {
               {can.audit && <NavLink to="/audit">Audit trail</NavLink>}
               {can.dashboard && <NavLink to="/dashboard">Dashboard</NavLink>}
               {can.outbox && <NavLink to="/outbox">Email outbox</NavLink>}
-              {(can.planned_transfers || can.planned_trading || can.planned_billing || can.planned_settlement) && <div className="sep" role="separator" />}
-              {can.planned_transfers && <NavLink to="/ops/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>}
+              {(can.transfers || can.settlement) && <div className="sep" role="separator" />}
+              {can.transfers && <NavLink to="/ops/transfers">Money movement</NavLink>}
+              {can.settlement && <NavLink to="/ops/settlement">Settlement and recon</NavLink>}
+              {(can.planned_trading || can.planned_billing) && <div className="sep" role="separator" />}
               {can.planned_trading && <NavLink to="/ops/trading" className="planned">Trading <span className="badge">R3</span></NavLink>}
-              {can.planned_settlement && <NavLink to="/ops/settlement" className="planned">Settlement and recon <span className="badge">R2</span></NavLink>}
               {can.planned_billing && <NavLink to="/ops/billing" className="planned">Billing <span className="badge">R3</span></NavLink>}
               {can.admin && <><div className="sep" role="separator" /><NavLink to="/admin">Users and rules</NavLink></>}
             </>
@@ -95,8 +99,8 @@ export default function App() {
               {user.role !== "client" && <NavLink to="/portal/new-account">New account</NavLink>}
               <NavLink to="/portal/change">Account change</NavLink>
               {user.role === "ria_admin" && <NavLink to="/portal/users">Firm users</NavLink>}
+              <NavLink to="/portal/transfers">Transfers</NavLink>
               <div className="sep" role="separator" />
-              <NavLink to="/portal/transfers" className="planned">Transfers <span className="badge">R2</span></NavLink>
               <NavLink to="/portal/trading" className="planned">Trading <span className="badge">R3</span></NavLink>
               {user.role !== "client" && <NavLink to="/portal/billing" className="planned">Billing <span className="badge">R3</span></NavLink>}
             </>
@@ -132,10 +136,10 @@ export default function App() {
                 {can.dashboard && <Route path="/dashboard" element={<Dashboard />} />}
                 {can.outbox && <Route path="/outbox" element={<Outbox />} />}
                 {can.admin && <Route path="/admin" element={<Admin />} />}
-                {can.planned_transfers && <Route path="/ops/transfers" element={<Planned which="transfers" audience="ops" />} />}
+                {can.transfers && <Route path="/ops/transfers" element={<MoneyMovement />} />}
+                {can.settlement && <Route path="/ops/settlement" element={<Settlement />} />}
                 {can.planned_trading && <Route path="/ops/trading" element={<Planned which="trading" audience="ops" />} />}
                 {can.planned_billing && <Route path="/ops/billing" element={<Planned which="billing" audience="ops" />} />}
-                {can.planned_settlement && <Route path="/ops/settlement" element={<Planned which="settlement" audience="ops" />} />}
                 {can.cases && <Route path="/cases/:id" element={<CasePage />} />}
                 <Route path="*" element={<Navigate to="/work" replace />} />
               </>
@@ -146,7 +150,7 @@ export default function App() {
                 <Route path="/portal/new-account" element={<NewAccount />} />
                 <Route path="/portal/change" element={<NewChange />} />
                 <Route path="/portal/users" element={<Admin portal />} />
-                <Route path="/portal/transfers" element={<Planned which="transfers" />} />
+                <Route path="/portal/transfers" element={<PortalTransfers />} />
                 <Route path="/portal/trading" element={<Planned which="trading" />} />
                 {user.role !== "client" && <Route path="/portal/billing" element={<Planned which="billing" />} />}
                 <Route path="/portal/cases/:id" element={<CasePage />} />

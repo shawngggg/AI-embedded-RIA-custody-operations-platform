@@ -15,9 +15,19 @@ from risk import ACCOUNT_FACTORS, FIRM_FACTORS, PEP_SOURCE
 from rules import POLICY_VERSION
 from transferability import XFER_RULES
 
+from custody import policy as r2
+
 from .orm import Case
 
-_LIBRARY = [*FIRM_RULES, *ACCOUNT_RULES, *CHANGE_RULES, *XFER_RULES, *ACCOUNT_FACTORS, *FIRM_FACTORS]
+_LIBRARY = [*FIRM_RULES, *ACCOUNT_RULES, *CHANGE_RULES, *XFER_RULES, *ACCOUNT_FACTORS, *FIRM_FACTORS, *r2.library()]
+
+
+def _r2(*rule_ids: str) -> list[dict]:
+    return [{"rule_id": r, "rule_version": r2.BY_ID[r]["version"], "source": r2.BY_ID[r]["source"]} for r in rule_ids]
+
+
+R2_DECISIONS = {"release", "risk_review", "product", "estate_docs", "legal_hold", "merger_classification",
+                "negative_consent"}
 
 # Decisions whose basis is a rule outside the rule library: a FINRA rule, a regulation, or platform policy.
 STATIC = {
@@ -47,6 +57,13 @@ STATIC = {
     "verification": [{"rule_id": "CIP-NEW", "rule_version": "1",
                       "source": f"Customer identification program for new parties: {CIP_SOURCE}; verification under "
                                 "31 CFR 1023.220(a)(2)(ii)"}],
+    "release": _r2("MM-005", "MM-006", "MM-003"),
+    "risk_review": _r2("MM-004"),
+    "product": _r2("PA-001", "PA-002", "PA-003"),
+    "estate_docs": _r2("DEC-002"),
+    "legal_hold": _r2("ADV-001"),
+    "merger_classification": _r2("MRG-001"),
+    "negative_consent": _r2("MRG-001"),
 }
 
 
@@ -77,7 +94,7 @@ def basis(case: Case, decision_type: str) -> list[dict]:
                           "source": f.get("source") or (lib or {}).get("source", "")})
     if decision_type in ("compliance_signoff", "acceptance", "verification", "confirmation"):
         items += [{"rule_id": d["rule_id"], "rule_version": d["rule_version"], "source": d["source"]} for d in findings]
-    if decision_type in ("confirmation", "verification", "compliance_signoff"):
+    if decision_type in ("confirmation", "verification", "compliance_signoff") or decision_type in R2_DECISIONS:
         for rid in sorted({r for s in result.get("steps", []) for r in s.get("rule_ids", [])}):
             lib = _in_force(rid, on)
             if lib:

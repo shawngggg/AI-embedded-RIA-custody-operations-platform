@@ -247,9 +247,18 @@ secrets, and scaling. Data in Neon survives deploys.
 In demo mode the app fingerprints its seed data. When a deploy brings different seed data, it resets the demo on
 startup, so nobody has to remember to. A platform administrator can also reset it any time with **Users and rules →
 Reset the demo**. Either way, the AI evaluation runs, the reviewed AI suggestions, and the timed walkthrough runs are
-kept: they're governance evidence, not demo data. The seed draws on `synthetic/cases.py`, so the image copies
-`synthetic/`. The read-only previews on the release 2 and 3 pages are computed from the open accounts on each request
-(cached until the accounts or the day change), so they need no reset of their own.
+kept: they're governance evidence, not demo data. The seed draws on `synthetic/`, so the image copies it.
+
+Since release 2 the seed also builds the books: each open account's opening balance or incoming ACATS, 17 transfer
+scenarios, receipts, and reconciliation breaks, about 5,600 small statements. Each one would be a round trip to Neon,
+so on Postgres the app builds the seed in a local SQLite file inside the container and copies it across table by
+table, 1,000 rows a statement: about 140 round trips, a few seconds. That keeps a deploy's startup well inside Cloud
+Run's startup check and a reset inside the 60-second request timeout. The release 3 previews (trading and billing) are
+computed from the ledger on each request (cached until the ledger or the day changes), so they need no reset of their
+own.
+
+The release 2 migration (`cf373bde83dc`) adds the ledger, the security master, bank links, grants, receipts, and the
+settlement and reconciliation runs. It runs on startup like every other migration; nothing needs doing by hand.
 
 ## Automatic deploys from GitHub
 

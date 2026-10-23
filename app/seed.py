@@ -38,7 +38,11 @@ DEMO_USERS = [
     ("ops.cip", "Taylor Brooks", "ops_analyst", None, None, "CIP: verifies the identity of new parties"),
     ("ops.service", "Elliot Shaw", "ops_analyst", None, None, "Client service: account maintenance and confirmations"),
     ("ops.transfers", "Marisol Vega", "ops_analyst", None, None,
-     "Asset transfer: transfers and money movement (workbench in release 2)"),
+     "Asset transfer: transfers and money movement, the release 2 workbench"),
+    ("ops.money", "Hana Sato", "ops_analyst", None, None,
+     "Asset transfer: checks money releases within the analyst dollar authority"),
+    ("ops.settlement", "Omar Haddad", "ops_analyst", None, None,
+     "Settlement and reconciliation: the daily cash cycle, unapplied cash, and breaks"),
     ("ops.trade", "Kevin Tran", "ops_analyst", None, None, "Trade: orders, allocations, and settlement (release 3)"),
     ("ops.billing", "Grace Holloway", "ops_analyst", None, None, "Billing: fee setup, fee runs, and refunds (release 3)"),
     ("ops.supervisor", "Priya Raman", "ops_supervisor", None, None, "Approves operations decisions as checker"),
@@ -67,7 +71,8 @@ SEED_EMAILS = {"granite.admin": "dana.whitfield@granitepeak.example", "granite.a
 
 # Operations teams (orm.OPS_TEAMS)
 SEED_TEAMS = {"ops.analyst": "onboarding", "ops.cip": "cip", "ops.service": "client_service",
-              "ops.transfers": "asset_transfer", "ops.trade": "trade", "ops.billing": "billing",
+              "ops.transfers": "asset_transfer", "ops.money": "asset_transfer", "ops.settlement": "settlement",
+              "ops.trade": "trade", "ops.billing": "billing",
               "ops.supervisor": "onboarding"}
 
 # Synthetic FINRA registrations and individual CRD numbers for the licensed RIA service team
@@ -266,6 +271,65 @@ def reset_database() -> None:
     Base.metadata.create_all(engine)
 
 
+def seed_database() -> None:
+    """Empty the database and seed it. On SQLite the seed runs in place. On Postgres it's built in a local SQLite file
+    and copied across in bulk: the seed issues thousands of small statements, and with the database a network hop away
+    (Neon), each one is a round trip; the copy is a few dozen. That keeps a deploy's startup and the admin's reset
+    within Cloud Run's limits."""
+    if engine.dialect.name == "sqlite":
+        reset_database()
+        with SessionLocal() as db:
+            seed(db)
+        return
+    local, folder = build_local_seed()
+    try:
+        copy_database(local, engine)
+    finally:
+        local.dispose()
+        import shutil
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def build_local_seed(path: str | None = None):
+    """Seed a fresh SQLite file. Returns (its engine, the folder holding it)."""
+    import tempfile
+    from sqlalchemy import create_engine
+    folder = str(Path(path).parent) if path else tempfile.mkdtemp(prefix="seed-")
+    Path(folder).mkdir(parents=True, exist_ok=True)
+    local = create_engine(f"sqlite:///{path or Path(folder) / 'seed.db'}")
+    Base.metadata.drop_all(local)
+    Base.metadata.create_all(local)
+    with Session(local, autoflush=False, expire_on_commit=False) as db:
+        seed(db)
+    return local, folder
+
+
+def copy_database(source, target) -> None:
+    """Replace every table in `target` with the rows in `source`: parents before children, 1,000 rows a statement,
+    then each id sequence moved past the copied rows (Postgres). SQLite keeps no time zone, and every time the app
+    writes is UTC, so naive times read from it are marked UTC on the way across."""
+    from datetime import timezone
+    from sqlalchemy import DateTime, Integer, text
+    Base.metadata.drop_all(target)
+    Base.metadata.create_all(target)
+    with source.connect() as src, target.begin() as dst:
+        for table in Base.metadata.sorted_tables:
+            aware = [c.name for c in table.columns if isinstance(c.type, DateTime) and c.type.timezone]
+            rows = []
+            for r in src.execute(table.select()).mappings():
+                row = dict(r)
+                for c in aware:
+                    if row[c] is not None and row[c].tzinfo is None:
+                        row[c] = row[c].replace(tzinfo=timezone.utc)
+                rows.append(row)
+            for i in range(0, len(rows), 1000):
+                dst.execute(table.insert(), rows[i:i + 1000])
+            pk = list(table.primary_key.columns)
+            if target.dialect.name == "postgresql" and len(pk) == 1 and isinstance(pk[0].type, Integer):
+                dst.execute(text(f"SELECT setval(pg_get_serial_sequence('{table.name}', '{pk[0].name}'), "
+                                 f"COALESCE((SELECT MAX({pk[0].name}) FROM {table.name}), 0) + 1, false)"))
+
+
 def seed(db: Session) -> None:
     today = settings.today()
     delta = timedelta(days=(today - SAMPLE_DAY).days)
@@ -390,6 +454,8 @@ def seed(db: Session) -> None:
                 {"on": review.requested_on.isoformat(), "event": "refresh requested",
                  "response_due": review.response_due.isoformat()}]
     db.flush()
+    from .seed_r2 import seed_release2
+    seed_release2(db, users)                  # the ledger, transfers, receipts, and breaks (release 2)
     from .risk_register import sweep_sla_breaches
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
     seed_access_events(db, users)
@@ -401,8 +467,11 @@ def seed(db: Session) -> None:
 def _fingerprint() -> str:
     """Changes whenever the seed data does: this file and the synthetic data it draws on."""
     import sample_data
+    from synthetic import book
+    here = Path(__file__).parent
     return hashlib.sha256(Path(__file__).read_bytes() + Path(sample_data.__file__).read_bytes()
-                          + Path(extra.__file__).read_bytes()).hexdigest()[:12]
+                          + Path(extra.__file__).read_bytes() + Path(book.__file__).read_bytes()
+                          + (here / "seed_r2.py").read_bytes()).hexdigest()[:12]
 
 
 SEED_FINGERPRINT = _fingerprint()
@@ -421,9 +490,8 @@ def reseed() -> None:
         reviewed = [{**{c: getattr(r, c) for c in scols}, "case_id": None, "reviewed_by": None}
                     for r in db.scalars(select(AiSuggestion).where(AiSuggestion.status != "pending")
                                         .order_by(AiSuggestion.id))]
-    reset_database()
+    seed_database()
     with SessionLocal() as db:
-        seed(db)
         db.add_all(AuditEvent(**k) for k in kept)
         db.add_all(AiSuggestion(**r) for r in reviewed)
         db.commit()
@@ -522,7 +590,9 @@ def ensure_seeded(db: Session) -> bool:
     so nobody has to remember to reset the demo. Returns True if it seeded."""
     Base.metadata.create_all(engine)
     if db.query(User).first() is None:
-        seed(db)
+        db.rollback()
+        db.close()
+        seed_database()
         return True
     if not settings.demo_mode:
         return False

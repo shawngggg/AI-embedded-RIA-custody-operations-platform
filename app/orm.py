@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text, text
+from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, Float, ForeignKey, Integer, LargeBinary,
+                        String, Text, text)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -65,6 +66,11 @@ OPS_TEAMS = {
     "ira": "IRA and retirement",
     "client_reporting": "Client reporting",
     "client_service": "Client service and account maintenance",
+    # Release 2 (Oct. 22, 2026): the teams that run cash settlement and reconciliation, product acceptance, and RIA
+    # transitions (maps 12, 13, 22, 23, 24)
+    "settlement": "Settlement and reconciliation",
+    "product": "Product acceptance",
+    "transitions": "RIA transitions",
 }
 
 # FINRA registrations. The custodian runs the trading platform, so it is a FINRA member broker-dealer: the
@@ -146,6 +152,8 @@ class Account(Base):
     application: Mapped[dict] = mapped_column(JSON)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     change_history: Mapped[list] = mapped_column(JSON, default=list)   # [[change_type, iso date], ...]
+    rep_code: Mapped[str | None] = mapped_column(String(20), nullable=True)   # the advisor's code at the RIA
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Case(Base):
@@ -384,3 +392,178 @@ class AiUsage(Base):
     __tablename__ = "ai_usage"
     day: Mapped[date] = mapped_column(Date, primary_key=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# --- Release 2: the ledger and what it serves ---------------------------------------------------------------------
+
+class LedgerEntry(Base):
+    """One balanced posting (custody/ledger.py validates it before it's written). `ref` makes a replay idempotent:
+    a workflow lists every entry it should have posted, and the app writes only the ones it hasn't."""
+    __tablename__ = "ledger_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    description: Mapped[str] = mapped_column(Text)
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True, index=True)
+    account_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    effective_date: Mapped[date] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_by: Mapped[str] = mapped_column(String(120))
+
+
+class LedgerLeg(Base):
+    """A leg of an entry at one layer: client (ACC-...), master (MASTER-crd), or gl (a chart number). Units are
+    millionths of a dollar or of a share, so every amount is exact."""
+    __tablename__ = "ledger_legs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("ledger_entries.id"), index=True)
+    layer: Mapped[str] = mapped_column(String(10))
+    account: Mapped[str] = mapped_column(String(40), index=True)
+    asset: Mapped[str] = mapped_column(String(20))
+    bucket: Mapped[str] = mapped_column(String(12))
+    units: Mapped[int] = mapped_column(BigInteger)
+
+
+class Security(Base):
+    """The security master: what the platform can hold, where, and at what price (synthetic)."""
+    __tablename__ = "securities"
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    ticker: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    name: Mapped[str] = mapped_column(String(200))
+    asset_type: Mapped[str] = mapped_column(String(20))
+    price: Mapped[float] = mapped_column(Float, default=0.0)
+    price_as_of: Mapped[date | None] = mapped_column(Date, nullable=True)
+    location: Mapped[str] = mapped_column(String(40), default="DTC")
+    accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+    dtc_eligible: Mapped[bool] = mapped_column(Boolean, default=False)
+    fundserv_eligible: Mapped[bool] = mapped_column(Boolean, default=False)
+    sponsor_agreement: Mapped[bool] = mapped_column(Boolean, default=False)
+    proprietary_to: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    restricted_legend: Mapped[bool] = mapped_column(Boolean, default=False)
+    sponsor: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    isin: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    settlement_method: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    valuation_source: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    purchase_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    exit_deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+    policy_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Valuation(Base):
+    """A valuation statement or NAV for an illiquid product; a person checks it when PA-004 flags it."""
+    __tablename__ = "valuations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    security_id: Mapped[str] = mapped_column(ForeignKey("securities.id"), index=True)
+    value: Mapped[float] = mapped_column(Float)
+    as_of: Mapped[date] = mapped_column(Date)
+    source: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(20), default="posted")     # posted | flagged | rejected
+    checks: Mapped[list] = mapped_column(JSON, default=list)
+    entered_by: Mapped[str] = mapped_column(String(120))
+    decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BankLink(Base):
+    """A bank account in the client's name: money moves to or from it only once it's verified (map 05)."""
+    __tablename__ = "bank_links"
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), index=True)
+    bank: Mapped[str] = mapped_column(String(120))
+    last4: Mapped[str] = mapped_column(String(4))
+    owner: Mapped[str] = mapped_column(String(200))
+    method: Mapped[str] = mapped_column(String(20), default="micro_deposits")   # micro_deposits | instant
+    status: Mapped[str] = mapped_column(String(20), default="pending")         # pending | verified | failed | closed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    added_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Grant(Base):
+    """A client capability the RIA granted on the self-directed account, mirrored from its entitlement case."""
+    __tablename__ = "grants"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), unique=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), index=True)
+    capability: Mapped[str] = mapped_column(String(20))
+    per_request: Mapped[float] = mapped_column(Float)
+    per_day: Mapped[float] = mapped_column(Float)
+    destinations: Mapped[list] = mapped_column(JSON, default=list)
+    expires_on: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(30))       # the entitlement case's status
+    granted_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OneTimeCode(Base):
+    """A one-time passcode for a client's self-service request (ENT-002). Only its hash is kept."""
+    __tablename__ = "one_time_codes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    purpose: Mapped[str] = mapped_column(String(40))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class BankReceipt(Base):
+    """Money that arrived at the settlement bank without a request: an incoming wire or ACH credit, matched to an
+    account by its memo (STL-001), or held in suspense until someone applies or returns it."""
+    __tablename__ = "bank_receipts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    received_on: Mapped[date] = mapped_column(Date, index=True)
+    channel: Mapped[str] = mapped_column(String(20))           # Fedwire | ACH
+    amount: Mapped[float] = mapped_column(Float)
+    sender: Mapped[str] = mapped_column(String(200))
+    memo: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="unapplied")   # unapplied | applied | returned
+    account_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    candidates: Mapped[list] = mapped_column(JSON, default=list)
+    decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SettlementRun(Base):
+    """One run of the daily cash settlement cycle (map 12), with what each step found."""
+    __tablename__ = "settlement_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    run_by: Mapped[str] = mapped_column(String(120))
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class StreetItem(Base):
+    """A difference the street (DTC, a transfer agent, a sponsor, the settlement bank) reports against the books,
+    from the simulator that stands in for their files, and its handling as a reconciliation break (map 13)."""
+    __tablename__ = "street_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    location: Mapped[str] = mapped_column(String(10))          # GL location account: 1500 | 1510 | 1520 | 1010
+    asset: Mapped[str] = mapped_column(String(20))
+    units: Mapped[int] = mapped_column(BigInteger)             # street minus books
+    pattern: Mapped[str] = mapped_column(String(40))
+    note: Mapped[str] = mapped_column(Text)
+    account_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    case_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    opened_on: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), default="open")     # open | proposed | resolved
+    route: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    proposal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    escalated: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ReconRun(Base):
+    """One reconciliation run (map 13): what matched, the breaks, and whether the books were certified."""
+    __tablename__ = "recon_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    run_by: Mapped[str] = mapped_column(String(120))
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    certified_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    certified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

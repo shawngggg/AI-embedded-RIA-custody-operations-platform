@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .. import ai_suggestions, walkthrough
 from ..db import get_db
 from ..orm import Case, CaseTransition, Restriction, User
-from ..queues import QUEUES
+from ..queues import LATER_ENABLED, QUEUES
 from ..access import require_capability
 from ..views import sla_state
 
@@ -35,6 +35,8 @@ def dashboard(user: User = Depends(require_capability("dashboard")), db: Session
     nigo = [c for c in onboarding if c.nigo_count > 0]
     queues = []
     for key, spec in QUEUES.items():
+        if spec.get("later") and not LATER_ENABLED:
+            continue
         in_q = [c for c in cases if c.queue == key]
         queues.append({"key": key, "label": spec["label"], "count": len(in_q),
                        "breached": sum(1 for c in in_q if sla_state(c, now)["breached"])})

@@ -1,3 +1,4 @@
+import { Actions, Entries, Linked, Summary, type R2Case } from "../r2";
 import { Fragment, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type AiSuggestion, type CaseDetail, type Correction, type Doc, type PortalCase } from "../api";
@@ -91,7 +92,7 @@ function PortalCase() {
 function InternalCase() {
   const { id } = useParams();
   const { user, refreshCounts } = useAuth();
-  const c = useLoad(() => api<CaseDetail>(`/api/cases/${id}`), [id]);
+  const c = useLoad(() => api<R2Case>(`/api/cases/${id}`), [id]);
   const auditLog = useLoad(() => api<any[]>(`/api/cases/${id}/audit`), [id]);
   const [tab, setTab] = useState("steps");
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
@@ -119,7 +120,7 @@ function InternalCase() {
       <p className="small"><Link to={back}>← Back</Link></p>
       <h1>#{d.id} {d.title}</h1>
       <p className="muted small">
-        {d.kind === "firm" ? "RIA firm onboarding (map 01)" : d.kind === "account" ? "Client account opening (map 02)" : "Account change (map 04)"}
+        {d.map ?? (d.kind === "firm" ? "RIA firm onboarding (map 01)" : d.kind === "account" ? "Client account opening (map 02)" : "Account change (map 04)")}
         {" · "}{d.target_id}{d.path ? ` · Path ${d.path}` : ""}{d.firm ? ` · ${d.firm}` : ""}
         {r.policy_version ? ` · policy ${r.policy_version}` : ""}
       </p>
@@ -142,19 +143,29 @@ function InternalCase() {
       {d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
       {d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
       {d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
+      {(d.actions?.length ?? 0) > 0 && <Actions caseId={d.id} actions={d.actions!} onDone={done} onFail={fail} />}
       <Decisions d={d} onDone={done} onFail={fail} />
       {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} onRefresh={refresh} />}
+      {d.summary && Object.keys(d.summary).length > 0 && <div className="panel"><Summary summary={d.summary} />
+        {(d.linked?.length ?? 0) > 0 && <Linked linked={d.linked!} />}</div>}
 
       <div className="tabs" role="tablist">
-        {[["steps", "Steps"], ["documents", `Documents (${d.documents.length})`], ["findings", "Rule findings"], ["risk", "Risk"],
-          ["transfer", "Transfer"], ["extraction", "AI extraction"], ["codes", "Codes"], ["audit", "Audit trail"],
-          ["data", "Application"], ["discussion", "Discussion"]]
+        {[["steps", "Steps"], ["ledger", `Ledger (${d.ledger_entries?.length ?? 0})`], ["documents", `Documents (${d.documents.length})`],
+          ["findings", "Rule findings"], ["risk", "Risk"],
+          ["transfer", "Transferability"], ["extraction", "AI extraction"], ["codes", "Codes"], ["audit", "Audit trail"],
+          ["data", "Request"], ["discussion", "Discussion"]]
           .filter(([k]) => (k !== "transfer" || r.transfer) && (k !== "extraction" || d.extra?.extraction) && (k !== "risk" || r.risk)
-            && (k !== "discussion" || user.capabilities?.messages))
+            && (k !== "discussion" || user.capabilities?.messages) && (k !== "ledger" || d.map)
+            && (k !== "findings" || !d.map))
           .map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>)}
       </div>
 
       {tab === "discussion" && <Discussion caseId={d.id} queue={d.queue} />}
+      {tab === "ledger" && <>
+        <p className="muted small">Every entry posts at three layers (the client account, its RIA's master account, and the general ledger)
+          and is checked before it's written: a posting that would break the rollup is refused (LED-001).</p>
+        <Entries entries={d.ledger_entries ?? []} />
+      </>}
       {tab === "steps" && (
         <ol className="steps">
           {(r.steps ?? []).map((s: any, i: number) => (
