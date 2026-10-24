@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type Decision } from "../api";
 import { useAuth } from "../auth";
+import { DocLinks } from "../docs";
 import { Loading, useLoad, when } from "../util";
 
 export default function Approvals() {
@@ -19,11 +20,12 @@ export default function Approvals() {
       {msg && <p className="ok">{msg}</p>}
       {!list.data ? <Loading /> : list.data.length ? (
         <div className="scroll"><table>
-          <thead><tr><th>Case</th><th>Decision</th><th>Proposed by</th><th>Needs</th><th></th></tr></thead>
+          <thead><tr><th>Case</th><th>Decision</th><th>Documents</th><th>Proposed by</th><th>Needs</th><th></th></tr></thead>
           <tbody>{list.data.map((d) => (
             <tr key={d.id}>
               <td><Link to={`/cases/${d.case_id}`}>#{d.case_id} {d.case_title}</Link></td>
               <td>{d.label}: <strong>{d.value_label}</strong><br /><span className="muted small">ref {d.reference}</span></td>
+              <td><DocLinks docs={d.documents ?? []} title="" empty="No documents on this case" /></td>
               <td>{d.proposed_by}<br /><span className="muted small">{when(d.proposed_at)}</span></td>
               <td>{d.approver_roles.join(" or ").replace(/_/g, " ")}</td>
               <td>{d.can_approve ? <div className="actions" style={{ marginTop: 0 }}>

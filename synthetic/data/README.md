@@ -2,7 +2,7 @@
 
 Everything here is invented: firms, people, tax IDs (900-00-xxxx, a range no one is issued), accounts,
 securities, prices, banks, and amounts. It's what the demo seeds and shows, written out by
-`python -m synthetic.export` on business day 2026-10-22.
+`python -m synthetic.export` on business day 2026-10-23.
 
 Three sources, and they agree with each other:
 

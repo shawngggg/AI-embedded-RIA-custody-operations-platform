@@ -72,8 +72,9 @@ export type Decision = {
   id: number; case_id: number; decision_type: string; label: string; value: string; value_label: string;
   reference: string; note: string | null; status: string; proposed_by: string; proposed_by_id: number;
   proposed_at: string; decided_by: string | null; decided_at: string | null; approver_roles: string[];
-  can_approve?: boolean; case_title?: string;
+  can_approve?: boolean; case_title?: string; documents?: DocRef[];
 };
+export type DocRef = { id: number; type_label: string; filename: string; status: Doc["status"] };
 
 export type Correction = {
   field: string; label: string; type: string; rule_id: string; reason: string; current: any;
@@ -86,10 +87,12 @@ export type CaseDetail = CaseSummary & {
   available_decisions: { decision_type: string; label: string; values: { value: string; label: string }[];
     approver_roles: string[] }[];
   account: { id: string; status: string; group: string; display_name: string } | null; closed_at: string | null;
-  acceptance: { can_accept: boolean; reason: string | null; signs_as: string | null } | null;
+  acceptance: { can_accept: boolean; reason: string | null; signs_as: string | null; to_review: number[];
+    opened: number[] } | null;
   documents: Doc[];
   rescission: { can_request: boolean; reason: string | null; kinds: Record<string, string>; return_to: Record<string, string> } | null;
-  rework: { reason: string; reference: string; requested_by: string; approved_by: string; at: string } | null;
+  rework: { reason: string; reference: string; requested_by: string; approved_by: string | null; at: string;
+    kind?: "send_back"; documents?: { id: number; label: string; filename: string }[] } | null;
   ai_suggestions: AiSuggestion[];
   identity_check: IdentityCheckState | null;
 };

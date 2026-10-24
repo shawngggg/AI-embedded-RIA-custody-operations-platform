@@ -109,7 +109,9 @@ def maker_checker(cid: int, dtype: str, value: str, ref: str, maker: str, checke
 
 
 def accept(cid: int, username: str = "rs.principal", value: str = "accepted") -> dict:
-    r = as_user(username).post(f"/api/cases/{cid}/acceptance", json={"value": value, "reviewed": True})
+    docs = (as_user(username).get(f"/api/cases/{cid}").json().get("acceptance") or {}).get("to_review", [])
+    r = as_user(username).post(f"/api/cases/{cid}/acceptance", json={"value": value, "reviewed": True,
+                                                                      "documents_reviewed": docs})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -136,6 +138,10 @@ def work_the_seeded_cases() -> None:
     first = waiting[0]["id"]
     for u in wrong_roles({"ria_service", "ria_service_lead"}) + ["rs.associate"]:   # rs.associate holds S7 only
         attempt("principal acceptance", u, "post", f"/api/cases/{first}/acceptance", {"value": "accepted", "reviewed": True})
+    # Oct. 23: only a principal who could accept sends a case back to operations before accepting
+    for u in wrong_roles({"ria_service", "ria_service_lead"}) + ["rs.associate"]:
+        attempt("send back before acceptance", u, "post", f"/api/cases/{first}/send-back",
+                {"reason": "Gate review: not this person's call", "documents": []})
     for c in waiting:
         accept(c["id"])
 

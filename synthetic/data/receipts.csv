@@ -1,5 +1,5 @@
 id,received_on,channel,amount,sender,memo,status,account_id,decided_by,decided_at,note,age_days,return_due,best_match
-1,2026-10-19,Fedwire,300000.0,Bear River Savings Bank,FBO ACC-3005 Gregory Holm: proceeds of business sale,applied,ACC-3005,Settlement engine (STL-001: a sure match),2026-10-23T00:47:22,Memo names the account,3,False,
-2,2026-10-22,Fedwire,125000.0,Wasatch Community Bank,FBO ACC-3018 Dale Henriksen: proceeds from sale of residence,applied,ACC-3018,Settlement engine (STL-001: a sure match),2026-10-23T00:47:22,Matched at 0.99: Memo names ACC-3018; Names the account owner (Dale Henriksen),0,False,
-3,2026-10-21,Fedwire,48250.0,Harbor Title & Escrow (synthetic),"FBO ACC-3O10 closing proceeds, file 26-1184",unapplied,,,,,1,False,
-4,2026-10-06,ACH,1500.0,Alder Creek Services LLC (synthetic),INV 44821 REFUND,unapplied,,,,,12,True,
+1,2026-10-20,Fedwire,300000.0,Bear River Savings Bank,FBO ACC-3005 Gregory Holm: proceeds of business sale,applied,ACC-3005,Settlement engine (STL-001: a sure match),2026-10-24T04:36:57,Memo names the account,3,False,
+2,2026-10-23,Fedwire,125000.0,Wasatch Community Bank,FBO ACC-3018 Dale Henriksen: proceeds from sale of residence,applied,ACC-3018,Settlement engine (STL-001: a sure match),2026-10-24T04:36:57,Matched at 0.99: Memo names ACC-3018; Names the account owner (Dale Henriksen),0,False,
+3,2026-10-22,Fedwire,48250.0,Harbor Title & Escrow (synthetic),"FBO ACC-3O10 closing proceeds, file 26-1184",unapplied,,,,,1,False,
+4,2026-10-07,ACH,1500.0,Alder Creek Services LLC (synthetic),INV 44821 REFUND,unapplied,,,,,12,True,

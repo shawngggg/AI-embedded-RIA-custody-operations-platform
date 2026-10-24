@@ -25,7 +25,7 @@ from sample_data import (
 )
 
 from . import audit
-from .acceptance import accept_case
+from .acceptance import accept_case, to_review
 from .config import settings
 from .documents import AUTOMATED_REVIEWER, FIELD_DOCS, checks_pass, mark, sample_document, store
 from .db import Base, SessionLocal, engine
@@ -266,6 +266,11 @@ def create_change_case(db: Session, change: dict, account: Account, actor: User 
     return case
 
 
+def reviewable(db: Session, case: Case) -> list[int]:
+    """The seeded principal reviews every document in good order before accepting, as the app requires."""
+    return [d.id for d in to_review(db, case)]
+
+
 def reset_database() -> None:
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
@@ -349,7 +354,7 @@ def seed(db: Session) -> None:
 
     def accept_if_seeded(case: Case, key: str) -> None:
         if key in ACCEPTED_SEEDS and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True)
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
 
     for key in FIRM_SEEDS:
         app = shift_dates(FIRMS[key], delta)
@@ -369,7 +374,7 @@ def seed(db: Session) -> None:
         run_case(db, case, system_ops)
         db.flush()
         if case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True)
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
         db.flush()
         backdate(db, case, extra.FIRM_AGE_HOURS[key])
 
@@ -513,7 +518,7 @@ def seed_more_cases(db: Session, users: dict, firms_by_crd: dict) -> None:
         run_case(db, case, actor or ops)
         db.flush()
         if sc.accept and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True)
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
         if sc.identity_issue:
             identity_check.record(db, case, cip, sc.identity_issue["kind"], sc.identity_issue["person"],
                                   sc.identity_issue["note"])

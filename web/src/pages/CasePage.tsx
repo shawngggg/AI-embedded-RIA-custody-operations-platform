@@ -3,7 +3,7 @@ import { Fragment, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type AiSuggestion, type CaseDetail, type Correction, type Doc, type PortalCase } from "../api";
 import { isInternal, useAuth } from "../auth";
-import { Checks, DocList, DocStatus, DocUpload } from "../docs";
+import { Checks, DocLinks, DocList, DocStatus, DocUpload } from "../docs";
 import { LANES, Loading, slaText, Status, useLoad, when } from "../util";
 import { type Message, MessageBody } from "./Messages";
 
@@ -143,7 +143,7 @@ function InternalCase() {
       {d.acceptance && <Acceptance d={d} onDone={done} onFail={fail} />}
       {d.rework && d.status === "PENDING_REWORK" && <Rework d={d} onDone={done} onFail={fail} />}
       {d.rescission?.can_request && <Rescind d={d} onDone={done} onFail={fail} />}
-      {(d.actions?.length ?? 0) > 0 && <Actions caseId={d.id} actions={d.actions!} onDone={done} onFail={fail} />}
+      {(d.actions?.length ?? 0) > 0 && <Actions caseId={d.id} actions={d.actions!} documents={d.documents} onDone={done} onFail={fail} />}
       <Decisions d={d} onDone={done} onFail={fail} />
       {d.corrections.length > 0 && <Corrections d={d} onDone={done} onFail={fail} onRefresh={refresh} />}
       {d.summary && Object.keys(d.summary).length > 0 && <div className="panel"><Summary summary={d.summary} />
@@ -288,6 +288,8 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
   if (!d.available_decisions.length && !pending.length && !d.decision_log.length) return null;
   return (
     <div className="decide">
+      {(pending.length > 0 || d.available_decisions.length > 0) &&
+        <DocLinks docs={d.documents} title="Documents on this case" empty="No documents on this case." />}
       {pending.map((p) => {
         const canApprove = p.approver_roles.includes(user.role) && p.proposed_by_id !== user.id;
         return (
@@ -406,6 +408,8 @@ function AiReview({ d, onDone, onFail, readOnly }: { d: CaseDetail; onDone: (c: 
           every value is reviewed; then the rules run on the confirmed values, and a licensed principal accepts at the end.</p>
         <p className="small"><strong>{list.length - left} of {list.length} reviewed</strong> · onboarding: {leftFor("onboarding")} left ·
           CIP: {leftFor("cip")} left</p>
+        <DocLinks docs={d.documents.filter((x) => x.doc_type === "application_package")} title="The package the AI read"
+          empty="The package isn't attached to this case." />
         {d.extra?.extraction?.mode !== "live" && <p className="muted small">Illustrative output: reviews here are practice and
           don&apos;t count toward the AI suggestion acceptance metric, which measures live AI only.</p>}
         {!canReview && <p className="muted small">Onboarding and CIP review these. Switch to Jamie Ortiz (onboarding) or Taylor
@@ -480,6 +484,8 @@ function IdentityCheck({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseD
             issue.status === "open" ? "Waiting for the RIA to resubmit identity documents." :
             "New identity documents arrived; verify again."}</p>
       )}
+      {s.can_record && <DocLinks docs={d.documents.filter((x) => x.doc_type === "identity_documents")}
+        title="Identity documents" empty="No identity documents attached yet." />}
       {s.can_record && !open && (
         <div className="actions">
           <button className="secondary small" onClick={() => setOpen(true)}>Record a failed identity check</button>
@@ -518,11 +524,24 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
   const outstanding: string[] = d.result?.requested_items ?? [];
   const a = d.acceptance!;
   const r = d.result ?? {};
-  const good = d.documents.filter((x) => x.status === "in_good_order").length;
+  // The principal reviews every document operations found in good order (Shawn, Oct. 23, 2026): each has a link and a
+  // Reviewed tick, and Accept stays off until all are ticked. One that needs another look goes back to operations.
+  const toReview = d.documents.filter((x) => a.to_review.includes(x.id));
+  const others = d.documents.filter((x) => !a.to_review.includes(x.id));
+  const [ticked, setTicked] = useState<Set<number>>(new Set());
+  const [flagged, setFlagged] = useState<Set<number>>(new Set());
+  const [opened, setOpened] = useState<Set<number>>(new Set(a.opened));
+  const [why, setWhy] = useState("");
+  const toggle = (set: Set<number>, id: number, on: boolean) => { const n = new Set(set); if (on) n.add(id); else n.delete(id); return n; };
+  const allTicked = toReview.every((x) => ticked.has(x.id));
   const send = (value: "accepted" | "declined") =>
-    api<CaseDetail>(`/api/cases/${d.id}/acceptance`, { body: { value, note: note || null, reviewed } })
+    api<CaseDetail>(`/api/cases/${d.id}/acceptance`, { body: { value, note: note || null, reviewed,
+      documents_reviewed: [...ticked] } })
       .then((c) => onDone(c, value === "accepted" ? (outstanding.length ? "Accepted. The account opened, restricted from trading until the outstanding items arrive." : "Accepted. The case ran again and opened.") : "Declined."))
       .catch(onFail);
+  const sendBack = () => api<CaseDetail>(`/api/cases/${d.id}/send-back`, { body: { reason: why, documents: [...flagged] } })
+    .then((c) => onDone(c, "Sent back to operations. The case is in rework and comes back to you when they're done."))
+    .catch(onFail);
   return (
     <div className="accept">
       <h3>Principal acceptance (FINRA Rule 4512)</h3>
@@ -531,7 +550,6 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
       <ul className="small">
         {r.path && <li>Due diligence path: {r.path === "A" ? "A (relies on the RIA's CIP)" : "B (the custodian carries CIP and CDD)"}</li>}
         {r.risk && <li>Risk: {r.risk.tier} ({r.risk.score} points); next review {r.risk.next_review}</li>}
-        <li>Documents in good order: {good} of {d.documents.length}</li>
         <li>Restriction codes: {d.restrictions.filter((x) => x.active).map((x) => x.code).join(", ") || "none"}</li>
         <li>Prepared without manual steps: {d.manual_steps === 0 ? "yes" : `no (${d.manual_steps})`}</li>
       </ul>
@@ -539,18 +557,54 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
         <p className="small"><strong>Opens restricted from trading and fee deduction until these non-regulatory items arrive:</strong> {outstanding.join("; ")}.
           Every regulatory requirement (KYC, CDD, EDD, CIP, AML) is met.</p>
       )}
+      <h4>Documents to review ({a.can_accept ? `${toReview.filter((x) => ticked.has(x.id)).length} of ${toReview.length} reviewed` : `${toReview.length} in good order`})</h4>
+      {toReview.length === 0 ? <p className="muted small">No documents in good order on this case.</p> : (
+        <div className="scroll"><table className="review-docs">
+          <thead><tr><th>Document</th><th>Checked by</th>{a.can_accept && <th>Your review</th>}</tr></thead>
+          <tbody>{toReview.map((x) => (
+            <tr key={x.id}>
+              <td><a href={`/api/documents/${x.id}/file`} target="_blank" rel="noreferrer"
+                onClick={() => setOpened(toggle(opened, x.id, true))}>{x.type_label}</a>
+                <div className="muted small">{x.filename}{opened.has(x.id) ? " · opened" : ""}</div></td>
+              <td className="small">{x.reviewed_by ?? "Automated pre-checks"}{x.reviewed_at ? `, ${when(x.reviewed_at)}` : ""}
+                {x.review_note && <div>“{x.review_note}”</div>}</td>
+              {a.can_accept && (
+                <td className="ticks"><label className="check"><input type="checkbox" checked={ticked.has(x.id)} disabled={flagged.has(x.id)}
+                  onChange={(e) => setTicked(toggle(ticked, x.id, e.target.checked))} /> Reviewed</label>
+                  <label className="check"><input type="checkbox" checked={flagged.has(x.id)}
+                    onChange={(e) => { setFlagged(toggle(flagged, x.id, e.target.checked)); if (e.target.checked) setTicked(toggle(ticked, x.id, false)); }} /> Needs another look</label></td>
+              )}
+            </tr>))}</tbody>
+        </table></div>
+      )}
+      <DocLinks docs={others} title="Other documents on the case (not in good order, superseded, or not yet checked)" />
       {a.can_accept ? (
-        <>
-          <div className="field"><label htmlFor="acc-note">Note (optional)</label>
-            <input id="acc-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
-          <label className="check"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
-            I reviewed the documents, rule findings, and risk for this {d.kind === "firm" ? "relationship" : "account"}</label>
-          <p className="small">You sign as <strong>{a.signs_as}</strong>.</p>
-          <div className="actions">
-            <button disabled={!reviewed} onClick={() => send("accepted")}>Accept</button>
-            <button className="secondary" onClick={() => send("declined")}>Decline</button>
-          </div>
-        </>
+        flagged.size > 0 ? (
+          <>
+            <div className="field"><label htmlFor="sb-why">What operations should look at again</label>
+              <input id="sb-why" type="text" value={why} onChange={(e) => setWhy(e.target.value)} /></div>
+            <p className="small muted">The case goes to onboarding&apos;s rework queue with the {flagged.size === 1 ? "document" : `${flagged.size} documents`} you
+              marked. Operations reopens and replaces a document or says why it stands, then sends the case back to you. The RIA
+              isn&apos;t told.</p>
+            <div className="actions">
+              <button disabled={why.trim().length < 10} onClick={sendBack}>Send back to operations</button>
+              <button className="secondary" onClick={() => setFlagged(new Set())}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="field"><label htmlFor="acc-note">Note (optional)</label>
+              <input id="acc-note" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
+            <label className="check"><input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
+              I reviewed the documents, rule findings, and risk for this {d.kind === "firm" ? "relationship" : "account"}</label>
+            <p className="small">You sign as <strong>{a.signs_as}</strong>.</p>
+            <div className="actions">
+              <button disabled={!reviewed || !allTicked} onClick={() => send("accepted")}>Accept</button>
+              <button className="secondary" onClick={() => send("declined")}>Decline</button>
+              {!allTicked && <span className="muted small">Tick each document as reviewed to accept.</span>}
+            </div>
+          </>
+        )
       ) : <p className="muted small">{a.reason}{a.reason?.startsWith("A registered principal") ? ". Switch to Avery Collins to accept." : ""}</p>}
     </div>
   );
@@ -576,6 +630,7 @@ function Rescind({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail,
       <h3>Rescind the acceptance</h3>
       <p className="small">The account is restricted at once (code RSCN: no activity). The RIA service team lead approves or
         rejects the rescission, and an approved rescission is logged as an operational risk event.</p>
+      <DocLinks docs={d.documents} title="Documents on this case" />
       <div className="row">
         <div className="field"><label htmlFor="rk">Why</label>
           <select id="rk" value={kind} onChange={(e) => { setKind(e.target.value); setReturnTo(e.target.value === "regulatory_issue" ? "operations" : "review"); }}>
@@ -603,15 +658,25 @@ function Rework({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, 
   const w = d.rework!;
   const send = () => api<CaseDetail>(`/api/cases/${d.id}/rework-complete`, { body: { note } })
     .then((c) => onDone(c, "Rework recorded; the case ran again.")).catch(onFail);
+  const flagged = new Set((w.documents ?? []).map((x) => x.id));
   return (
     <div className="decide">
-      <h3>Rework after a rescission ({w.reference})</h3>
+      <h3>{w.kind === "send_back" ? `Sent back by the principal (${w.reference})` : `Rework after a rescission (${w.reference})`}</h3>
       <p>{w.reason}</p>
-      <p className="muted small">Asked by {w.requested_by}, approved by {w.approved_by}, {when(w.at)}. Reopen any document that isn't
-        right in the Documents tab, attach the replacement, then send the case back to the principal.</p>
+      {w.kind === "send_back" ? (
+        <>
+          <DocLinks docs={d.documents.filter((x) => flagged.has(x.id))} title="Look again at" />
+          <p className="muted small">Sent back by {w.requested_by} before accepting, {when(w.at)}. If a document isn't right,
+            reopen it in the Documents tab and attach the replacement; if it is, say why. Then send the case back to the principal.</p>
+        </>
+      ) : (
+        <p className="muted small">Asked by {w.requested_by}, approved by {w.approved_by}, {when(w.at)}. Reopen any document that isn't
+          right in the Documents tab, attach the replacement, then send the case back to the principal.</p>
+      )}
+      <DocLinks docs={d.documents.filter((x) => !flagged.has(x.id))} title={flagged.size ? "Other documents" : "Documents on this case"} />
       {ops ? (
         <>
-          <div className="field"><label htmlFor="rw">What you fixed</label>
+          <div className="field"><label htmlFor="rw">{w.kind === "send_back" ? "What you fixed, or why it stands" : "What you fixed"}</label>
             <input id="rw" type="text" value={note} onChange={(e) => setNote(e.target.value)} /></div>
           <button disabled={note.trim().length < 5} onClick={send}>Send back to the principal</button>
         </>
