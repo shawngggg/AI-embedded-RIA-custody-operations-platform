@@ -77,6 +77,9 @@ def open_file(doc_id: int, user: User = Depends(current_user), db: Session = Dep
     if doc is None:
         raise HTTPException(404, "No such document")
     get_case_for(db, user, doc.case_id)          # same visibility as the case
+    if not portal_view.is_portal(user):          # who opened what: the principal's acceptance cites it
+        audit.record(db, user, "document_opened", "document", doc.id, case_id=doc.case_id, doc_type=doc.doc_type)
+        db.commit()
     return Response(doc.data, media_type=doc.content_type,
                     headers={"Content-Disposition": f'inline; filename="{doc.filename}"',
                              "X-Content-SHA256": doc.sha256, "Cache-Control": "private, no-store"})

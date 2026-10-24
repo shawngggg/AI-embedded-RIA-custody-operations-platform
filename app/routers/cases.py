@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import ai_suggestions, audit
+from .. import acceptance
 from ..acceptance import accept_case
 from ..config import settings
-from ..documents import CORRECTABLE, DOC_TYPES, field_docs, mark, supersede_others
+from ..documents import CORRECTABLE, DOC_TYPES, case_documents, field_docs, mark, supersede_others
 from .. import rescission
 from ..db import get_db
 from ..orm import PORTAL_ROLES, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
@@ -269,6 +270,8 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_capa
         case = db.get(Case, d.case_id)
         item["can_approve"] = approval_refusal(user, d.decision_type, case) is None and user.id != d.proposed_by
         item["case_title"] = case.title
+        item["documents"] = [{"id": doc.id, "type_label": DOC_TYPES[doc.doc_type]["label"], "filename": doc.filename,
+                              "status": doc.status} for doc in case_documents(db, case)]
         if not item["can_approve"] and user.role == "ops_analyst" and not may_propose(user, d.decision_type):
             continue
         out.append(item)
@@ -279,13 +282,28 @@ class Acceptance(BaseModel):
     value: str = Field(pattern="^(accepted|declined)$")
     note: str | None = None
     reviewed: bool = False      # the principal confirms they reviewed the documents, findings, and risk
+    documents_reviewed: list[int] = Field(default_factory=list)   # each document in good order, ticked as reviewed
 
 
 @router.post("/cases/{case_id}/acceptance")
 def accept(case_id: int, body: Acceptance, user: User = Depends(require_internal), db: Session = Depends(get_db)):
     """A registered principal on the RIA service team accepts or declines the account (FINRA Rule 4512)."""
     case = get_case_for(db, user, case_id)
-    accept_case(db, case, user, body.value, body.note, body.reviewed)
+    accept_case(db, case, user, body.value, body.note, body.reviewed, body.documents_reviewed)
+    db.commit()
+    return case_detail(db, case, user)
+
+
+class SendBack(BaseModel):
+    reason: str = Field(min_length=10)
+    documents: list[int] = Field(default_factory=list)
+
+
+@router.post("/cases/{case_id}/send-back")
+def send_back(case_id: int, body: SendBack, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    """The principal sends the case back to operations before accepting, naming the documents to look at again."""
+    case = get_case_for(db, user, case_id)
+    acceptance.send_back(db, case, user, body.reason, body.documents)
     db.commit()
     return case_detail(db, case, user)
 
@@ -313,7 +331,8 @@ class ReworkDone(BaseModel):
 @router.post("/cases/{case_id}/rework-complete")
 def rework_complete(case_id: int, body: ReworkDone, user: User = Depends(require_roles("ops_analyst", "ops_supervisor")),
                     db: Session = Depends(get_db)):
-    """Operations finished the rework a rescission asked for; the case runs again and goes back to the principal."""
+    """Operations finished the rework a rescission or a principal's send-back asked for; the case runs again and
+    goes back to the principal."""
     case = get_case_for(db, user, case_id)
     if case.status != "PENDING_REWORK":
         raise HTTPException(409, "This case isn't in rework")

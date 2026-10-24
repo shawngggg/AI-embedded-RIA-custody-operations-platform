@@ -24,7 +24,7 @@ QUEUES = {
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
                              "roles": ["ria_service", "ria_service_lead"], "sla_hours": 24},
-    "rework": {"label": "Rework after a rescission", "owner": "Onboarding",
+    "rework": {"label": "Rework: sent back by a principal", "owner": "Onboarding",
                "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 24},
     # Release 2 (maps 05, 08, 16, 17, 22, 23, 24)
     "money_release": {"label": "Money movement: release", "owner": "Asset transfer (maker-checker)",

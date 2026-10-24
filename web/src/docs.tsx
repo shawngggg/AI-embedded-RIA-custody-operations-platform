@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type Doc } from "./api";
+import { api, type Doc, type DocRef } from "./api";
 import { useAuth } from "./auth";
 import { when } from "./util";
 
@@ -34,6 +34,18 @@ const STATUS_LABEL: Record<Doc["status"], [string, string]> = {
   superseded: ["Superseded by another copy", "quiet"],
 };
 const MARK: Record<string, string> = { pass: "✓", fail: "✗", manual: "?" };
+
+/** Direct links to the documents behind a decision, each opening in a new tab, with where its check stands. */
+export function DocLinks({ docs, title = "Documents", empty }: { docs: DocRef[]; title?: string; empty?: string }) {
+  if (!docs.length) return empty ? <p className="muted small">{empty}</p> : null;
+  return (
+    <div className="doclinks small">{title && <strong>{title}</strong>}
+      <ul>{docs.map((d) => (
+        <li key={d.id}><a href={`/api/documents/${d.id}/file`} target="_blank" rel="noreferrer" title={d.filename}>{d.type_label}</a>
+          <span className="muted"> · {STATUS_LABEL[d.status][0].toLowerCase()}</span></li>))}</ul>
+    </div>
+  );
+}
 
 export function DocStatus({ d }: { d: Doc }) {
   const [label, tone] = STATUS_LABEL[d.status];

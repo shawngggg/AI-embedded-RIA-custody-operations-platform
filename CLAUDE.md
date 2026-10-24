@@ -75,7 +75,11 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
   restricted accounts, area risk events.
 - Risk events belong to an area; each person sees their area's (the platform admin: access and authentication only).
 - The platform admin has no case files. The portal sees no custodian operations: every review state is "In review".
-- Every team that works with accounts sees a case's decisions, sanctions determinations included.
+- Every team that works with accounts sees a case's decisions, sanctions determinations included. Every review,
+  accept, or reject option links its documents (`DocLinks` in `web/src/docs.tsx`), the Approvals list included.
+- The principal ticks every document in good order as reviewed before Accept (`acceptance.to_review`; the server
+  refuses an acceptance that leaves one out) and can send the case back to operations with a reason
+  (`/send-back`: rework, no RIA notice). Every internal document open is logged (`document_opened`).
 - A package read by AI waits for onboarding (firm and Form ADV facts) and CIP (identity facts) to accept, edit, or
   reject each value before the rules run; a licensed principal accepts at the end. The acceptance metric counts live
   values only; reviewed values survive a demo reset.

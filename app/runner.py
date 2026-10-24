@@ -112,9 +112,14 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         raise ValueError(f"Unknown case kind {case.kind}")
     rework = (case.extra or {}).get("rework")
     if rework and res.status in ("PENDING_ACCEPTANCE", "PENDING_ITEMS"):
-        res.add(OPS, "Rework after the acceptance was rescinded", "With operations",
-                [f"{rework['reference']}: {rework['reason']}",
-                 f"Requested by {rework['requested_by']}; approved by {rework['approved_by']}"])
+        if rework.get("kind") == "send_back":     # the principal sent it back before accepting (app/acceptance.py)
+            res.add(OPS, "Sent back by the principal before acceptance", "With operations",
+                    [f"{rework['reference']}: {rework['reason']}", f"Sent back by {rework['requested_by']}"]
+                    + [f"Look again at: {d['label']} ({d['filename']})" for d in rework.get("documents", [])])
+        else:
+            res.add(OPS, "Rework after the acceptance was rescinded", "With operations",
+                    [f"{rework['reference']}: {rework['reason']}",
+                     f"Requested by {rework['requested_by']}; approved by {rework['approved_by']}"])
         res.status = "PENDING_REWORK"
     sync(db, case, res, actor)
     return res

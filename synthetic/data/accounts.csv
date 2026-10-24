@@ -1,32 +1,32 @@
 account,client,firm_crd,firm,registration,group,path,model,opened,codes,funding_in_transit,cash,value
-ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-13,,False,10554.07,308111.3
-ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-10,,False,30718.91,802350.17
-ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-12,,False,79811.88,2135112.22
-ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,individual,self_directed,B,Self-directed,2026-10-13,,False,16151.82,63443.27
-ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,llc,pure_ria,B,Growth,2026-10-15,,False,125597.47,6404237.71
-ACC-2010,Owen Gallagher,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-20,DOCS,True,0.0,0.0
-ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Income,2026-08-13,,False,37004.46,1566875.96
-ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-08-21,,False,58597.93,2357689.15
-ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-08-29,,False,25543.95,647947.5
-ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Balanced,2026-09-07,,True,15031.07,458880.66
-ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,joint,pure_ria,A,Balanced,2026-09-11,,False,384210.48,2429954.49
-ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,joint,pure_ria,A,Balanced,2026-09-19,,False,18327.29,978635.38
-ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Balanced,2026-09-23,,False,10470.54,595717.31
-ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Growth,2026-09-28,,False,262.92,204392.52
-ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,trust,pure_ria,A,Tax-aware,2026-08-15,,False,98197.07,3177153.88
-ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,llc,pure_ria,A,Growth,2026-10-02,,False,117175.3,3007494.25
-ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-08-25,,False,21035.18,1292619.88
-ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-09-03,,False,79307.7,2940376.08
-ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Balanced,2026-09-15,,False,266.72,703443.19
-ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,joint,pure_ria,A,Balanced,2026-09-21,,False,31823.3,1721001.44
-ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,ira,pure_ria,A,Balanced,2026-09-25,,False,28963.99,948241.6
-ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,ira,pure_ria,A,Growth,2026-10-10,,False,6808.67,332292.28
-ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,trust,pure_ria,A,Tax-aware,2026-09-05,,False,147304.35,3768189.92
-ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,individual,pure_ria,B,Income,2026-08-31,,False,160330.89,997376.6
-ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,ira,pure_ria,B,Balanced,2026-09-13,,False,11398.78,430047.98
-ACC-3020,Neil Durant,310003,Bonneville Planning LLC,joint,pure_ria,B,Balanced,2026-09-17,,False,12688.02,545529.27
-ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-06,,False,15812.98,709000.55
-ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-14,DOCS,False,7415.98,230659.1
-ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-10-16,DOCS,False,17872.72,186655.27
-ACC-3024,Hazel Montoya,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-18,CIPV,True,0.0,0.0
-ACC-3025,Rupert Asante,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-20,CIPV,True,0.0,0.0
+ACC-1990,Farid Hosseini,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-14,,False,10554.07,308111.3
+ACC-2001,Maria Chen,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-11,,False,30718.91,802350.17
+ACC-2002,Kenji Tanaka,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-13,,False,79811.88,2135112.22
+ACC-2003,Farid Hosseini,310001,Granite Peak Advisors LLC,individual,self_directed,B,Self-directed,2026-10-14,,False,16151.82,63443.27
+ACC-2004,Whitfield Family Holdings LLC,310003,Bonneville Planning LLC,llc,pure_ria,B,Growth,2026-10-16,,False,125597.47,6404237.71
+ACC-2010,Owen Gallagher,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-22,DOCS,True,0.0,0.0
+ACC-3001,Harold Benson,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Income,2026-08-14,,False,37004.46,1566875.96
+ACC-3002,Priscilla Ng,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-08-22,,False,58597.93,2357689.15
+ACC-3003,Tomas Alvarado,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-08-31,,False,25543.95,647947.5
+ACC-3004,Wendy Kowalski,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Balanced,2026-09-08,,True,15031.07,458880.66
+ACC-3005,Gregory Holm,310001,Granite Peak Advisors LLC,joint,pure_ria,A,Balanced,2026-09-12,,False,384210.48,2429954.49
+ACC-3006,Samuel Adeyemi,310001,Granite Peak Advisors LLC,joint,pure_ria,A,Balanced,2026-09-20,,False,18327.29,978635.38
+ACC-3007,Douglas Pratt,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Balanced,2026-09-25,,False,10470.54,595717.31
+ACC-3008,Leah Castellanos,310001,Granite Peak Advisors LLC,ira,pure_ria,A,Growth,2026-09-29,,False,262.92,204392.52
+ACC-3009,Benson Family Trust,310001,Granite Peak Advisors LLC,trust,pure_ria,A,Tax-aware,2026-08-16,,False,98197.07,3177153.88
+ACC-3010,Canyon Ridge Holdings LLC,310001,Granite Peak Advisors LLC,llc,pure_ria,A,Growth,2026-10-03,,False,117175.3,3007494.25
+ACC-3011,Imogen Fairweather,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-08-26,,False,21035.18,1292619.88
+ACC-3012,Rajesh Kulkarni,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-09-04,,False,79307.7,2940376.08
+ACC-3013,Beatrice Okoro,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Balanced,2026-09-16,,False,266.72,703443.19
+ACC-3014,Colin Ferris,310031,Timpanogos Wealth Partners LLC,joint,pure_ria,A,Balanced,2026-09-22,,False,31823.3,1721001.44
+ACC-3015,Arthur Lindgren,310031,Timpanogos Wealth Partners LLC,ira,pure_ria,A,Balanced,2026-09-27,,False,28963.99,948241.6
+ACC-3016,Yolanda Price,310031,Timpanogos Wealth Partners LLC,ira,pure_ria,A,Growth,2026-10-11,,False,6808.67,332292.28
+ACC-3017,Kulkarni Living Trust,310031,Timpanogos Wealth Partners LLC,trust,pure_ria,A,Tax-aware,2026-09-06,,False,147304.35,3768189.92
+ACC-3018,Dale Henriksen,310003,Bonneville Planning LLC,individual,pure_ria,B,Income,2026-09-02,,False,160330.89,997376.6
+ACC-3019,Marjorie Quist,310003,Bonneville Planning LLC,ira,pure_ria,B,Balanced,2026-09-14,,False,11398.78,430047.98
+ACC-3020,Neil Durant,310003,Bonneville Planning LLC,joint,pure_ria,B,Balanced,2026-09-18,,False,12688.02,545529.27
+ACC-3021,Ezra Whitlock,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-07,,False,15812.98,709000.55
+ACC-3022,Fiona Gallardo,310001,Granite Peak Advisors LLC,individual,pure_ria,A,Growth,2026-10-15,DOCS,False,7415.98,230659.1
+ACC-3023,Oscar Feldman,310031,Timpanogos Wealth Partners LLC,individual,pure_ria,A,Growth,2026-10-17,DOCS,False,17872.72,186655.27
+ACC-3024,Hazel Montoya,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-20,CIPV,True,0.0,0.0
+ACC-3025,Rupert Asante,310003,Bonneville Planning LLC,individual,pure_ria,B,Growth,2026-10-21,CIPV,True,0.0,0.0

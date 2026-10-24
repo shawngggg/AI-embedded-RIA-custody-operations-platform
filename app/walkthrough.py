@@ -29,7 +29,8 @@ DAILY_CAP = 50
 NAMES = ["Avery Lund", "Jordan Pace", "Riley Moss", "Casey Ward", "Morgan Hale", "Quinn Ashby", "Rowan Tate",
          "Harper Vale", "Emerson Cole", "Sage Whitley"]
 STEPS = ["As Jamie Ortiz (operations): open the case, check the LPOA the RIA sent, and record it as received.",
-         "Switch user to Avery Collins (RIA service, registered principal): confirm the review and accept the account."]
+         "Switch user to Avery Collins (RIA service, registered principal): open and tick each document as reviewed, "
+         "confirm the review, and accept the account."]
 
 
 def _aware(dt: datetime) -> datetime:

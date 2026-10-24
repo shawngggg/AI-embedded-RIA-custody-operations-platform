@@ -14,7 +14,10 @@ def upload_sample(client, cid: int, doc_type: str) -> dict:
 
 
 def accept(client, cid: int) -> dict:
-    r = client.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True})
+    """The principal ticks every document in good order as reviewed, confirms the review, and accepts."""
+    docs = client.get(f"/api/cases/{cid}").json()["acceptance"]["to_review"]
+    r = client.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
+                                                          "documents_reviewed": docs})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -380,6 +383,66 @@ def test_accepting_needs_the_review_confirmation(as_user):
     cid = case_id(as_user("ops.analyst"), "Lena Park")
     r = as_user("rs.principal").post(f"/api/cases/{cid}/acceptance", json={"value": "accepted"})
     assert r.status_code == 422 and "reviewed" in r.json()["detail"]
+
+
+def test_the_principal_reviews_every_document_before_accepting(as_user):
+    """Shawn, Oct. 23, 2026: the principal reviews each document in good order; the server refuses an acceptance that
+    leaves one out, and the audit trail records each document reviewed and whether it was opened."""
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    principal = as_user("rs.principal")
+    state = principal.get(f"/api/cases/{cid}").json()["acceptance"]
+    docs = state["to_review"]
+    assert len(docs) >= 2 and state["opened"] == []
+    assert principal.get(f"/api/documents/{docs[0]}/file").status_code == 200
+    assert principal.get(f"/api/cases/{cid}").json()["acceptance"]["opened"] == [docs[0]]
+    r = principal.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
+                                                             "documents_reviewed": docs[:-1]})
+    assert r.status_code == 422 and "Review every document" in r.json()["detail"]
+    r = principal.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
+                                                             "documents_reviewed": docs})
+    assert r.status_code == 200 and r.json()["status"] in ("OPEN", "OPEN_RESTRICTED")
+    event = next(e for e in principal.get(f"/api/cases/{cid}/audit").json() if e["action"] == "principal_accepted")
+    reviewed = event["detail"]["documents_reviewed"]
+    assert [d["id"] for d in reviewed] == docs and reviewed[0]["opened"] and not reviewed[-1]["opened"]
+    assert all(d["sha256"] for d in reviewed)
+
+
+def test_the_principal_sends_a_case_back_to_operations(as_user):
+    from app.db import SessionLocal
+    from app.orm import OutboundEmail
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    doc = as_user("rs.principal").get(f"/api/cases/{cid}").json()["acceptance"]["to_review"][0]
+    body = {"reason": "The LPOA signature date is after the application date", "documents": [doc]}
+    # Only a principal who could accept sends it back; anyone else is refused and logged
+    for u in ("ops.analyst", "rs.associate"):
+        r = as_user(u).post(f"/api/cases/{cid}/send-back", json=body)
+        assert r.status_code == 403, (u, r.text)
+    assert as_user("rs.principal").post(f"/api/cases/{cid}/send-back",
+                                         json={**body, "documents": []}).status_code == 422
+    with SessionLocal() as db:
+        before = db.query(OutboundEmail).filter(OutboundEmail.case_id == cid).count()
+    d = as_user("rs.principal").post(f"/api/cases/{cid}/send-back", json=body).json()
+    assert d["status"] == "PENDING_REWORK" and d["queue"] == "rework"
+    assert d["rework"]["kind"] == "send_back" and d["rework"]["documents"][0]["id"] == doc
+    with SessionLocal() as db:                     # operations' problem, not the RIA's: no notice goes out
+        assert db.query(OutboundEmail).filter(OutboundEmail.case_id == cid).count() == before
+    assert as_user("granite.advisor").get(f"/api/cases/{cid}").json()["status"] == "IN_REVIEW"
+    back = as_user("ops.analyst").post(f"/api/cases/{cid}/rework-complete",
+                                        json={"note": "Checked the LPOA again: dated the same day"}).json()
+    assert back["status"] == "PENDING_ACCEPTANCE" and not back.get("rework")
+    assert accept(as_user("rs.principal"), cid)["status"] in ("OPEN", "OPEN_RESTRICTED")
+
+
+def test_approvals_link_each_cases_documents(as_user):
+    """A checker can approve from the Approvals list, so each row carries links to its case's documents."""
+    cid = case_id(as_user("ops.analyst"), "Lena Park")
+    detail = as_user("rs.principal").get(f"/api/cases/{cid}").json()
+    as_user("rs.principal").post(f"/api/cases/{cid}/acceptance", json={
+        "value": "accepted", "reviewed": True, "documents_reviewed": detail["acceptance"]["to_review"]})
+    as_user("rs.principal").post(f"/api/cases/{cid}/rescission", json={
+        "kind": "regulatory_issue", "return_to": "operations", "reason": "The ID on file belongs to someone else"})
+    rows = [r for r in as_user("rs.lead").get("/api/decisions").json() if r["case_id"] == cid]
+    assert rows and rows[0]["documents"] and {"id", "type_label", "filename", "status"} <= set(rows[0]["documents"][0])
 
 
 def test_rescission_restricts_at_once_and_needs_the_team_lead(as_user):

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type CaseDetail } from "./api";
+import { api, type CaseDetail, type DocRef } from "./api";
+import { DocLinks } from "./docs";
 
 /** Release 2 pieces shared by the case page and the money movement pages: amounts, the summary a workflow writes,
  *  the people-steps it opens (app/actions.py), and its ledger entries at all three layers. */
@@ -37,8 +38,8 @@ export function Summary({ summary }: { summary: Record<string, string> }) {
 }
 
 /** The people-steps open to this person on this case, each a small form. */
-export function Actions({ caseId, actions, onDone, onFail }: { caseId: number; actions: CaseAction[];
-  onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
+export function Actions({ caseId, actions, documents = [], onDone, onFail }: { caseId: number; actions: CaseAction[];
+  documents?: DocRef[]; onDone: (c: CaseDetail, msg: string) => void; onFail: (e: Error) => void }) {
   const single = actions.length === 1;
   const [open, setOpen] = useState<string | null>(single ? actions[0].key : null);
   const [data, setData] = useState<Record<string, Record<string, string>>>({});
@@ -55,6 +56,7 @@ export function Actions({ caseId, actions, onDone, onFail }: { caseId: number; a
   return (
     <div className="decide">
       <h3>What this case needs from you</h3>
+      <DocLinks docs={documents} title="Documents on this case" />
       {actions.map((a) => (
         <div key={a.key} className="r2-action">
           {single ? <h4>{a.label}{a.demo_only ? " (demo)" : ""}</h4> : (
