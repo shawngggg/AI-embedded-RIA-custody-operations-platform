@@ -21,12 +21,13 @@ from firm_rules import to_ria_firm
 from pipeline import OPS, Decisions, OnboardingResult, onboard_firm, open_account
 from restrictions import CATALOG
 from risk import REVIEW_MONTHS, add_months
-from sample_data import FLAGGED_LIST, IAPD_LOOKUP
+from sample_data import IAPD_LOOKUP
 
 from . import audit
 from .config import settings
 from .orm import Account, AiSuggestion, Case, CaseTransition, Firm, Restriction, Review, User, utcnow
 from .queues import QUEUES, is_closed, queue_for
+from .screening import current_list
 from .serialize import account_from, change_from, firm_from
 
 
@@ -91,7 +92,7 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
     if case.kind == "firm":
         app = firm_from(case.application)
         extraction = StoredExtraction(case.extra["extraction"]) if case.extra.get("extraction") else None
-        res = onboard_firm(app, as_of, flagged=FLAGGED_LIST, decisions=decisions,
+        res = onboard_firm(app, as_of, flagged=current_list(db), decisions=decisions,
                            registration_lookup=simulated_iapd(app), extraction=extraction,
                            unreviewed=unreviewed_suggestions(db, case), identity_issue=identity_issue)
     elif case.kind == "account":
@@ -101,7 +102,11 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         res = open_account(app, firm_from(firm.application), as_of,
                            existing=existing_accounts(db, account_row, account_row.client_key),
                            ria_active=firm.status == "ACTIVE", ria_risk_tier=firm.risk_tier or "LOW",
-                           flagged=FLAGGED_LIST, decisions=decisions, identity_issue=identity_issue)
+                           flagged=current_list(db), decisions=decisions, identity_issue=identity_issue)
+    elif case.kind == "screening":            # ongoing screening (app/screening.py)
+        from rescreening import process_rescreen
+        from restrictions import RestrictionRegistry
+        res = process_rescreen(case.application, current_list(db), as_of, decisions, RestrictionRegistry())
     elif case.kind == "change":
         data = dict(case.application)
         if case.decisions.get("verification") == "verified":
@@ -110,7 +115,7 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         if firm is not None:                     # an SLOA payee mustn't be the adviser or at its address
             data.setdefault("firm_name", firm.legal_name)
             data.setdefault("firm_address", (firm.application or {}).get("principal_address"))
-        res = process_change(change_from(data), as_of, flagged=FLAGGED_LIST, decisions=decisions,
+        res = process_change(change_from(data), as_of, flagged=current_list(db), decisions=decisions,
                              confirmation=case.decisions.get("confirmation"), identity_issue=identity_issue)
     else:
         raise ValueError(f"Unknown case kind {case.kind}")

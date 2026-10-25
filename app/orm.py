@@ -567,3 +567,21 @@ class ReconRun(Base):
     result: Mapped[dict] = mapped_column(JSON, default=dict)
     certified_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     certified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class FlaggedListEntry(Base):
+    """An entry added to the sanctions team's flagged list after the base list (onboarding/sample_data.py): a list
+    update. Each addition sets off rescreening of everyone the custodian serves (app/screening.py)."""
+    __tablename__ = "flagged_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[str] = mapped_column(String(20), unique=True)
+    kind: Mapped[str] = mapped_column(String(20))                 # individual | entity | institution | product
+    name: Mapped[str] = mapped_column(String(200))
+    aliases: Mapped[list] = mapped_column(JSON, default=list)
+    date_of_birth: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    identifiers: Mapped[dict] = mapped_column(JSON, default=dict)
+    program: Mapped[str] = mapped_column(String(120))
+    source: Mapped[str] = mapped_column(String(200))
+    added_by: Mapped[str] = mapped_column(String(120))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

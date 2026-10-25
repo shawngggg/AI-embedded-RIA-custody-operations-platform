@@ -335,3 +335,38 @@ def test_a_wire_released_after_the_cutoff_goes_out_the_next_business_day(as_user
     goes = detail["result"]["summary"]["Goes out"]
     assert goes > detail["result"]["summary"]["Submitted"]
     assert any(s["outcome"] == f"Goes out {goes}" for s in detail["result"]["steps"])
+
+
+def test_a_temporary_hold_under_rule_2165_stops_a_disbursement(as_user):
+    from app.db import SessionLocal
+    from app.orm import Account
+    with SessionLocal() as db:                      # make the account holder a specified adult (65 or older)
+        a = db.get(Account, "ACC-3006")
+        a.application = {**a.application, "holders": [{**h, "date_of_birth": "1950-04-02"} for h in a.application["holders"]],
+                         "trusted_contact": {"name": "Ada Adeyemi", "relationship": "daughter",
+                                             "email": "ada.adeyemi@example.com"}}
+        db.commit()
+    wire = as_user("granite.advisor").post("/api/money/transfers", json={
+        "type": "wire_out", "account_id": "ACC-3006", "amount": 3_000,
+        "counterparty": {"owner_name": "Samuel Adeyemi", "institution": "Wasatch Community Bank",
+                         "account_last4": "4471"}}).json()["case"]
+    cid = wire["id"]
+    short = as_user("ops.transfers").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "exploitation_hold", "value": "placed", "reference": "HOLD-T-1", "note": "new"})
+    assert short.status_code == 422                                  # the reason starts the internal review
+    d = as_user("ops.transfers").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "exploitation_hold", "value": "placed", "reference": "HOLD-T-1",
+        "note": "Caller pressing the client to wire savings to a new 'advisor'"}).json()
+    assert as_user("ops.money").post(f"/api/decisions/{d['id']}/approve").status_code == 403     # compliance approves
+    held = as_user("aml.checker").post(f"/api/decisions/{d['id']}/approve").json()
+    assert held["status"] == "ON_HOLD" and held["queue"] == "exploitation_holds"
+    assert held["result"]["summary"]["On hold until"]
+    box = {e["template"] for e in as_user("ops.supervisor").get("/api/outbox").json()["emails"] if e["case_id"] == cid}
+    assert {"transfer_on_hold", "hold_client", "hold_trusted_contact"} <= box
+    portal = as_user("granite.advisor").get(f"/api/cases/{cid}").json()
+    assert portal["status"] == "ON_HOLD" and "exploit" not in str(portal).lower()
+    r = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "hold_review", "value": "lifted", "reference": "HOLD-T-2",
+        "note": "Spoke with the client and the trusted contact; the payee is the client's own bank"}).json()
+    lifted = as_user("aml.checker").post(f"/api/decisions/{r['id']}/approve").json()
+    assert lifted["status"] == "PENDING_RELEASE"

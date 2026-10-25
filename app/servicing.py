@@ -18,7 +18,6 @@ from datetime import datetime, time, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sample_data import FLAGGED_LIST
 from transferability import SecurityRecord
 
 from custody import entitlements, lifecycle, money, products
@@ -27,6 +26,7 @@ from custody.ledger import CASH
 
 from . import audit, ledger
 from .config import settings
+from .screening import current_list
 from .orm import Account, BankLink, Case, Document, Firm, Grant, LedgerEntry, Restriction, Security, User, utcnow
 
 R2_KINDS = {"transfer", "entitlement", "product", "offboarding", "deceased", "advisor_move", "merger", "transition"}
@@ -269,7 +269,7 @@ def transfer_context(db: Session, case: Case) -> money.TransferContext:
         as_of=settings.today(), account=view, cash_available=cash, holdings=holdings,
         destination=account_view(db, dest) if dest else None, security_master=recs, prices=px, locations=loc,
         grant=active_grant(db, a.id, money.CAPABILITY.get(req["type"])), bank_links=bank_links(db, a.id),
-        products=product_states(db, securities), flagged=FLAGGED_LIST,
+        products=product_states(db, securities), flagged=current_list(db),
         client_requests=client_requests(db, a.id, case.id), account_value=value, clock=settings.clock_et())
 
 
@@ -302,7 +302,7 @@ def _evaluate(db: Session, case: Case):
     if case.kind == "product":
         s = db.get(Security, req.get("security_id")) if req.get("security_id") else None
         already = {"accepted": s.accepted} if s else None
-        return products.process_product(req, products.ProductContext(today, already, FLAGGED_LIST,
+        return products.process_product(req, products.ProductContext(today, already, current_list(db),
                                                                      doc_types(db, case)), dec, ev)
     if case.kind in ("offboarding", "deceased", "advisor_move"):
         a = db.get(Account, req["account_id"])

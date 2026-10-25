@@ -88,6 +88,8 @@ def capabilities(u: User) -> dict[str, bool]:
                   or (u.role == "ops_analyst" and u.team in NOTICE_TEAMS),
         "transfers": _planned(u, "transfers"), "settlement": _planned(u, "settlement"),
         "planned_trading": _planned(u, "trading"), "planned_billing": _planned(u, "billing"),
+        # Ongoing screening: the sanctions team runs it; AML compliance and the supervisor read it (app/screening.py)
+        "screening": u.role in {"sanctions", "aml_compliance", "ops_supervisor"},
         "admin": u.role == "platform_admin",
         "portal": u.role in PORTAL_ROLES,
     }

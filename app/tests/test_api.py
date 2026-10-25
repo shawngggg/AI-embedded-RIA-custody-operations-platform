@@ -1044,11 +1044,11 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
     "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake", "ai_review",
                        "identity_check",
-                       "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
+                       "restricted_accounts", "audit", "dashboard", "outbox", "screening"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
-                  "audit"},
+                  "audit", "screening"},
     "sanctions.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts",
-                        "audit"},
+                        "audit", "screening"},
     "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},
     "rs.lead": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
                 "dashboard", "outbox", "transfers", "planned_trading"},
@@ -1089,7 +1089,7 @@ INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "qu
                       "available_decisions", "queue_entered_at"}
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
                    "CONFIRMING", "IN_REVIEW", "SUBMITTED",
-                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT"}         # release 2 transfers, in the portal's words
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD"}   # release 2 transfers, in the portal's words
 
 
 def test_rias_and_clients_see_nothing_of_custody_operations(as_user):
@@ -1593,3 +1593,37 @@ def test_a_client_sees_only_their_own_account(as_user):
     assert {p["account"] for p in t["positions"]} <= {"ACC-2003"}
     assert {o["account"] for o in t["orders"]} <= {"ACC-2003"}
     assert c.get("/api/preview/billing").status_code == 403
+
+
+# --- Ongoing screening (industry-practice review, Oct. 25, 2026) ----------------------------------------------------
+
+def test_a_list_update_rescreens_everyone_and_holds_a_new_match(as_user):
+    view = as_user("sanctions.maker").get("/api/screening").json()
+    assert len(view["entries"]) == 6 and view["population"] > 40 and view["alerts"] == [] and view["can_act"]
+    assert as_user("aml.maker").get("/api/screening").json()["can_act"] is False
+    assert as_user("aml.maker").post("/api/screening/entries", json={"kind": "individual",
+                                                                     "name": "Samuel Adeyemi"}).status_code == 403
+    assert as_user("ops.analyst").get("/api/screening").status_code == 403
+
+    added = as_user("sanctions.maker").post("/api/screening/entries", json={
+        "kind": "individual", "name": "Samuel Adeyemi", "aliases": ["S. Adeyemi"],
+        "program": "Synthetic program D"}).json()
+    alert = next(a for a in added["run"]["alerts"] if a["target"] == "ACC-3006")
+    cid = alert["case"]
+    case = as_user("sanctions.maker").get(f"/api/cases/{cid}").json()
+    assert case["status"] == "PENDING_SANCTIONS" and case["queue"] == "sanctions_review"
+    assert [r["code"] for r in case["restrictions"] if r["active"]] == ["SANC"]
+    assert as_user("granite.advisor").get(f"/api/cases/{cid}").status_code == 404        # internal only
+    held = as_user("granite.advisor").post("/api/money/transfers", json={
+        "type": "ach_withdrawal", "account_id": "ACC-3006", "amount": 100}).json()["case"]
+    assert held["status"] == "DECLINED"                     # the hold stops money while the team decides
+
+    d = as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-RS-1",
+        "note": "Different date of birth and address"}).json()
+    done = as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve").json()
+    assert done["status"] == "CLEARED" and not [r for r in done["restrictions"] if r["active"]]
+    again = as_user("sanctions.maker").post("/api/screening/run").json()["run"]
+    assert "ACC-3006" not in [a["target"] for a in again["alerts"]]                 # cleared: not raised again
+    runs = as_user("ops.supervisor").get("/api/screening").json()["runs"]
+    assert [r["trigger"] for r in runs[:2]] == ["nightly", "list_change"]

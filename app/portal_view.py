@@ -43,12 +43,14 @@ NOTES = {
     "CLOSING": "Transferred. We watch for late credits, like a dividend, before the account closes.",
     "CLOSED": "The account is closed.",
     "HOLD_LIFTED": "We couldn't verify the notice, so the hold is lifted.",
+    "ON_HOLD": "We've placed a temporary hold on this disbursement under FINRA Rule 2165 while we review it. It lasts "
+               "up to 15 business days unless we lift it sooner; we'll write when it changes.",
 }
 # Release 2 statuses in the portal's words, by kind; anything not listed reads "In review"
 KIND_STATUS = {
     "transfer": {"COMPLETED": "COMPLETED", "REJECTED": "DECLINED", "BLOCKED": "DECLINED", "RETURNED": "BANK_RETURNED",
                  "PENDING_CALLBACK": "CONFIRMING", "AWAITING_SETTLEMENT": "IN_TRANSIT",
-                 "AWAITING_REREGISTRATION": "IN_TRANSIT", "OVERDUE": "IN_TRANSIT"},
+                 "AWAITING_REREGISTRATION": "IN_TRANSIT", "OVERDUE": "IN_TRANSIT", "ON_HOLD": "ON_HOLD"},
     "entitlement": {"ACTIVE": "ACTIVE", "DECLINED": "DECLINED", "REVOKED": "REVOKED", "EXPIRED": "EXPIRED",
                     "PENDING_LINK_VERIFICATION": "WAITING_FOR_CLIENT"},
     "product": {"AVAILABLE": "AVAILABLE", "DECLINED": "DECLINED", "PENDING_DOCUMENTS": "PENDING_ITEMS"},

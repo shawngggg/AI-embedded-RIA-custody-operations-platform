@@ -85,10 +85,15 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
   values only; reviewed values survive a demo reset.
 - Every screening alert goes to compliance: sanctions hits to the sanctions team, PEP and adverse-media alerts and
   EDD to AML compliance (a PEP alert the rating doesn't send to EDD waits for AML compliance to clear it or require EDD).
+  Ongoing screening (`app/screening.py`, `onboarding/rescreening.py`) rescreens everyone when the flagged list changes
+  and nightly; screening cases are internal only. Everything screens against `screening.current_list(db)`, never
+  `FLAGGED_LIST` directly.
 - A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
   RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
   the portal: no note, document review note, notice, or status beyond "In review".
-- Money leaves only under maker-checker and the controls gate (MM-005, MM-006). The portal sees transfers in its own
+- Money leaves only under maker-checker and the controls gate (MM-005, MM-006). An RIA pays a third party only under
+  the client's SLOA (MM-011); fraud signals (MM-012) read the `screen_basis` recorded at intake; a Rule 2165 hold
+  (MM-014) is dated by its approved decisions (`hold_events`), and the portal sees only "Temporary hold". The portal sees transfers in its own
   words (`portal_view.KIND_STATUS`) and balances at the client layer only: never the master, the GL, a risk review, or
   a sanctions hold.
 - The release 3 pages (trading, billing) open with a read-only preview of the synthetic book: operations sees its

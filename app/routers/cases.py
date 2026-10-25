@@ -1,5 +1,5 @@
 """Cases, queues, corrections, and maker-checker decisions."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ from ..config import settings
 from ..documents import CORRECTABLE, DOC_TYPES, case_documents, field_docs, mark, supersede_others
 from .. import rescission
 from ..db import get_db
-from ..orm import PORTAL_ROLES, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
+from ..orm import PORTAL_ROLES, Account, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
 from .. import portal_view
 from ..access import approval_refusal, capabilities, may_propose, require_capability
 from ..queues import DECISIONS, QUEUES, works_queue
@@ -269,6 +269,25 @@ class Propose(BaseModel):
     note: str | None = None
 
 
+def _hold_refusal(db: Session, case: Case, value: str, note: str | None) -> str | None:
+    """FINRA Rule 2165 covers a specified adult: 65 or older, or 18 or older with an impairment (custody MM-014)."""
+    from custody import policy
+    if not (note or "").strip() or len(note.strip()) < 15:
+        return "Say what makes you believe the client is being exploited (the internal review starts from it)"
+    if value == "placed_impaired":
+        return None
+    account = db.get(Account, case.account_id)
+    today, age = settings.today(), policy.param("MM-014", "age")
+    for h in (account.application or {}).get("holders", []) if account else []:
+        dob = h.get("date_of_birth")
+        if dob:
+            born = date.fromisoformat(dob)
+            if today.year - born.year - ((today.month, today.day) < (born.month, born.day)) >= age:
+                return None
+    return f"No account holder is {age} or older on the record; if the holder is 18 or older with an impairment, " \
+           "choose that reason"
+
+
 @router.post("/cases/{case_id}/decisions")
 def propose(case_id: int, body: Propose, user: User = Depends(require_internal), db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
@@ -288,6 +307,10 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
                             + f" can propose a {spec['label'].lower()}")
     if case.status not in spec["statuses"]:
         raise HTTPException(409, f"The case isn't waiting for a {spec['label'].lower()}")
+    if body.decision_type == "exploitation_hold":
+        why = _hold_refusal(db, case, body.value, body.note)
+        if why:
+            raise HTTPException(422, why)
     if db.scalar(select(PendingDecision).where(PendingDecision.case_id == case.id,
                                                PendingDecision.decision_type == body.decision_type,
                                                PendingDecision.status == "pending")):
@@ -438,11 +461,18 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
+        if d.decision_type in ("exploitation_hold", "hold_review"):     # dated: the hold's clock runs from them
+            decisions["hold_events"] = list(decisions.get("hold_events") or []) + [
+                {"type": d.decision_type, "value": d.value, "on": settings.today().isoformat(),
+                 "reference": d.reference}]
         if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud", "release", "risk_review",
                                "product", "estate_docs", "legal_hold", "merger_classification", "negative_consent"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)
+        if d.decision_type == "exploitation_hold" and case.status == "ON_HOLD":
+            from ..mail import hold_notices
+            hold_notices(db, case)
     db.commit()
     return case_detail(db, case, user)
 

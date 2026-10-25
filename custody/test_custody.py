@@ -455,3 +455,19 @@ def test_an_incoming_position_the_platform_cant_hold_arrives_as_cash():
     legs = [leg for e in res.entries for leg in e["legs"] if leg.layer == "client"]
     assert {leg.asset for leg in legs} == {STUM, CASH}                      # no shares of the proprietary fund
     assert sum(leg.units for leg in legs if leg.asset == CASH) == units(10_250)
+
+
+def test_a_temporary_hold_stops_a_disbursement_until_its_lifted_or_it_expires():
+    req = ria("wire_out", amount=5_000, counterparty={"owner_name": "Maria Chen", "institution": "Wasatch Bank"})
+    placed = {"type": "exploitation_hold", "value": "placed", "on": "2026-10-21", "reference": "HOLD-1"}
+    held = run(req, decisions={"hold_events": [placed]})
+    assert held.status == "ON_HOLD" and held.summary["On hold until"] == "2026-11-12"     # 15 business days (Nov. 11 is a holiday)
+    step = next(s for s in held.steps if s.name.startswith("Temporary hold"))
+    assert "MM-014" in step.rule_ids and any("2026-10-23" in d for d in step.detail)      # notices within 2 days
+    review = lambda v, on="2026-10-28": {"type": "hold_review", "value": v, "on": on}     # noqa: E731
+    longer = money.exploitation_hold({"hold_events": [placed, review("extended"), review("referred")]}, AS_OF)
+    assert longer["days"] == 55
+    assert run(req, decisions={"hold_events": [placed, review("lifted")]}).status == "PENDING_RELEASE"
+    assert run(req, decisions={"hold_events": [placed, review("declined")]}).status == "REJECTED"
+    later = run(req, ctx(as_of=date(2026, 11, 13)), decisions={"hold_events": [placed]})
+    assert later.status == "PENDING_RELEASE"                                              # it expired

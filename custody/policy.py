@@ -80,6 +80,16 @@ RULES = [
        "The signals and thresholds are platform policy",
        effective=REVIEW, first_payment_over=10_000, new_link_days=10, new_link_over=5_000, velocity_count=3,
        velocity_bdays=5, drain_days=30, drain_share=0.90),
+    _r("MM-014", "Temporary hold on a disbursement when financial exploitation of a specified adult (65 or older, or 18 "
+       "or older with a mental or physical impairment) is reasonably believed: placed under maker-checker by "
+       "compliance or a supervisor; the parties authorized on the account and the trusted contact are told within 2 "
+       "business days (not anyone believed to be involved); an internal review follows at once. The hold lasts up to "
+       "15 business days, 10 more after the review, and 30 more once it's reported to a state regulator, adult "
+       "protective services, or a court: 55 at most",
+       "FINRA Rule 2165 (financial exploitation of specified adults), as amended effective March 17, 2022 (which also "
+       "allows holds on securities transactions; the platform holds disbursements of cash); FINRA Rule "
+       "4512(a)(1)(F) (trusted contact)", effective=REVIEW, age=65, initial=15, extension=10, referral=30,
+       notify_bdays=2),
     _r("MM-013", "Rail cutoffs (Eastern time): a wire released after 5:00 pm or an ACH after 3:00 pm, or any release "
        "on a day the rail is closed, goes out the next business day. The pending entries post at release, so the "
        "money can't be spent twice. Journals book at once: they never leave the custodian",

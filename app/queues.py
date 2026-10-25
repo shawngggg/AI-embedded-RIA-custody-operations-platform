@@ -35,6 +35,8 @@ QUEUES = {
                             "roles": ["ops_analyst", "ops_supervisor"], "teams": ["asset_transfer"], "sla_hours": 24},
     "in_transit": {"label": "In transit: waiting for the other side", "owner": "Asset transfer",
                    "roles": ["ops_analyst", "ops_supervisor"], "teams": ["asset_transfer"], "sla_hours": 72},
+    "exploitation_holds": {"label": "Temporary holds: suspected financial exploitation", "owner": "AML compliance",
+                           "roles": ["aml_compliance", "ops_supervisor"], "sla_hours": 48},
     "transfers_waiting": {"label": "Transfers waiting on product acceptance", "owner": "Asset transfer",
                           "roles": ["ops_analyst", "ops_supervisor"], "teams": ["asset_transfer"], "sla_hours": 120},
     # The rest of release 2 (entitlements, products, the account lifecycle) ships in its own pull request; until
@@ -76,7 +78,7 @@ _BY_STATUS = {
     "PENDING_REWORK": "rework",
 }
 
-CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED"}
+CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED", "CLEARED"}
 
 # Release 2 cases map their own statuses (a status with no queue is waiting on someone outside the team)
 KIND_QUEUES = {
@@ -84,7 +86,8 @@ KIND_QUEUES = {
                  "PENDING_RELEASE": "money_release", "PENDING_CALLBACK": "callbacks",
                  "PENDING_FIX": "transfer_exceptions", "PENDING_CORRECTION": "transfer_exceptions",
                  "OVERDUE": "transfer_exceptions", "AWAITING_SETTLEMENT": "in_transit",
-                 "AWAITING_REREGISTRATION": "in_transit", "WAITING_PRODUCT": "transfers_waiting"},
+                 "AWAITING_REREGISTRATION": "in_transit", "WAITING_PRODUCT": "transfers_waiting",
+                 "ON_HOLD": "exploitation_holds"},
     "product": {"PENDING_DOCUMENTS": "product_review", "PENDING_PRODUCT_REVIEW": "product_review",
                 "PENDING_SETUP": "product_review", "PENDING_PRODUCT_DECISION": "compliance_review"},
     "offboarding": {"PENDING_HOLD_RESOLUTION": "compliance_review", "AWAITING_TRANSFER": "lifecycle",
@@ -166,6 +169,20 @@ DECISIONS = {
                 "values": {"released": "Release", "rejected": "Don't release"},
                 "proposer": ["ops_analyst", "ops_supervisor"], "approver": ["ops_analyst", "ops_supervisor"],
                 "teams": ["asset_transfer"], "authority": True},
+    # FINRA Rule 2165 (custody MM-014): compliance or a supervisor places, extends, and ends a temporary hold
+    "exploitation_hold": {"label": "Temporary hold: suspected financial exploitation (FINRA Rule 2165)",
+                          "statuses": ["PENDING_RISK_REVIEW", "PENDING_RELEASE", "PENDING_CALLBACK"],
+                          "values": {"placed": "Hold: the account holder is 65 or older",
+                                     "placed_impaired": "Hold: the account holder is 18 or older with an impairment"},
+                          "proposer": ["ops_analyst", "ops_supervisor", "aml_compliance"], "teams": ["asset_transfer"],
+                          "approver": ["aml_compliance", "ops_supervisor"]},
+    "hold_review": {"label": "Internal review of the temporary hold", "statuses": ["ON_HOLD"],
+                    "values": {"extended": "Extend 10 business days after the internal review",
+                               "referred": "Extend 30 business days: reported to a state regulator, adult protective "
+                                           "services, or a court",
+                               "lifted": "Lift the hold: go ahead with the disbursement",
+                               "declined": "Don't disburse: the review confirmed the concern"},
+                    "proposer": ["aml_compliance", "ops_supervisor"], "approver": ["aml_compliance", "ops_supervisor"]},
     "risk_review": {"label": "Transfer risk review", "statuses": ["PENDING_RISK_REVIEW"],
                     "values": {"approved": "Approve", "rejected": "Reject"},
                     "proposer": ["aml_compliance", "ops_supervisor"], "approver": ["aml_compliance", "ops_supervisor"]},

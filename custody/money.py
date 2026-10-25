@@ -426,6 +426,39 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
             res.status = "COMPLETED"
             return res
 
+    # A temporary hold for suspected financial exploitation (FINRA Rule 2165) stops a disbursement until it's lifted,
+    # declined, or expires
+    hold = exploitation_hold(decisions, ctx.as_of)
+    if hold:
+        p = policy.BY_ID["MM-014"]["params"]
+        who = "65 or older" if hold["placed"]["value"] == "placed" else "18 or older with a mental or physical impairment"
+        detail = [f"Placed {hold['placed']['on']} ({hold['placed'].get('reference') or 'no reference'}): the account "
+                  f"holder is {who}",
+                  f"The parties on the account and the trusted contact are told by {hold['notify_by'].isoformat()}, "
+                  "unless one is believed to be involved",
+                  f"Up to {hold['days']} business days, until {hold['until'].isoformat()}"
+                  + (" (extended after the internal review)" if hold["extended"] else "")
+                  + (" (reported to a state regulator, adult protective services, or a court)" if hold["referred"] else "")]
+        if hold["outcome"] == "declined":
+            res.add(AML, "Temporary hold (FINRA Rule 2165)", "Not disbursed: the review confirmed the concern", detail,
+                    ["MM-014"])
+            res.status, res.requested_items = "REJECTED", ["We weren't able to send this disbursement"]
+            return res
+        if hold["outcome"] == "lifted":
+            res.add(AML, "Temporary hold (FINRA Rule 2165)", "Lifted after the review", detail, ["MM-014"])
+        elif ctx.as_of > hold["until"]:
+            res.add(AML, "Temporary hold (FINRA Rule 2165)", f"Expired {hold['until'].isoformat()}: the disbursement "
+                    "goes ahead", detail, ["MM-014"])
+        else:
+            nxt = ("Extend once more after a report to a regulator or court, lift it, or decline the disbursement"
+                   if hold["extended"] and not hold["referred"] else "Lift it, extend it, or decline the disbursement")
+            res.add(AML, "Temporary hold (FINRA Rule 2165)", f"On hold until {hold['until'].isoformat()}",
+                    detail + [f"Internal review: {nxt}", f"At most {p['initial'] + p['extension'] + p['referral']} "
+                              "business days in all"], ["MM-014"])
+            res.summary["On hold until"] = hold["until"].isoformat()
+            res.status = "ON_HOLD"
+            return res
+
     # Pre-screen result: an AI-suggested fix, a human-only risk review, or clean
     if fixes and not last_event(events, "fix"):
         res.add(OPS, "Review and apply the suggested fix", "Waiting for an analyst", fixes)
@@ -459,6 +492,23 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
         return res
 
     return _rail(req, ctx, res, events)
+
+
+def exploitation_hold(decisions: dict, as_of: date) -> dict | None:
+    """MM-014: the hold's state from the decisions people approved (each one dated): placed, extended after the
+    internal review, extended again after a referral, and lifted or declined."""
+    events = decisions.get("hold_events") or []
+    placed = next((e for e in events if e["type"] == "exploitation_hold"), None)
+    if placed is None:
+        return None
+    p = policy.BY_ID["MM-014"]["params"]
+    values = [e["value"] for e in events if e["type"] == "hold_review"]
+    extended, referred = "extended" in values, "referred" in values
+    days = p["initial"] + (p["extension"] if extended else 0) + (p["referral"] if referred else 0)
+    start = date.fromisoformat(placed["on"])
+    outcome = next((v for v in reversed(values) if v in ("lifted", "declined")), None)
+    return {"placed": placed, "days": days, "until": add_bdays(start, days), "notify_by": add_bdays(start, p["notify_bdays"]),
+            "extended": extended, "referred": referred, "outcome": outcome}
 
 
 def controls_gate(req: dict, ctx: TransferContext, decisions: dict, events: list[dict]) -> dict:

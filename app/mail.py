@@ -122,6 +122,9 @@ R2_NOTICES = {
                      "RIA service team will follow up."),
         "BLOCKED": ("transfer_declined", "Request not processed", "We weren't able to process this request. Your "
                     "RIA service team will follow up."),
+        "ON_HOLD": ("transfer_on_hold", "Temporary hold", "We've placed a temporary hold on this disbursement under "
+                    "FINRA Rule 2165 while we review it. It lasts up to 15 business days unless we lift it sooner, "
+                    "and we'll write when it changes."),
         "PENDING_CALLBACK": ("transfer_callback", "We'll call to confirm", "Before we release this request we'll call "
                              "the client on the phone number we already have on file."),
     },
@@ -251,6 +254,31 @@ def sloa_annual_notice(db: Session, account, s: dict) -> int:
                          subject=f"Annual reminder: your standing letter of authorization, {account.display_name}",
                          text="This instruction you signed is still in place:\n" + _sloa_line(s) + "\n\n"
                               "If you no longer want it, tell us or your advisor and we'll end it.")
+
+
+def hold_notices(db: Session, case: Case) -> int:
+    """FINRA Rule 2165(b)(2): tell the parties on the account and the trusted contact about a temporary hold within 2
+    business days. The RIA hears through the transfer's ON_HOLD notice; the account holders and the trusted contact
+    here. (A party believed to be involved isn't told; the reviewer sends those by hand.)"""
+    from .orm import Account
+    account = db.get(Account, case.account_id)
+    req = case.application or {}
+    what = f"a ${float(req.get('amount') or 0):,.2f} disbursement" if req.get("amount") else "a disbursement"
+    sent = client_notice(db, account, template="hold_client", case=case,
+                         subject=f"A temporary hold on your account: {account.display_name}",
+                         text=f"We've placed a temporary hold on {what} from your account under FINRA Rule 2165 while "
+                              "we review it. It lasts up to 15 business days unless we lift it sooner, and we'll "
+                              "write when it changes. You can call us about it at the number on your statement.")
+    tc = (account.application or {}).get("trusted_contact") or {}
+    if tc.get("email"):
+        queue(db, to=tc["email"], to_name=tc.get("name"), template="hold_trusted_contact", case=case,
+              subject="A message about an account you're the trusted contact for",
+              body=f"Hello {(tc.get('name') or 'there').split()[0]},\n\n{account.display_name} named you as their "
+                   "trusted contact. We've placed a temporary hold on a disbursement from their account under FINRA "
+                   "Rule 2165 while we review it. Please call us at the number below; we'd like to talk with you "
+                   "about it.\n\nThe custodian")
+        sent += 1
+    return sent
 
 
 def sloa_transfer_notice(db: Session, case: Case) -> int:
