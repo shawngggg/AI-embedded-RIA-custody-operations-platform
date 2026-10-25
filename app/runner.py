@@ -106,6 +106,10 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         data = dict(case.application)
         if case.decisions.get("verification") == "verified":
             data["new_parties"] = [{**p, "identity_verified": True} for p in data.get("new_parties", [])]
+        firm = db.get(Firm, case.firm_id) if case.firm_id else None
+        if firm is not None:                     # an SLOA payee mustn't be the adviser or at its address
+            data.setdefault("firm_name", firm.legal_name)
+            data.setdefault("firm_address", (firm.application or {}).get("principal_address"))
         res = process_change(change_from(data), as_of, flagged=FLAGGED_LIST, decisions=decisions,
                              confirmation=case.decisions.get("confirmation"), identity_issue=identity_issue)
     else:
@@ -179,11 +183,28 @@ def _apply_change(db: Session, case: Case) -> None:
     if kind is ChangeType.BENEFICIARY:
         app["beneficiaries"] = details.get("beneficiaries") or details.get("beneficiary")
     if kind in (ChangeType.CONTACT_INFO, ChangeType.TRUSTED_CONTACT, ChangeType.REGISTRATION,
-                ChangeType.POWER_OF_ATTORNEY, ChangeType.STANDING_LOA):
+                ChangeType.POWER_OF_ATTORNEY):
         app.setdefault("maintenance", {}).update(details)
+    new_sloa = None
+    if kind is ChangeType.STANDING_LOA:
+        sloas = [dict(x) for x in app.get("sloas") or []]
+        today = settings.today()
+        if details.get("end_sloa"):              # the client ends it (condition 4)
+            sloas = [{**x, "status": "ended", "ended_on": today.isoformat()} if x.get("id") == details["end_sloa"]
+                     else x for x in sloas]
+        else:
+            new_sloa = {"id": f"SLOA-{case.id}", "status": "active", "effective_on": today.isoformat(),
+                        "annual_due": (today + timedelta(days=365)).isoformat(), "case_id": case.id,
+                        **{k: details.get(k) for k in ("payee", "payee_kind", "payee_address", "institution", "aba",
+                                                       "account_last4", "schedule")}}
+            sloas.append(new_sloa)
+        app["sloas"] = sloas
     app["holders"] = holders
     account.application = app
     account.change_history = list(account.change_history or []) + [[kind.value, settings.today().isoformat()]]
+    if new_sloa:
+        from .mail import sloa_initial_notice
+        sloa_initial_notice(db, account, new_sloa, case)
     if kind in (ChangeType.BENEFICIAL_OWNER, ChangeType.REGISTRATION):
         review = db.scalar(select(Review).where(Review.subject_id == account.id))
         if review is not None:

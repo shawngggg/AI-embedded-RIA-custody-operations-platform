@@ -21,7 +21,7 @@ from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
-from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, case_detail, case_summary, decision_dict, get_case_for,
+from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, related_documents, case_detail, case_summary, decision_dict, get_case_for,
                      review_dict, sla_state)
 
 router = APIRouter(prefix="/api", tags=["cases"])
@@ -314,8 +314,10 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_capa
         case = db.get(Case, d.case_id)
         item["can_approve"] = approval_refusal(user, d.decision_type, case) is None and user.id != d.proposed_by
         item["case_title"] = case.title
+        related = related_documents(db, case)
         item["documents"] = [{"id": doc.id, "type_label": DOC_TYPES[doc.doc_type]["label"], "filename": doc.filename,
-                              "status": doc.status} for doc in case_documents(db, case)]
+                              "status": doc.status} for doc in case_documents(db, case)] + \
+            [{**doc, "type_label": f"{doc['type_label']} ({related['title']})"} for doc in (related or {}).get("documents", [])]
         if not item["can_approve"] and user.role == "ops_analyst" and not may_propose(user, d.decision_type):
             continue
         out.append(item)

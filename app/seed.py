@@ -336,6 +336,15 @@ def copy_database(source, target) -> None:
 
 
 def seed(db: Session) -> None:
+    saved = settings.clock
+    settings.clock = saved or "10:00"       # a seeded release goes out the day it's released, whatever the hour
+    try:
+        _seed(db)
+    finally:
+        settings.clock = saved
+
+
+def _seed(db: Session) -> None:
     today = settings.today()
     delta = timedelta(days=(today - SAMPLE_DAY).days)
     firms_by_crd: dict[str, Firm] = {}

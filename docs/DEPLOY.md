@@ -249,7 +249,7 @@ startup, so nobody has to remember to. A platform administrator can also reset i
 Reset the demo**. Either way, the AI evaluation runs, the reviewed AI suggestions, and the timed walkthrough runs are
 kept: they're governance evidence, not demo data. The seed draws on `synthetic/`, so the image copies it.
 
-Since release 2 the seed also builds the books: each open account's opening balance or incoming ACATS, 17 transfer
+Since release 2 the seed also builds the books: each open account's opening balance or incoming ACATS, 18 transfer
 scenarios, receipts, and reconciliation breaks, about 5,600 small statements. Each one would be a round trip to Neon,
 so on Postgres the app builds the seed in a local SQLite file inside the container and copies it across table by
 table, 1,000 rows a statement: about 140 round trips, a few seconds. That keeps a deploy's startup well inside Cloud

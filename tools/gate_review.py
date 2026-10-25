@@ -30,6 +30,7 @@ _tmp = tempfile.mkdtemp(prefix="gate-")
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/gate.db"
 os.environ.setdefault("SECRET_KEY", "gate-review-only-key-0123456789-abcdefghijklmnop")
 os.environ["DEMO_MODE"] = "true"
+os.environ.setdefault("CLOCK", "10:00")      # the gate's releases go out the day they're made, whatever the hour
 
 from fastapi.testclient import TestClient  # noqa: E402
 

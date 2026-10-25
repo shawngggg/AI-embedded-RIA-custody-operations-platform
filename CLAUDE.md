@@ -40,7 +40,7 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
   `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
 - `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle; `app/recon.py` reconciles;
-  `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 17 transfer scenarios, receipts, breaks);
+  `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 18 transfer scenarios, receipts, breaks);
   `app/routers/money.py` is the transfers, settlement, recon, and ledger API.
 - `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds the release 3 book
   (trading and billing) on the ledger's positions, served read-only by `app/routers/preview.py` (the seed also uses its

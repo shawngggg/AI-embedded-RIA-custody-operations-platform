@@ -55,7 +55,7 @@ def test_queues_have_seeded_work(as_user):
     assert aml["edd_review"] == 3 and aml["compliance_review"] == 4 and aml["reviews"] >= 2   # + a transfer risk review
     ops = counts("ops.supervisor")                         # the supervisor oversees every operations queue
     assert ops["items_requested"] == 9 and ops["confirmation"] == 1
-    assert ops["money_release"] == 1 and ops["callbacks"] == 1 and ops["transfer_exceptions"] == 3
+    assert ops["money_release"] == 2 and ops["callbacks"] == 1 and ops["transfer_exceptions"] == 3   # + an SLOA wire
     assert ops["in_transit"] >= 3
     assert ops["verification"] == 1 and ops["maintenance_items"] == 1      # CIP and client service have work too
     assert counts("rs.principal") == {"principal_acceptance": 5}

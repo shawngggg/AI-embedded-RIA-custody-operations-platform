@@ -122,6 +122,7 @@ class TransferRequest(BaseModel):
     cash: float | None = Field(default=None, ge=0)
     counterparty: Counterparty | None = None
     requester: str | None = None                  # operations only: signed_form | receiving_firm
+    sloa_id: str | None = Field(default=None, max_length=20)   # an RIA payment to a third party under the client's SLOA
     client_signed: bool = False
     title_on_form: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=500)
@@ -169,6 +170,15 @@ def request_transfer(body: TransferRequest, user: User = Depends(current_user), 
         req["destination"] = dest.id
     if body.counterparty and body.type not in ("ach_deposit", "ach_withdrawal"):
         req["counterparty"] = body.counterparty.model_dump(exclude_none=True)
+    if body.sloa_id and body.type == "wire_out":
+        # MM-011: the payee comes from the client's SLOA as the client gave it; what the RIA typed doesn't count
+        s = next((x for x in (a.application or {}).get("sloas") or [] if x.get("id") == body.sloa_id), None)
+        if s is None:
+            raise HTTPException(422, "No standing letter of authorization with that id on this account")
+        req["sloa_id"] = s["id"]
+        req["counterparty"] = {k: v for k, v in {
+            "owner_name": s.get("payee"), "owner_kind": s.get("payee_kind") or "individual",
+            "institution": s.get("institution"), "account_last4": s.get("account_last4")}.items() if v}
     if body.type == "wire_out" and not (req.get("counterparty") or {}).get("institution"):
         raise HTTPException(422, "Name the receiving bank")
     if body.positions:
@@ -231,7 +241,10 @@ def accounts(q: str | None = None, user: User = Depends(current_user), db: Sessi
                     else portal_view.account_status(a.status), "group": a.group,
                     "registration": a.registration_type, "firm": db.get(Firm, a.firm_id).legal_name,
                     "cash": round(cash.get("settled", 0), 2), "cash_pending": round(cash.get("pending", 0), 2),
-                    "cash_restricted": round(cash.get("restricted", 0), 2), "value": ledger.account_value(db, a.id)})
+                    "cash_restricted": round(cash.get("restricted", 0), 2), "value": ledger.account_value(db, a.id),
+                    "sloas": [{"id": x["id"], "payee": x.get("payee"), "institution": x.get("institution"),
+                               "account_last4": x.get("account_last4")}
+                              for x in (a.application or {}).get("sloas") or [] if x.get("status") == "active"]})
     return out
 
 

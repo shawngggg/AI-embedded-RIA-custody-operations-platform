@@ -18,7 +18,7 @@ Three sources, and they agree with each other:
 
 | File | Rows | What it is |
 | --- | ---: | --- |
-| `cases.csv` | 108 | Every case the seed creates (onboarding, accounts, changes, transfers, money movement): status and queue |
+| `cases.csv` | 110 | Every case the seed creates (onboarding, accounts, changes, transfers, money movement): status and queue |
 | `people.csv` | 66 | CIP: each person on a firm or account application, with what was screened and verified |
 | `restrictions.csv` | 12 | Active restriction codes and why they were placed |
 | `accounts.csv` | 31 | The open accounts: RIA, registration, restriction codes, and the ledger's cash and value |
@@ -30,7 +30,7 @@ Three sources, and they agree with each other:
 | `ledger_checks.csv` | 3 | The three-layer checks: clients equal their RIA master; masters equal the GL; the GL balances |
 | `ledger_entries.csv` | 105 | Every posting, with the case or receipt behind it |
 | `ledger_legs.csv` | 2423 | Each posting's legs at the client, RIA master, and general ledger layers (they sum to zero) |
-| `transfers.csv` | 45 | Every transfer and money movement case: wires, ACH, journals, IRA distributions, ACATS, LOI |
+| `transfers.csv` | 46 | Every transfer and money movement case: wires, ACH, journals, IRA distributions, ACATS, LOI |
 | `transfer_positions.csv` | 145 | Each ACATS or LOI case's positions and the route the transferability rules gave them |
 | `bank_links.csv` | 31 | Verified bank accounts in the client's name (money moves only to or from these) |
 | `receipts.csv` | 4 | Money that arrived at the settlement bank with no request behind it, and what happened to it |

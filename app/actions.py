@@ -117,7 +117,7 @@ def _rail(db, case, user, data):
     sub = last_event((case.extra or {}).get("events", []), "submitted", n=n)
     if not sub:
         raise HTTPException(409, "Nothing has gone to the rail yet")
-    submitted = date.fromisoformat(sub["on"])
+    submitted = money.sends_on(sub)              # after a cutoff, the day it actually goes out (MM-013)
     choice = data.get("outcome", "confirm")
     script = {"reject": data.get("code") or "nof"} if choice == "reject" else \
         {"return": data.get("code") or "R01"} if choice == "return" else {}

@@ -14,7 +14,7 @@ Incoming wires aren't requests: they arrive at the bank, and cash settlement (se
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, time
 
 from applications import Position
 from flagged_list import Kind, Subject, screen
@@ -22,7 +22,7 @@ from restrictions import CATALOG, Activity
 from transferability import Route, review_transfer
 
 from . import policy
-from .calendar import add_bdays, bday, next_bday
+from .calendar import add_bdays, bday, following_bday, is_bday, next_bday
 from .flow import AI, AML, LEDGER, OPS, RULES, FlowResult, events_of, last_event, on_date
 from .ledger import CASH, LOCATION_GL, client_move, gl_move, rebucket, units
 
@@ -62,6 +62,55 @@ class TransferContext:
     flagged: list = field(default_factory=list)
     client_requests: list = field(default_factory=list)   # [{on, amount}] earlier self-service requests (ENT-003)
     account_value: float = 0.0
+    clock: time | None = None           # Eastern time of this evaluation, for the rail cutoffs (MM-013)
+
+
+def rail_calendar(kind: str) -> str:
+    return policy.param("MM-008", "calendars").get(TYPES[kind]["rail"], "fed")
+
+
+def sends_on(sub: dict) -> date:
+    """The day a submission goes out on the rail: the release day, or the next business day after a cutoff."""
+    return date.fromisoformat(sub.get("sends_on") or sub["on"])
+
+
+def destination_key(cp: dict | None) -> str | None:
+    """A destination's identity for MM-012: its bank and account, or its bank and payee when no account is given."""
+    cp = cp or {}
+    if not cp.get("institution"):
+        return None
+    tail = (cp.get("account_last4") or "").strip() or _norm(cp.get("owner_name", ""))
+    return f"{_norm(cp['institution'])}|{tail}"
+
+
+def is_third_party(req: dict, ctx: TransferContext) -> bool:
+    kind = req["type"]
+    cp = req.get("counterparty") or {}
+    owners = {_norm(n) for n in ctx.account.get("owners", [])} | {_norm(ctx.account.get("name", ""))}
+    return TYPES[kind]["direction"] == "out" and TYPES[kind]["cash"] and bool(cp.get("owner_name")) \
+        and _norm(cp["owner_name"]) not in owners
+
+
+def sloa_for(req: dict, ctx: TransferContext) -> dict | None:
+    return next((x for x in ctx.account.get("sloas") or [] if x.get("id") == req.get("sloa_id")), None)
+
+
+def sloa_problem(req: dict, ctx: TransferContext) -> str | None:
+    """MM-011: an RIA payment to a third party needs the client's active SLOA, with the payee exactly as the client
+    named it."""
+    s = sloa_for(req, ctx) if req.get("sloa_id") else None
+    if s is None:
+        return ("A payment to a third party from the RIA needs the client's standing letter of authorization (SLOA) "
+                "on file. The client can set one up through an account change, or send a signed request")
+    if s.get("status") != "active":
+        return f"{s['id']} isn't active: the client ended it on {s.get('ended_on')}"
+    cp = req.get("counterparty") or {}
+    if not s.get("institution"):
+        return f"{s['id']} names the payee's address, not a bank account: a wire needs the payee's bank"
+    for theirs, ours in (("owner_name", "payee"), ("institution", "institution"), ("account_last4", "account_last4")):
+        if _norm(str(cp.get(theirs) or "")) != _norm(str(s.get(ours) or "")):
+            return f"The payee details must match {s['id']} exactly: the RIA can't change them"
+    return None
 
 
 def _norm(name: str) -> str:
@@ -107,7 +156,7 @@ def authority(req: dict, ctx: TransferContext) -> str | None:
             return "The RIA has view-only access to the self-directed account; the client moves money there"
         if not acct.get("lpoa"):
             return "The RIA has no LPOA on this account"
-        return None
+        return sloa_problem(req, ctx) if is_third_party(req, ctx) else None
     if who == "client":
         if acct.get("group") != "self_directed":
             return "Money movement on a pure RIA account comes through the RIA, or by the client's signed request"
@@ -152,9 +201,8 @@ def risk_signals(req: dict, ctx: TransferContext) -> list[str]:
     out = []
     kind, amt = req["type"], _amount(req)
     cp = req.get("counterparty") or {}
-    owners = {_norm(n) for n in ctx.account.get("owners", [])} | {_norm(ctx.account.get("name", ""))}
-    if TYPES[kind]["direction"] == "out" and TYPES[kind]["cash"] and cp.get("owner_name") \
-            and _norm(cp["owner_name"]) not in owners:
+    covered = (req.get("requester") or {}).get("role") == "ria"     # an RIA's third-party payment is under an SLOA
+    if is_third_party(req, ctx) and not covered:
         out.append(f"Third-party payee: {cp['owner_name']} isn't an owner of the account")
     if kind == "journal" and ctx.destination and ctx.destination.get("household") != ctx.account.get("household"):
         out.append(f"Journal to another owner's account ({ctx.destination.get('id')})")
@@ -163,6 +211,8 @@ def risk_signals(req: dict, ctx: TransferContext) -> list[str]:
     if TYPES[kind]["direction"] == "out" or (kind == "journal" and not same_owner):
         days = policy.param("MM-004", "days")
         for change, on in ctx.account.get("recent_changes") or []:
+            if change not in ("address", "contact_info", "bank_instruction"):
+                continue                         # MM-004 names address, bank, and contact changes
             if 0 <= (ctx.as_of - date.fromisoformat(on)).days <= days:
                 out.append(f"{change.replace('_', ' ').capitalize()} changed on {on}, within {days} days")
         if amt > policy.param("MM-004", "large"):
@@ -173,6 +223,37 @@ def risk_signals(req: dict, ctx: TransferContext) -> list[str]:
             if 0 < price < policy.param("MM-004", "low_price"):
                 out.append(f"Deposit of a low-priced security: {p.get('description', p['security_id'])} at "
                            f"${price:,.2f}")
+    return out + fraud_signals(req)
+
+
+def fraud_signals(req: dict) -> list[str]:
+    """MM-012, from the screening basis the app recorded when the request arrived (so a replay on a later day reads
+    the same facts). A request without one, from before the rule, has none."""
+    basis, kind, amt = req.get("screen_basis"), req["type"], _amount(req)
+    if not basis or TYPES[kind]["direction"] != "out" or not TYPES[kind]["cash"]:
+        return []
+    p, on, out = policy.BY_ID["MM-012"]["params"], date.fromisoformat(basis["on"]), []
+    cp = req.get("counterparty") or {}
+    if kind == "wire_out" and not basis.get("known_destination") and amt > p["first_payment_over"]:
+        where = ", ".join(x for x in (cp.get("institution"), f"...{cp['account_last4']}" if cp.get("account_last4")
+                                      else None) if x)
+        out.append(f"First payment over ${p['first_payment_over']:,} to a destination not on file and never paid "
+                   f"before ({where})")
+    verified = basis.get("link_verified_on")
+    if kind == "ach_withdrawal" and verified and amt > p["new_link_over"] \
+            and (on - date.fromisoformat(verified)).days < p["new_link_days"]:
+        out.append(f"ACH withdrawal over ${p['new_link_over']:,} to a bank link verified on {verified}, within "
+                   f"{p['new_link_days']} days")
+    earlier = basis.get("outgoing") or []
+    since = bday(on, -(p["velocity_bdays"] - 1))
+    count = 1 + sum(1 for o in earlier if date.fromisoformat(o["on"]) >= since)
+    if count >= p["velocity_count"]:
+        out.append(f"{count} outgoing requests within {p['velocity_bdays']} business days")
+    total = amt + sum(o["amount"] for o in earlier if (on - date.fromisoformat(o["on"])).days < p["drain_days"])
+    value = float(basis.get("account_value") or 0)
+    if value > 0 and total > p["drain_share"] * value:
+        out.append(f"${total:,.0f} going out within {p['drain_days']} days is {total / value:.0%} of the account's "
+                   f"${value:,.0f} value")
     return out
 
 
@@ -229,6 +310,13 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
     if why:
         res.status, res.requested_items = "REJECTED", [why]
         return res
+    if who == "ria" and is_third_party(req, ctx):
+        s = sloa_for(req, ctx)
+        res.add(RULES, "Standing letter of authorization (SLOA)", f"{s['id']} covers this payee",
+                [f"Signed by the client and verified on {s.get('effective_on')}",
+                 "Payee details exactly as the client gave them; the RIA can't change them",
+                 "The client gets a notice after the transfer"], ["MM-011"])
+        res.summary["SLOA"] = s["id"]
 
     blocking = sorted({c for a in ACTIVITY[kind] for c in acct.get("codes", []) if a in CATALOG[c].blocks})
     if kind == "journal" and ctx.destination:
@@ -434,18 +522,39 @@ def controls_gate(req: dict, ctx: TransferContext, decisions: dict, events: list
     return {"status": None, "outcome": "Released", "detail": detail}
 
 
+def cutoff(kind: str, released: date, clock: time | None) -> dict:
+    """MM-013: when a release goes out. A day the rail is closed, or a release after its cutoff, rolls to the next
+    business day; journals book at once, whatever the hour."""
+    rail, cal = TYPES[kind]["rail"], rail_calendar(kind)
+    if rail in ("Journal", "ACATS"):
+        return {}
+    cut = policy.param("MM-013", "cutoffs").get(rail)
+    if not is_bday(released, cal):
+        goes = next_bday(released, cal)
+        return {"sends_on": goes.isoformat(), "rolled": f"{rail} is closed on {released:%a, %b} {released.day}: it "
+                                                         f"goes out {goes:%a, %b} {goes.day}"}
+    if cut and clock and clock.strftime("%H:%M") >= cut:
+        goes = following_bday(released, cal)
+        h, m = (int(x) for x in cut.split(":"))
+        return {"sends_on": goes.isoformat(), "rolled": f"Released at {clock:%H:%M} ET, after the "
+                f"{(h - 1) % 12 + 1}:{m:02d} {'pm' if h >= 12 else 'am'} {rail} cutoff: it goes out "
+                f"{goes:%a, %b} {goes.day}"}
+    return {}
+
+
 def expected_dates(kind: str, submitted: date) -> dict:
     p = policy.BY_ID["MM-008"]["params"]
+    cal = rail_calendar(kind)
     if kind == "journal":
         return {"settle": submitted}
     if kind in ("ach_deposit", "ach_withdrawal"):
-        return {"settle": add_bdays(submitted, p["ach_days"])}
+        return {"settle": add_bdays(submitted, p["ach_days"], cal)}
     if kind == "wire_out":
-        return {"settle": next_bday(submitted)}
+        return {"settle": next_bday(submitted, cal)}
     if kind in ("acats_in", "acats_out"):
-        validate = add_bdays(submitted, p["acats_validate"])
-        return {"validate": validate, "settle": bday(validate, p["acats_complete"])}
-    return {"settle": add_bdays(submitted, p["loi_days"]), "follow_up": add_bdays(submitted, p["loi_follow_up"])}
+        validate = add_bdays(submitted, p["acats_validate"], cal)
+        return {"validate": validate, "settle": bday(validate, p["acats_complete"], cal)}
+    return {"settle": add_bdays(submitted, p["loi_days"], cal), "follow_up": add_bdays(submitted, p["loi_follow_up"], cal)}
 
 
 def _rail(req: dict, ctx: TransferContext, res: FlowResult, events: list[dict]) -> FlowResult:
@@ -456,13 +565,14 @@ def _rail(req: dict, ctx: TransferContext, res: FlowResult, events: list[dict]) 
     n = 1 + len(events_of(events, "correction"))
     sub = last_event(events, "submitted", n=n)
     if sub is None:
-        res.record["submitted"] = {"n": n, "on": ctx.as_of.isoformat()}
-        submitted = ctx.as_of
-    else:
-        submitted = on_date(sub, ctx.as_of)
-    dates = expected_dates(kind, submitted)
+        sub = {"n": n, "on": ctx.as_of.isoformat(), **cutoff(kind, ctx.as_of, ctx.clock)}
+        res.record["submitted"] = sub
+    submitted, goes = on_date(sub, ctx.as_of), sends_on(sub)
+    dates = expected_dates(kind, goes)
     res.expected = dates["settle"]
     res.summary["Submitted"] = submitted.isoformat()
+    if goes != submitted:
+        res.summary["Goes out"] = goes.isoformat()
     res.summary["Expected to settle"] = dates["settle"].isoformat()
 
     # Every earlier submission was rejected; its pending entries were reversed when the reject arrived
@@ -476,7 +586,11 @@ def _rail(req: dict, ctx: TransferContext, res: FlowResult, events: list[dict]) 
              "Fedwire": "Release through Fedwire"}[TYPES[kind]["rail"]]
     res.add(LEDGER, "Post the pending bucket and in-transit suspense (three layers)", "Posted",
             [f"Submission {n} on {submitted.isoformat()}"], ["LED-001", "LED-002"])
-    res.add(LEDGER, label, "Sent" if kind != "journal" else "Booked", [], ["MM-008"])
+    if goes != submitted:
+        res.add(LEDGER, label, f"Goes out {goes.isoformat()}", [sub.get("rolled") or "The next business day",
+                "The pending entries posted at release, so the money can't be spent twice"], ["MM-008", "MM-013"])
+    else:
+        res.add(LEDGER, label, "Sent" if kind != "journal" else "Booked", [], ["MM-008"])
 
     if kind == "journal":
         _post_settlement(req, ctx, res, n, submitted)
@@ -539,6 +653,9 @@ def _rail(req: dict, ctx: TransferContext, res: FlowResult, events: list[dict]) 
                 res.add(LEDGER, "Hold returnable ACH funds as restricted", f"Until {release_on.isoformat()}", [],
                         ["MM-007"])
         res.add(OPS, "Transfer complete", "Completion notice to the requester")
+        if req.get("sloa_id"):
+            res.add(OPS, "Transfer notice to the client (SLOA)", "Sent",
+                    [f"Under {req['sloa_id']}: the amount, the payee, and the date"], ["MM-011"])
         res.status = "COMPLETED"
         return res
     if ctx.as_of > dates["settle"]:

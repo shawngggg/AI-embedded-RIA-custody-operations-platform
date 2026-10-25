@@ -289,7 +289,9 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
   return (
     <div className="decide">
       {(pending.length > 0 || d.available_decisions.length > 0) &&
-        <DocLinks docs={d.documents} title="Documents on this case" empty="No documents on this case." />}
+        <DocLinks docs={d.documents} title="Documents on this case" empty={d.related_documents ? undefined : "No documents on this case."} />}
+      {(pending.length > 0 || d.available_decisions.length > 0) && d.related_documents &&
+        <DocLinks docs={d.related_documents.documents} title={d.related_documents.title} />}
       {pending.map((p) => {
         const canApprove = p.approver_roles.includes(user.role) && p.proposed_by_id !== user.id;
         return (

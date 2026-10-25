@@ -63,7 +63,13 @@ def account_view(db: Session, a: Account) -> dict:
             "lpoa": bool(app.get("lpoa_signed")) and not maint.get("lpoa_ended"), "household": household,
             "purpose": app.get("account_purpose") or "", "recent_changes": list(a.change_history or []),
             "beneficiaries": bens if isinstance(bens, list) else [bens], "rep_code": a.rep_code,
-            "client_key": a.client_key}
+            "client_key": a.client_key, "sloas": list(app.get("sloas") or [])}
+
+
+def holder_emails(a: Account) -> list[tuple[str, str]]:
+    """(email, name) for each account holder on file: where client notices go."""
+    return [(h["email"].strip(), h.get("name") or a.display_name) for h in (a.application or {}).get("holders", [])
+            if (h.get("email") or "").strip()]
 
 
 def phones_on_file(a: Account) -> list[tuple[str, str]]:
@@ -118,8 +124,52 @@ def product_states(db: Session, securities: list[Security] | None = None) -> dic
 
 
 def bank_links(db: Session, account_id: str) -> dict:
-    return {b.id: {"bank": b.bank, "last4": b.last4, "owner": b.owner, "status": b.status}
+    return {b.id: {"bank": b.bank, "last4": b.last4, "owner": b.owner, "status": b.status,
+                   "verified_on": b.verified_at.date().isoformat() if b.verified_at else None}
             for b in db.scalars(select(BankLink).where(BankLink.account_id == account_id)).all()}
+
+
+OUTGOING_CASH = ("ach_withdrawal", "wire_out")
+
+
+def _requested_on(c: Case) -> str:
+    sub = next((e for e in (c.extra or {}).get("events", []) if e.get("type") == "submitted"), None)
+    return sub["on"] if sub else c.created_at.date().isoformat()
+
+
+def screen_basis(db: Session, a: Account, req: dict) -> dict:
+    """What MM-012's fraud monitoring reads, recorded once when a request arrives, so every replay sees the same facts:
+    the account's value, its other outgoing requests in the last 30 days, whether the destination is on file or was
+    paid before, and when an ACH destination's bank link was verified."""
+    today = settings.today()
+    balances = ledger.account_balances(db, a.id)
+    _recs, px, _loc = security_master(db, db.scalars(select(Security)).all())
+    value = round(sum(sum(b.values()) * (1.0 if k == CASH else px.get(k, 0.0)) for k, b in balances.items()), 2)
+    outgoing, paid = [], set()
+    for c in db.scalars(select(Case).where(Case.kind == "transfer", Case.account_id == a.id)).all():
+        r = c.application or {}
+        if r.get("type") not in OUTGOING_CASH or c.status in ("REJECTED", "BLOCKED"):
+            continue
+        on = _requested_on(c)
+        if (today - datetime.fromisoformat(on).date()).days < 30:
+            outgoing.append({"on": on, "amount": float(r.get("amount") or 0)})
+        if c.status == "COMPLETED":
+            paid.add(money.destination_key(r.get("counterparty")))
+    links = bank_links(db, a.id)
+    app = a.application or {}
+    known = paid | {money.destination_key({"institution": b["bank"], "account_last4": b["last4"]})
+                    for b in links.values() if b["status"] == "verified"}
+    known |= {money.destination_key({"institution": b.get("name"), "account_last4": b.get("account_last4")})
+              for b in app.get("bank_instructions") or [] if b.get("status") != "inactive_until_verified"}
+    known |= {money.destination_key({"institution": x.get("institution"), "account_last4": x.get("account_last4")})
+              for x in app.get("sloas") or [] if x.get("status") == "active"}
+    key = money.destination_key(req.get("counterparty"))
+    basis = {"on": today.isoformat(), "account_value": value, "outgoing": outgoing,
+             "known_destination": key is not None and key in known - {None}}
+    link = links.get(req.get("bank_link_id") or "")
+    if link:
+        basis["link_verified_on"] = link["verified_on"]
+    return basis
 
 
 def active_grant(db: Session, account_id: str, capability: str | None) -> dict | None:
@@ -220,7 +270,7 @@ def transfer_context(db: Session, case: Case) -> money.TransferContext:
         destination=account_view(db, dest) if dest else None, security_master=recs, prices=px, locations=loc,
         grant=active_grant(db, a.id, money.CAPABILITY.get(req["type"])), bank_links=bank_links(db, a.id),
         products=product_states(db, securities), flagged=FLAGGED_LIST,
-        client_requests=client_requests(db, a.id, case.id), account_value=value)
+        client_requests=client_requests(db, a.id, case.id), account_value=value, clock=settings.clock_et())
 
 
 # --------------------------------------------------------------------------- running a case
@@ -389,6 +439,8 @@ def _spawn_transfer(db: Session, case: Case, s: dict, actor: User | None) -> Cas
 
 def new_case(db: Session, kind: str, title: str, application: dict, actor: User | None, *, account: Account | None = None,
              firm_id: int | None = None, target_id: str | None = None) -> Case:
+    if kind == "transfer" and account is not None and "screen_basis" not in application:
+        application = {**application, "screen_basis": screen_basis(db, account, application)}   # MM-012, once
     c = Case(kind=kind, title=title, firm_id=account.firm_id if account else firm_id,
              account_id=account.id if account else None, target_id=target_id or (account.id if account else title[:60]),
              application=application, decisions={}, extra={"events": []}, created_by=actor.id if actor else None)

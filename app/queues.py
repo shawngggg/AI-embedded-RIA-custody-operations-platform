@@ -14,7 +14,7 @@ QUEUES = {
                          "roles": ["sanctions"], "sla_hours": 24},
     "edd_review": {"label": "EDD pending", "owner": "AML compliance",
                    "roles": ["aml_compliance"], "sla_hours": 120},
-    "confirmation": {"label": "Fraud-pattern confirmation", "owner": "Client service (account maintenance)",
+    "confirmation": {"label": "Confirmations: fraud patterns and SLOAs", "owner": "Client service (account maintenance)",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 24},
     # Account maintenance sits with client service (Shawn, Oct. 13, 2026): a change returned to the RIA or client
     # for correction waits here, not in onboarding's queue
@@ -148,8 +148,8 @@ DECISIONS = {
     "compliance_signoff": {"label": "Compliance sign-off", "statuses": ["PENDING_REVIEW"],
                            "values": {"signed_off": "Sign off the registration findings"},
                            "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
-    "confirmation": {"label": "RIA confirmation and client callback", "statuses": ["PENDING_CONFIRMATION"],
-                     "values": {"confirmed": "Confirmed by the RIA and the client", "rejected": "Not confirmed"},
+    "confirmation": {"label": "Confirmation with the client (and the RIA)", "statuses": ["PENDING_CONFIRMATION"],
+                     "values": {"confirmed": "Confirmed with the client", "rejected": "Not confirmed"},
                      "proposer": ["ops_analyst", "ops_supervisor"], "approver": ["ops_supervisor"]},
     "verification": {"label": "Identity verification of new parties", "statuses": ["PENDING_VERIFICATION"],
                      "values": {"verified": "Identity verified"},

@@ -83,6 +83,7 @@ export type Correction = {
 };
 
 export type CaseDetail = CaseSummary & {
+  related_documents?: { title: string; case_id: number; documents: Doc[] } | null;
   application: any; decisions: any; result: any; extra: any; restrictions: Restriction[];
   decision_log: Decision[]; corrections: Correction[]; manual_steps: number; nigo_count: number;
   available_decisions: { decision_type: string; label: string; values: { value: string; label: string }[];

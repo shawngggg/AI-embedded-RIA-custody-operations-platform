@@ -163,6 +163,19 @@ def decision_dict(db: Session, d: PendingDecision) -> dict:
             "approver_roles": spec["approver"]}
 
 
+def related_documents(db: Session, case: Case) -> dict | None:
+    """Documents on another case that a decision here rests on: an SLOA wire's release rests on the client's signed
+    SLOA, which lives on the account change that set it up."""
+    sloa_id = (case.application or {}).get("sloa_id") if case.kind == "transfer" else None
+    if not sloa_id or not sloa_id.startswith("SLOA-") or not sloa_id[5:].isdigit():
+        return None
+    source = db.get(Case, int(sloa_id[5:]))
+    if source is None or source.account_id != case.account_id:
+        return None
+    return {"title": f"The client's SLOA ({sloa_id}, case #{source.id})", "case_id": source.id,
+            "documents": [doc_dict(d) for d in case_documents(db, source)]}
+
+
 def corrections_for(db: Session, case: Case) -> list[dict]:
     waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
     if not waiting or not case.result:
@@ -229,6 +242,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "manual_steps": c.manual_steps, "nigo_count": c.nigo_count, "closed_at": iso(c.closed_at),
         "acceptance": None if user.role in ("ria_admin", "ria_user", "client") else acceptance_state(db, c, user),
         "documents": [{**doc_dict(d), "reopen_refusal": reopen_refusal(c, d, user)} for d in case_documents(db, c)],
+        "related_documents": related_documents(db, c) if user.role not in PORTAL_ROLES else None,
         "rescission": rescission_state(db, c, user),
         "rework": (c.extra or {}).get("rework"),
         "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],

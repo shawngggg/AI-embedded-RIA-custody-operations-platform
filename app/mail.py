@@ -213,3 +213,54 @@ def notify_transition(db: Session, case: Case, previous: str | None, status: str
     for u in _recipients(db, case):
         body = f"Hello {u.display_name.split()[0]},\n\n{text}\n\nOpen it in the portal: {link}\n\nYour RIA service team"
         queue(db, to=u.email, to_name=u.display_name, subject=subject, body=body, template=template, case=case)
+    if case.kind == "transfer" and status == "COMPLETED" and previous != status and (case.application or {}).get("sloa_id"):
+        sloa_transfer_notice(db, case)
+
+
+# --- Client notices: to each account holder's email on file -----------------------------------------------
+
+def client_notice(db: Session, account, *, subject: str, text: str, template: str, case: Case | None = None) -> int:
+    """Write a notice to every account holder with an email on file. Returns how many went to the outbox."""
+    from .servicing import holder_emails
+    sent = 0
+    for email, name in holder_emails(account):
+        body = f"Hello {name.split()[0]},\n\n{text}\n\nQuestions? Call the number on your statement.\n\nThe custodian"
+        queue(db, to=email, to_name=name, subject=subject, body=body, template=template, case=case)
+        sent += 1
+    return sent
+
+
+def _sloa_line(s: dict) -> str:
+    where = ", ".join(x for x in (s.get("institution"), f"account ending {s['account_last4']}" if s.get("account_last4")
+                                  else None, s.get("payee_address")) if x)
+    return f"{s['id']}: payments to {s.get('payee')} ({where}), {s.get('schedule') or 'from time to time'}"
+
+
+def sloa_initial_notice(db: Session, account, s: dict, case: Case | None = None) -> int:
+    """SEC SLOA relief, condition 7: confirm a new standing instruction to the client in writing."""
+    return client_notice(db, account, template="sloa_initial", case=case,
+                         subject=f"Your standing letter of authorization is on file: {account.display_name}",
+                         text="We've set up the standing instruction you signed:\n" + _sloa_line(s) + "\n\n"
+                              "Your advisor can send payments to this payee only, with these details, and can't change "
+                              "them. You can change or end it at any time.")
+
+
+def sloa_annual_notice(db: Session, account, s: dict) -> int:
+    """Condition 7: reconfirm each standing instruction every year."""
+    return client_notice(db, account, template="sloa_annual",
+                         subject=f"Annual reminder: your standing letter of authorization, {account.display_name}",
+                         text="This instruction you signed is still in place:\n" + _sloa_line(s) + "\n\n"
+                              "If you no longer want it, tell us or your advisor and we'll end it.")
+
+
+def sloa_transfer_notice(db: Session, case: Case) -> int:
+    """Condition 3: a transfer-of-funds notice to the client promptly after each transfer under an SLOA."""
+    from .orm import Account
+    req = case.application or {}
+    account = db.get(Account, case.account_id)
+    cp = req.get("counterparty") or {}
+    return client_notice(db, account, template="sloa_transfer", case=case,
+                         subject=f"A payment left your account: {account.display_name}",
+                         text=f"Your advisor sent ${float(req.get('amount') or 0):,.2f} to {cp.get('owner_name')} "
+                              f"({cp.get('institution')}) under your standing instruction {req.get('sloa_id')}, "
+                              f"on {settings.today():%B %-d, %Y}.")

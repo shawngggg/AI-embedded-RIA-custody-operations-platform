@@ -74,7 +74,7 @@ FIELD_DOCS = {
              "beneficial_ownership_certification": ["bo_certification"],
              "custodial_agreement_signed": ["custodial_agreement"], "reliance_contract": ["reliance_contract"],
              "verify_people": ["identity_documents"]},
-    "change": {"client_signature": ["change_form"], "medallion_guarantee": ["medallion"]},
+    "change": {"client_signature": ["change_form", "sloa"], "medallion_guarantee": ["medallion"]},
 }
 
 
@@ -258,7 +258,17 @@ def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[s
     elif doc_type == "ira_adoption_agreement":
         kind = {"roth": "Roth IRA", "sep": "SEP IRA", "inherited": "inherited IRA"}.get(app.get("ira_type"), "traditional IRA")
         lines += [f"Depositor: {who}", f"Account: {case.account_id or ''}",
-                  f"adopts the custodian's {kind} custodial agreement (IRS Form 5305-A model terms)."]
+                  f"adopts the custodian's {kind} custodial agreement (IRS model terms: Form "
+                  f"{'5305-RA' if app.get('ira_type') == 'roth' else '5305-A'})."]
+    elif doc_type == "sloa":
+        d = app.get("details") or {}
+        lines += [f"Account owner: {who}", f"Account: {case.account_id}",
+                  f"I instruct the custodian to pay: {d.get('payee') or '(payee)'}",
+                  f"At: {d.get('payee_address') or ''} {d.get('institution') or ''} "
+                  f"{'account ending ' + d['account_last4'] if d.get('account_last4') else ''}".strip(),
+                  f"Schedule: {d.get('schedule') or 'from time to time'}",
+                  f"and authorize {adviser} to direct these payments. The adviser can't change the payee.",
+                  "I can change or end this instruction at any time."]
     elif doc_type == "employer_consent":
         lines += [f"Employee: {who}", "Our firm consents to this account under FINRA Rule 3210.",
                   "Please send duplicate statements to our compliance department."]

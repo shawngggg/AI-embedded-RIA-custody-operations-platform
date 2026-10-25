@@ -17,7 +17,8 @@ type Overview = { as_of: string; by_status: Record<string, number>; completed_to
     overdue: boolean; items: number }[];
   requesters: Record<string, string>; types: Record<string, string> };
 export type AccountRow = { id: string; name: string; status: string; group: string; registration: string; firm: string;
-  cash: number; cash_pending: number; cash_restricted: number; value: number };
+  cash: number; cash_pending: number; cash_restricted: number; value: number;
+  sloas?: { id: string; payee: string; institution: string; account_last4: string }[] };
 export type AccountDetail = { id: string; name: string; group: string; registration: string; status: string; firm: string;
   value: number; positions: { asset: string; name: string; ticker: string | null; quantity: number;
     buckets: Record<string, number>; price: number; value: number }[];

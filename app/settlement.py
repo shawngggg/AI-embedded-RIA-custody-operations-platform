@@ -50,7 +50,7 @@ def deliver_rail_answers(db: Session, actor: User | None, through: date | None =
             continue
         script = (case.extra or {}).get("simulate") or {}
         have = {(e.get("outcome"), e.get("n")) for e in events if e.get("type") == "rail"}
-        new = [a for a in money.rail_response(case.application, date.fromisoformat(sub["on"]), through, script)
+        new = [a for a in money.rail_response(case.application, money.sends_on(sub), through, script)
                if (a["outcome"], n) not in have]
         if not new:
             continue
@@ -189,6 +189,32 @@ def net_flows(db: Session, on: date) -> list[dict]:
     return rules.net_by_channel(items)
 
 
+# --------------------------------------------------------------------------- 6. SLOA reconfirmations
+def sloa_annual_notices(db: Session) -> list[dict]:
+    """Each standing letter of authorization is reconfirmed with the client every year (custody MM-011): send the
+    notice for each one due, and set the next due date."""
+    from datetime import timedelta
+    from .mail import sloa_annual_notice
+    today = settings.today()
+    out = []
+    for a in db.scalars(select(Account).where(Account.status.in_(("OPEN", "OPEN_RESTRICTED")))).all():
+        sloas = (a.application or {}).get("sloas") or []
+        due = [x for x in sloas if x.get("status") == "active" and x.get("annual_due")
+               and date.fromisoformat(x["annual_due"]) <= today]
+        if not due:
+            continue
+        updated = []
+        for x in sloas:
+            if x in due:
+                sent = sloa_annual_notice(db, a, x)
+                out.append({"account": a.id, "sloa": x["id"], "notices": sent})
+                x = {**x, "annual_due": (today + timedelta(days=365)).isoformat(),
+                     "last_annual_notice": today.isoformat()}
+            updated.append(x)
+        a.application = {**a.application, "sloas": updated}
+    return out
+
+
 # --------------------------------------------------------------------------- the cycle
 def _say(status: str) -> str:
     """A status as words: AWAITING_SETTLEMENT reads "awaiting settlement"."""
@@ -200,6 +226,7 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
     delivered = deliver_rail_answers(db, actor)
     released = release_ach_holds(db, actor)
     receipts = match_receipts(db, actor)
+    reconfirmed = sloa_annual_notices(db)
     proof = ledger.proof(db)
     flows = net_flows(db, today)
     net = round(sum(f["net"] for f in flows), 2)
@@ -222,6 +249,10 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
         {"step": "Send net funding and settlement instructions", "outcome":
          f"{'Receive' if net >= 0 else 'Pay'} ${abs(net):,.2f} net at the settlement bank",
          "detail": [f"{f['channel']}: {f['direction'].lower()} ${abs(f['net']):,.2f}" for f in flows], "rule_ids": []},
+        {"step": "Reconfirm standing letters of authorization with clients (annual notice)", "outcome":
+         f"{len(reconfirmed)} due" if reconfirmed else "None due",
+         "detail": [f"{r['account']} {r['sloa']}: {r['notices']} notice{'s' if r['notices'] != 1 else ''} sent"
+                    for r in reconfirmed], "rule_ids": ["MM-011"]},
     ]
     run = SettlementRun(business_date=today, run_by=actor.display_name if actor else "system",
                         result={"steps": steps, "flows": flows, "net": net, "checks": proof["checks"],

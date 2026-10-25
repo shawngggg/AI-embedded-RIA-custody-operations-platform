@@ -138,9 +138,9 @@ case,account,type,security_id,description,route,quantity_in_kind,quantity_to_liq
 92,ACC-3004,acats_out,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,547.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
 92,ACC-3004,acats_out,990301AA1,Evergreen Core Bond Fund Institutional (synthetic),acats_in_kind,5817.0,0.128,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind; the 0.128 fractional share is sold and paid as cash in lieu,XFR-007
 92,ACC-3004,acats_out,990401AB7,US Treasury note 4.25% 2030 (synthetic),acats_in_kind,46000.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-106,ACC-3002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,120.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-106,ACC-3002,acats_in,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-107,ACC-3003,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-107,ACC-3003,acats_in,990204AA7,Summit Short Treasury ETF (synthetic),acats_in_kind,300.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-108,ACC-3013,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,60.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-108,ACC-3013,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,150.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+108,ACC-3002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,120.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+108,ACC-3002,acats_in,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+109,ACC-3003,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+109,ACC-3003,acats_in,990204AA7,Summit Short Treasury ETF (synthetic),acats_in_kind,300.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+110,ACC-3013,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,60.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+110,ACC-3013,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,150.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006

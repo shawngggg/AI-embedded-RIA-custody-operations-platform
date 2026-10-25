@@ -14,7 +14,7 @@ trading and billing previews show.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -72,7 +72,7 @@ def seed_bank_links(db: Session) -> dict[str, str]:
         bank, last4 = r.choice(sb.BANKS), str(r.randint(1000, 9999))
         link = BankLink(id=f"BL-{a.id[-4:]}", account_id=a.id, bank=bank, last4=last4, owner=a.display_name,
                         method="micro_deposits", status="verified", added_by="Conversion (release 2)",
-                        verified_at=utcnow())
+                        verified_at=utcnow() - timedelta(days=90))      # long verified: MM-012 reads the date
         db.add(link)
         out[a.id] = link.id
     db.flush()
@@ -97,6 +97,39 @@ def _approve(db: Session, case: Case, decision_type: str, value: str, ref: str, 
 
 def _when(d: date) -> datetime:
     return datetime.combine(d, time(15, 0), tzinfo=timezone.utc)
+
+
+def bank_on_file(account: Account, institution: str, last4: str) -> None:
+    """The client's own bank account, on file since opening: a wire there isn't a first payment to a new destination
+    (MM-012)."""
+    app = dict(account.application or {})
+    app["bank_instructions"] = list(app.get("bank_instructions") or []) + [
+        {"name": institution, "account_last4": last4, "status": "verified", "source": "Account opening"}]
+    account.application = app
+
+
+def seed_sloa(db: Session, account: Account, details: dict, ops: User, supervisor: User) -> Case:
+    """A standing letter of authorization the client signed and mailed in: client service keys it, checks the signed
+    form (the signature review), and the change applies (custody MM-011)."""
+    import uuid
+    from .documents import mark, sample_document, store
+    from .runner import run_case
+    from .seed import create_change_case
+    change = {"request_id": f"CHG-{uuid.uuid4().hex[:6].upper()}", "account_id": account.id,
+              "account_group": account.group, "account_firm": ledger.firm_of(db)[account.id],
+              "change_type": "standing_loa", "submitted_by_role": "ops_analyst", "details": details,
+              "client_signature": True, "recent_changes": account.change_history or [], "path": account.path or "B"}
+    case = create_change_case(db, change, account, ops)
+    filename, data = sample_document(db, case, "sloa", settings.today())
+    doc = store(db, case, None, "sloa", filename, data, "mail", synthetic=True, actor_name=ops.display_name)
+    mark(db, doc, "in_good_order", ops.display_name, ops, "Signature compared with the account application")
+    run_case(db, case, ops)
+    db.flush()
+    if case.status == "PENDING_CONFIRMATION":
+        _approve(db, case, "confirmation", "confirmed", "SLOA-SEED-01", ops, supervisor,
+                 "Signature matches the account application; client confirmed the payee on a callback to the number "
+                 "on file")
+    return case
 
 
 def transfer(db: Session, kind: str, account: Account, request: dict, actor: User | None, *, submitted: date | None = None,
@@ -221,6 +254,7 @@ def seed_release2(db: Session, users: dict) -> None:
                  submitted=days(1))
     if acct("ACC-3005"):                    # proceeds of a business sale arrive; $250,000 goes out: callback first
         a = acct("ACC-3005")
+        bank_on_file(a, "Great Salt Lake Trust Company", "6620")
         r = settlement.receive(db, channel="Fedwire", amount=300_000.00, sender="Bear River Savings Bank",
                                memo="FBO ACC-3005 Gregory Holm: proceeds of business sale", on=days(3),
                                actor=users.get("ops.settlement") or sup)
@@ -232,6 +266,7 @@ def seed_release2(db: Session, users: dict) -> None:
                                                       "account_last4": "6620"}}, ria(a))
     if acct("ACC-3006"):                                    # within an analyst's dollar authority
         a = acct("ACC-3006")
+        bank_on_file(a, "Wasatch Community Bank", "4471")
         transfer(db, "wire_out", a, {"amount": 18_000.0, "requester": {"role": "ria"},
                                      "counterparty": {"owner_name": a.display_name,
                                                       "institution": "Wasatch Community Bank", "account_last4": "4471"}},
@@ -245,12 +280,12 @@ def seed_release2(db: Session, users: dict) -> None:
     if acct("ACC-2004"):                                    # the flagged list stops it for the sanctions team
         a = acct("ACC-2004")
         cash, _ = ledger.settled(db, a.id)
-        if cash >= 40_000:
-            transfer(db, "wire_out", a, {"amount": 40_000.0, "requester": {"role": "ria"},
+        if cash >= 40_000:                                  # a client-signed request by mail, to a foreign company
+            transfer(db, "wire_out", a, {"amount": 40_000.0, "requester": {"role": "signed_form"}, "client_signed": True,
                                          "counterparty": {"owner_name": "Corvane Maritime Holdings Ltd",
                                                           "owner_kind": "entity", "institution": "Banco Austral del Mar",
                                                           "bic": "BAMRPAPAXXX", "country": "Panama",
-                                                          "account_last4": "0917"}}, ria(a))
+                                                          "account_last4": "0917"}}, ops)
     if acct("ACC-3024"):                                    # CIPV stops outgoing money
         a = acct("ACC-3024")
         transfer(db, "ach_withdrawal", a, {"amount": 1_000.0, "bank_link_id": links.get(a.id),
@@ -268,12 +303,24 @@ def seed_release2(db: Session, users: dict) -> None:
                  "Within dollar authority; destination is the client's verified link")
     a = pick(min_cash=30_000)                               # a completed wire, released last week
     if a:
+        bank_on_file(a, "Lakeview Federal Credit Union", "1188")
         c = transfer(db, "wire_out", a, {"amount": 25_000.0, "requester": {"role": "ria"},
                                          "counterparty": {"owner_name": a.display_name,
                                                           "institution": "Lakeview Federal Credit Union",
                                                           "account_last4": "1188"}}, ria(a), submitted=days(5))
         _approve(db, c, "release", "released", "REL-SEED-02", ops, users["ops.money"],
                  "Within dollar authority; first-party destination")
+    a = acct("ACC-3009")                                    # a trust pays tuition under its SLOA: the RIA picks the payee
+    if a:
+        details = {"payee": "Alpine Ridge School (synthetic)", "payee_kind": "entity",
+                   "payee_address": "2200 Ridge Rd, Sandy, UT 84092", "institution": "Sawtooth National Bank",
+                   "account_last4": "5521", "schedule": "Each semester"}
+        sloa = seed_sloa(db, a, details, users.get("ops.service") or ops, sup)
+        if sloa.status == "APPLIED":
+            transfer(db, "wire_out", a, {"amount": 12_500.0, "requester": {"role": "ria"}, "sloa_id": f"SLOA-{sloa.id}",
+                                         "counterparty": {"owner_name": details["payee"], "owner_kind": "entity",
+                                                          "institution": details["institution"],
+                                                          "account_last4": details["account_last4"]}}, ria(a))
     a = pick(incoming=True)                                              # an ACH deposit the bank returned (R01)
     if a:
         transfer(db, "ach_deposit", a, {"amount": 7_500.0, "bank_link_id": links.get(a.id),

@@ -36,6 +36,7 @@ from restrictions import RestrictionRegistry
 from rules import Disposition, evaluate_all
 
 BASELINE = "2026-01-01"
+REVIEW = "2026-10-25"        # rules added after the industry-practice review
 FRAUD_LOOKBACK_DAYS = 30     # platform policy
 
 
@@ -82,6 +83,8 @@ class ChangeRequest:
     new_bank: dict | None = None            # {"name", "aba", "account_last4", "bic"?}
     recent_changes: list[tuple] = field(default_factory=list)   # (ChangeType, date) already applied
     path: str = "B"                         # the account's due diligence path
+    firm_name: str | None = None            # the account's RIA, to check an SLOA payee isn't the adviser
+    firm_address: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +108,34 @@ def _bank_incomplete(r: ChangeRequest, as_of: date) -> bool:
     return not (bank.get("name") and bank.get("aba") and bank.get("account_last4"))
 
 
+def _norm(text: str | None) -> str:
+    return " ".join("".join(ch for ch in (text or "").lower() if ch.isalnum() or ch == " ").split())
+
+
+def is_sloa_setup(r: ChangeRequest) -> bool:
+    return r.change_type is ChangeType.STANDING_LOA and not r.details.get("end_sloa")
+
+
+def _sloa_incomplete(r: ChangeRequest, as_of: date) -> bool:
+    """SEC SLOA relief, condition 1: the client's instruction names the third party and either the third party's
+    address or its account at a custodian."""
+    d = r.details
+    return is_sloa_setup(r) and not ((d.get("payee") or "").strip() and (
+        (d.get("payee_address") or "").strip() or ((d.get("institution") or "").strip()
+                                                   and (d.get("account_last4") or "").strip())))
+
+
+def _sloa_related(r: ChangeRequest, as_of: date) -> bool:
+    """Condition 6: the payee isn't the adviser, and isn't at the adviser's address."""
+    if not is_sloa_setup(r):
+        return False
+    payee, where = _norm(r.details.get("payee")), _norm(r.details.get("payee_address"))
+    return bool(payee and payee == _norm(r.firm_name)) or bool(where and where == _norm(r.firm_address))
+
+
 COMPUTED = {
+    "sloa_incomplete": _sloa_incomplete,
+    "sloa_related": _sloa_related,
     "channel_ok": _channel_ok,
     "owner_level": lambda r, d: r.change_type in OWNER_LEVEL,
     "is_registration": lambda r, d: r.change_type is ChangeType.REGISTRATION,
@@ -140,6 +170,19 @@ CHANGE_RULES = [
      "disposition": Disposition.REFER,
      "reason": "Bank instruction incomplete",
      "required_documents": ["Bank name, ABA routing number, and account number"]},
+    {"rule_id": "CHG-005", "version": "1", "effective_date": REVIEW,
+     "source": "SEC no-action letter on standing letters of authorization (Feb. 21, 2017), condition 1",
+     "field": "sloa_incomplete", "operator": "equals", "value": True,
+     "disposition": Disposition.REFER,
+     "reason": "The SLOA must name the payee and either the payee's address or the payee's bank account",
+     "required_documents": ["Payee's name, and the payee's address or bank and account"]},
+    {"rule_id": "CHG-006", "version": "1", "effective_date": REVIEW,
+     "source": "SEC no-action letter on standing letters of authorization (Feb. 21, 2017), condition 6",
+     "field": "sloa_related", "operator": "equals", "value": True,
+     "disposition": Disposition.REFER,
+     "reason": "The payee is the adviser or at the adviser's address, so the SLOA relief doesn't cover it",
+     "required_documents": ["A payee who isn't the adviser or at its address (the client can still send a signed "
+                            "request)"]},
 ]
 
 
@@ -229,6 +272,14 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
         ids = {k: r.new_bank[k] for k in ("aba", "bic") if r.new_bank.get(k)}
         subjects.append(Subject("bank", Kind.INSTITUTION, r.new_bank.get("name", ""), "receiving_bank",
                                 identifiers=ids))
+    if is_sloa_setup(r):                        # the SLOA's payee and their bank are new parties too
+        subjects.append(Subject("sloa_payee", Kind.ENTITY if r.details.get("payee_kind") == "entity"
+                                else Kind.INDIVIDUAL, r.details.get("payee", ""), "payee",
+                                address=r.details.get("payee_address")))
+        if r.details.get("institution"):
+            ids = {"aba": r.details["aba"]} if r.details.get("aba") else {}
+            subjects.append(Subject("sloa_bank", Kind.INSTITUTION, r.details["institution"], "payee_bank",
+                                    identifiers=ids))
     if subjects:
         stop = _screen_and_escalate(res, subjects, flagged or [], registry, decisions, by, as_of)
         if stop:
@@ -246,6 +297,20 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
     if stop:
         res.status = "REJECTED" if stop == "DECLINED" else stop
         return res
+
+    if is_sloa_setup(r):
+        step = "Verify the SLOA: signature review, and a callback to the client on a number on file"
+        if confirmation is None:
+            res.add(OPS, step, "Waiting for client service", ["SEC SLOA relief, condition 3: the custodian verifies "
+                                                              "the client's instruction"])
+            res.status = "PENDING_CONFIRMATION"
+            return res
+        if confirmation == "rejected":
+            res.add(OPS, step, "Not confirmed")
+            res.add(OPS, "Rejected", "The SLOA isn't set up")
+            res.status = "REJECTED"
+            return res
+        res.add(OPS, step, "Verified")
 
     if r.change_type in OWNERSHIP:
         unverified = [p.name for p in r.new_parties if not p.identity_verified]
@@ -270,8 +335,17 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
     applied = [f"{k.replace('_', ' ')}: {v}" for k, v in r.details.items()] or [LABELS[r.change_type]]
     if r.change_type is ChangeType.BANK_INSTRUCTION:
         applied.append("New bank link stays inactive until it is verified")
+    if is_sloa_setup(r):
+        applied += ["The client's signature on the SLOA was verified when the signed form was checked",
+                    "The RIA can send payments to this payee only, with these details; it can't change them",
+                    "Reconfirmed with the client every year; the client can end it at any time"]
+    elif r.change_type is ChangeType.STANDING_LOA:
+        applied.append(f"{r.details['end_sloa']} ended: the RIA can't send further payments under it")
     res.add(LEDGER, "Apply change with audit trail", "Applied", applied)
-    if r.change_type is ChangeType.ADDRESS:
+    if is_sloa_setup(r):
+        notices = ["The client: initial notice confirming the standing instruction (SLOA relief, condition 7)",
+                   "The RIA"]
+    elif r.change_type is ChangeType.ADDRESS:
         notices = ["The client at the old address", "The client at the new address", "The RIA"]
     elif r.account_group is AccountGroup.SELF_DIRECTED:
         notices = ["The client", "The RIA (view-only)"]

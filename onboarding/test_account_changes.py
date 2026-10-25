@@ -152,3 +152,45 @@ def test_a_new_partys_failed_identity_check_returns_the_change_or_goes_to_aml_co
                           decisions=Decisions(identity_fraud="confirmed")).status == "REJECTED"
     assert process_change(r, TODAY, identity_issue=fraud,
                           decisions=Decisions(identity_fraud="not_fraud")).status == "PENDING_VERIFICATION"
+
+
+# --- Standing letters of authorization (SEC no-action letter, Feb. 21, 2017) -------------------------------------------
+
+SLOA_DETAILS = {"payee": "Harbor Title & Escrow", "payee_kind": "entity", "payee_address": "40 W 200 S, Salt Lake City",
+                "institution": "Sawtooth National Bank", "aba": "124000054", "account_last4": "3302",
+                "schedule": "From time to time"}
+AFTER_REVIEW = date(2026, 10, 26)
+
+
+def sloa(**details):
+    return req(ChangeType.STANDING_LOA, details={**SLOA_DETAILS, **details}, client_signature=True,
+               firm_name="Granite Peak Advisors LLC", firm_address="1200 Main St, Salt Lake City, UT")
+
+
+def test_an_sloa_names_the_payee_and_where_the_money_goes():
+    assert process_change(sloa(), AFTER_REVIEW, flagged=FLAGGED_LIST).status == "PENDING_CONFIRMATION"
+    assert process_change(sloa(), AFTER_REVIEW, confirmation="rejected").status == "REJECTED"
+    res = process_change(sloa(), AFTER_REVIEW, flagged=FLAGGED_LIST, confirmation="confirmed")
+    assert res.status == "APPLIED"
+    notices = next(s for s in res.steps if s.name == "Send confirmation notices").detail
+    assert "initial notice" in notices[0]
+    missing = process_change(sloa(payee_address="", institution=""), AFTER_REVIEW)
+    assert missing.status == "RETURNED" and "CHG-005" in {d.rule_id for d in missing.findings.decisions}
+    unsigned = process_change(replace(sloa(), client_signature=False), AFTER_REVIEW)
+    assert unsigned.status == "RETURNED"
+
+
+def test_an_sloa_cant_pay_the_adviser_or_its_address():
+    to_adviser = process_change(sloa(payee="Granite Peak Advisors, LLC"), AFTER_REVIEW)
+    assert to_adviser.status == "RETURNED" and "CHG-006" in {d.rule_id for d in to_adviser.findings.decisions}
+    same_address = process_change(sloa(payee_address="1200 Main St., Salt Lake City, UT"), AFTER_REVIEW)
+    assert "CHG-006" in {d.rule_id for d in same_address.findings.decisions}
+
+
+def test_an_sloa_payee_is_screened_and_the_client_can_end_it():
+    flagged = process_change(sloa(payee="Corvane Maritime Holdings Ltd", institution="Banco Austral del Mar"),
+                             AFTER_REVIEW, flagged=FLAGGED_LIST)
+    assert flagged.status == "PENDING_SANCTIONS"
+    ended = process_change(req(ChangeType.STANDING_LOA, details={"end_sloa": "SLOA-12"}, client_signature=True),
+                           AFTER_REVIEW)
+    assert ended.status == "APPLIED"

@@ -119,12 +119,77 @@ def test_a_released_wire_posts_pending_then_settles_and_balances():
     assert res.status == "COMPLETED" and [e["ref"] for e in res.entries] == ["submit-1", "settle-1"]
 
 
-def test_a_third_party_payee_goes_to_risk_review():
-    req = ria("wire_out", amount=5_000, counterparty={"owner_name": "Harbor Title & Escrow", "owner_kind": "entity",
-                                                       "institution": "Wasatch Bank"})
+HARBOR = {"owner_name": "Harbor Title & Escrow", "owner_kind": "entity", "institution": "Wasatch Bank",
+          "account_last4": "3302"}
+SLOA = {"id": "SLOA-7", "payee": "Harbor Title & Escrow", "payee_address": "40 W 200 S, Salt Lake City, UT",
+        "institution": "Wasatch Bank", "account_last4": "3302", "status": "active", "effective_on": "2026-10-01"}
+
+
+def test_a_clients_signed_request_to_a_third_party_goes_to_risk_review():
+    req = {"type": "wire_out", "account_id": "ACC-1", "amount": 5_000, "requester": {"role": "signed_form"},
+           "client_signed": True, "counterparty": HARBOR}
     assert run(req).status == "PENDING_RISK_REVIEW"
     assert run(req, decisions={"risk_review": "rejected"}).status == "REJECTED"
-    assert run(req, decisions={"risk_review": "approved"}).status == "PENDING_RELEASE"
+    assert run(req, decisions={"risk_review": "approved"}).status == "PENDING_CALLBACK"
+
+
+def test_an_ria_pays_a_third_party_only_under_the_clients_sloa():
+    req = ria("wire_out", amount=5_000, counterparty=HARBOR)
+    res = run(req)
+    assert res.status == "REJECTED" and "standing letter of authorization" in res.requested_items[0]
+    covered = run({**req, "sloa_id": "SLOA-7"}, ctx(account=acct(sloas=[SLOA])))
+    assert covered.status == "PENDING_RELEASE"                       # verified at setup: no third-party risk review
+    assert any(s.name.startswith("Standing letter") and "MM-011" in s.rule_ids for s in covered.steps)
+    changed = {**req, "sloa_id": "SLOA-7", "counterparty": {**HARBOR, "account_last4": "9999"}}
+    assert "exactly" in run(changed, ctx(account=acct(sloas=[SLOA]))).requested_items[0]
+    ended = ctx(account=acct(sloas=[{**SLOA, "status": "ended", "ended_on": "2026-10-15"}]))
+    assert "isn't active" in run({**req, "sloa_id": "SLOA-7"}, ended).requested_items[0]
+    done = run({**req, "sloa_id": "SLOA-7"}, ctx(account=acct(sloas=[SLOA])), {"release": "released"},
+               [{"type": "submitted", "n": 1, "on": "2026-10-21"},
+                {"type": "rail", "n": 1, "outcome": "confirmed", "on": "2026-10-21"}])
+    assert done.status == "COMPLETED" and any(s.name.startswith("Transfer notice to the client") for s in done.steps)
+
+
+def test_fraud_signals_read_the_basis_recorded_at_intake():
+    basis = {"on": "2026-10-21", "account_value": 200_000, "known_destination": False, "outgoing": []}
+    mine = {"owner_name": "Maria Chen", "institution": "Lakeview Federal Credit Union", "account_last4": "1188"}
+    first = ria("wire_out", amount=12_000, counterparty=mine, screen_basis=basis)
+    assert run(first).status == "PENDING_RISK_REVIEW"
+    assert any("First payment" in d for s in run(first).steps for d in s.detail)
+    assert run({**first, "screen_basis": {**basis, "known_destination": True}}).status == "PENDING_RELEASE"
+    assert run({**first, "screen_basis": None}).status == "PENDING_RELEASE"     # from before the rule
+    busy = {**basis, "known_destination": True, "outgoing": [{"on": "2026-10-19", "amount": 1_000},
+                                                             {"on": "2026-10-20", "amount": 1_000}]}
+    assert any("3 outgoing requests" in x for x in money.fraud_signals({**first, "screen_basis": busy}))
+    drain = {**basis, "known_destination": True, "account_value": 13_000}
+    assert any("of the account's" in x for x in money.fraud_signals({**first, "screen_basis": drain}))
+    new_link = ria("ach_withdrawal", amount=6_000, bank_link_id="BL-1",
+                   screen_basis={**basis, "link_verified_on": "2026-10-16"})
+    assert any("verified on 2026-10-16" in x for x in money.fraud_signals(new_link))
+    assert not money.fraud_signals({**new_link, "amount": 4_000})
+
+
+def test_a_release_after_the_cutoff_or_on_a_closed_day_goes_out_the_next_business_day():
+    from datetime import time
+    req = ria("wire_out", amount=5_000, counterparty={"owner_name": "Maria Chen", "institution": "Wasatch Bank"})
+    morning = run(req, ctx(clock=time(10, 0)), {"release": "released"})
+    assert morning.record["submitted"] == {"n": 1, "on": "2026-10-21"}
+    late = run(req, ctx(clock=time(17, 30)), {"release": "released"})
+    assert late.record["submitted"]["sends_on"] == "2026-10-22" and late.summary["Expected to settle"] == "2026-10-22"
+    assert late.entries[0]["on"] == date(2026, 10, 21)        # the pending entries post at release
+    columbus = run(req, ctx(as_of=date(2026, 10, 12), clock=time(9, 0)), {"release": "released"})
+    assert columbus.record["submitted"]["sends_on"] == "2026-10-13"      # Fedwire is closed on Columbus Day
+    acats = money.expected_dates("acats_in", date(2026, 10, 9))
+    assert acats["validate"] == date(2026, 10, 12)                        # NSCC is open on Columbus Day
+
+
+def test_the_calendars_know_their_holidays():
+    from custody.calendar import holidays, is_bday
+    assert len(holidays(2026, "fed")) == 10                # 11 holidays; July 4 falls on a Saturday
+    assert not is_bday(date(2026, 11, 11)) and is_bday(date(2026, 11, 11), "nscc")
+    assert not is_bday(date(2026, 4, 3), "nyse") and is_bday(date(2026, 4, 3))         # Good Friday
+    assert not is_bday(date(2026, 7, 3), "nyse") and is_bday(date(2026, 7, 3), "fed")
+    assert is_bday(date(2027, 12, 31), "nyse")             # New Year's on a Saturday doesn't close the Friday
 
 
 def test_a_flagged_counterparty_bank_goes_to_the_sanctions_team():

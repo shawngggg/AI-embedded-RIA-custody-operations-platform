@@ -6,6 +6,7 @@ os.environ.update({
     # TEST_DATABASE_URL runs the suite against Postgres (CI does); otherwise a throwaway SQLite file
     "DATABASE_URL": os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{_tmp}/test.db",
     "AS_OF": os.environ.get("TEST_AS_OF", ""),     # empty: today, the same clock the seed backdates from
+    "CLOCK": "10:00",                              # before the rail cutoffs, whatever the hour the suite runs
     "DEMO_MODE": "true",
     "SEED_ON_START": "true",
     "STATIC_DIR": f"{_tmp}/no-static",
