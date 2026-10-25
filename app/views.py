@@ -138,7 +138,25 @@ def case_summary(db: Session, c: Case) -> dict:
             "queue_label": QUEUES[c.queue]["label"] if c.queue else None,
             "firm": firm.legal_name if firm else None, "account_id": c.account_id, "target_id": c.target_id,
             "created_at": iso(c.created_at), "updated_at": iso(c.updated_at),
-            "queue_entered_at": iso(c.queue_entered_at), "sla": sla_state(c), "path": (c.result or {}).get("path")}
+            "queue_entered_at": iso(c.queue_entered_at), "sla": sla_state(c), "path": (c.result or {}).get("path"),
+            "assigned_to": _owner(db, c), "assigned_at": iso(c.assigned_at)}
+
+
+def _owner(db: Session, c: Case) -> dict | None:
+    u = db.get(User, c.assigned_to) if c.assigned_to else None
+    return {"id": u.id, "name": u.display_name} if u else None
+
+
+ASSIGNERS = {"ops_supervisor", "ria_service_lead"}     # team leads hand out work in the queues they run
+
+
+def ownership(c: Case, user: User) -> dict:
+    """What this person may do about who's working the case."""
+    from .queues import works_queue
+    works = bool(c.queue) and works_queue(user, c.queue)
+    return {"can_claim": works and c.assigned_to != user.id,
+            "can_release": bool(c.assigned_to) and (c.assigned_to == user.id or (works and user.role in ASSIGNERS)),
+            "can_assign": works and user.role in ASSIGNERS}
 
 
 def restriction_dict(r: Restriction) -> dict:
@@ -224,7 +242,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
     if user.role in PORTAL_ROLES:
         from . import portal_view
         return portal_view.detail(db, c, user)
-    data = case_summary(db, c)
+    data = {**case_summary(db, c), "ownership": ownership(c, user)}
     restrictions = db.scalars(select(Restriction).where(Restriction.target_id == c.target_id)
                               .order_by(Restriction.placed_at.desc())).all()
     pending = db.scalars(select(PendingDecision).where(PendingDecision.case_id == c.id)

@@ -182,7 +182,11 @@ def _scenarios() -> list[AccountScenario]:
         S("gp_calloway_nigo", "granite_peak", A(28, [h("Ruth Calloway", "trustee", occupation="Retired judge")],
           "trust", funding=1_900_000, purpose="Estate planning",
           entity={"entity_name": "Calloway Family Trust", "entity_ein": "87-5550204", "entity_type": "trust",
-                  "entity_formation_documents": False}), 76, shows="Items requested: trust instrument"),
+                  "entity_formation_documents": False}), 216,
+          shows="Items requested 9 days ago (trust instrument): the first reminder went out"),
+        S("gp_ostrander_withdrawn", "granite_peak", A(37, [h("Wyatt Ostrander", occupation="General contractor")],
+          funding=150_000, purpose="Long-term growth", lpoa=False), 768,
+          shows="Items requested 32 days ago and never sent: withdrawn by the nightly NIGO check"),
         # Failed identity checks (Path B): back to the RIA, or to AML compliance
         S("bp_fairfax_resubmit", "bonneville", A(29, [h("Lionel Fairfax", verified=False, occupation="Sales manager")],
           funding=300_000, purpose="Long-term growth"), 40,

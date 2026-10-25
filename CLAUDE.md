@@ -68,6 +68,9 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
 ## Access model (what each person sees)
 
 - Menus and API by role and team (`capabilities()`); a refused request is logged (`audit.refuse`).
+- A case is claimed by someone who works its queue, or assigned and released by a team lead (`views.ownership`); it
+  goes back unassigned when its queue changes. NIGO aging (`app/nigo.py`) reminds at 7 and 14 days and withdraws at
+  30 (`WITHDRAWN`, closed; `run_case` leaves a withdrawn case alone).
 - Operations teams: onboarding (intake), CIP, client service (account maintenance), asset transfer (Money movement:
   requests by mail or from a receiving firm, callbacks, fixes, release under maker-checker; ops.transfers makes,
   ops.money checks, the supervisor checks above $50,000), settlement (ops.settlement: the cycle, receipts, recon; trade

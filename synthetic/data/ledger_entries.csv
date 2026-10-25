@@ -17,90 +17,90 @@ entry,ref,kind,description,case,account,effective,posted_by
 16,OPEN-ACC-3018,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3018,2026-09-03,system
 17,OPEN-ACC-3019,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3019,2026-09-16,system
 18,OPEN-ACC-3020,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3020,2026-09-20,system
-19,C64:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),64,ACC-1990,2026-10-15,Marcus Lee
-20,C65:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),65,ACC-1990,2026-10-15,Marcus Lee
-21,C66:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),66,ACC-2001,2026-10-13,Marcus Lee
-22,C67:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),67,ACC-2001,2026-10-13,Marcus Lee
-23,C68:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),68,ACC-2002,2026-10-15,Sam Okafor
-24,C69:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),69,ACC-2002,2026-10-15,Sam Okafor
-25,C70:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),70,ACC-2003,2026-10-16,system
-26,C71:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),71,ACC-2003,2026-10-16,system
-27,C72:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),72,ACC-2004,2026-10-19,Sam Okafor
-28,C73:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),73,ACC-2004,2026-10-19,Sam Okafor
-29,C74:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),74,ACC-2010,2026-10-23,Marcus Lee
-30,C75:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),75,ACC-2010,2026-10-23,Marcus Lee
-31,C76:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),76,ACC-3010,2026-10-05,Marcus Lee
-32,C77:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),77,ACC-3010,2026-10-05,Marcus Lee
-33,C78:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),78,ACC-3016,2026-10-13,system
-34,C79:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),79,ACC-3016,2026-10-13,system
-35,C80:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),80,ACC-3021,2026-10-09,Sam Okafor
-36,C81:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),81,ACC-3021,2026-10-09,Sam Okafor
-37,C82:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),82,ACC-3022,2026-10-19,Marcus Lee
-38,C83:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),83,ACC-3022,2026-10-19,Marcus Lee
-39,C84:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),84,ACC-3023,2026-10-19,system
-40,C85:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),85,ACC-3023,2026-10-19,system
-41,C86:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),86,ACC-3024,2026-10-23,Sam Okafor
-42,C87:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),87,ACC-3024,2026-10-23,Sam Okafor
-43,C88:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),88,ACC-3025,2026-10-23,Sam Okafor
-44,C89:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),89,ACC-3025,2026-10-23,Sam Okafor
-45,C90:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),90,ACC-3009,2026-08-18,Marcus Lee
-46,C91:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),91,ACC-3017,2026-09-08,system
-47,C64:settle-1,ach_deposit_settled,ACH deposit: settled,64,ACC-1990,2026-10-16,Omar Haddad
-48,C64:release-1,ach_hold_release,Returnable ACH funds released,64,ACC-1990,2026-10-20,Omar Haddad
-49,C65:settle-1,acats_in_settled,ACATS transfer in: settled,65,ACC-1990,2026-10-21,Omar Haddad
-50,C66:settle-1,ach_deposit_settled,ACH deposit: settled,66,ACC-2001,2026-10-14,Omar Haddad
-51,C66:release-1,ach_hold_release,Returnable ACH funds released,66,ACC-2001,2026-10-16,Omar Haddad
-52,C67:settle-1,acats_in_settled,ACATS transfer in: settled,67,ACC-2001,2026-10-19,Omar Haddad
-53,C68:settle-1,ach_deposit_settled,ACH deposit: settled,68,ACC-2002,2026-10-16,Omar Haddad
-54,C68:release-1,ach_hold_release,Returnable ACH funds released,68,ACC-2002,2026-10-20,Omar Haddad
-55,C69:settle-1,acats_in_settled,ACATS transfer in: settled,69,ACC-2002,2026-10-21,Omar Haddad
-56,C70:settle-1,ach_deposit_settled,ACH deposit: settled,70,ACC-2003,2026-10-19,Omar Haddad
-57,C70:release-1,ach_hold_release,Returnable ACH funds released,70,ACC-2003,2026-10-21,Omar Haddad
-58,C71:settle-1,acats_in_settled,ACATS transfer in: settled,71,ACC-2003,2026-10-22,Omar Haddad
-59,C72:settle-1,ach_deposit_settled,ACH deposit: settled,72,ACC-2004,2026-10-20,Omar Haddad
-60,C72:release-1,ach_hold_release,Returnable ACH funds released,72,ACC-2004,2026-10-22,Omar Haddad
-61,C73:settle-1,acats_in_settled,ACATS transfer in: settled,73,ACC-2004,2026-10-23,Omar Haddad
-62,C76:settle-1,ach_deposit_settled,ACH deposit: settled,76,ACC-3010,2026-10-06,Omar Haddad
-63,C76:release-1,ach_hold_release,Returnable ACH funds released,76,ACC-3010,2026-10-08,Omar Haddad
-64,C77:settle-1,acats_in_settled,ACATS transfer in: settled,77,ACC-3010,2026-10-09,Omar Haddad
-65,C78:settle-1,ach_deposit_settled,ACH deposit: settled,78,ACC-3016,2026-10-14,Omar Haddad
-66,C78:release-1,ach_hold_release,Returnable ACH funds released,78,ACC-3016,2026-10-16,Omar Haddad
-67,C79:settle-1,acats_in_settled,ACATS transfer in: settled,79,ACC-3016,2026-10-19,Omar Haddad
-68,C80:settle-1,ach_deposit_settled,ACH deposit: settled,80,ACC-3021,2026-10-13,Omar Haddad
-69,C80:release-1,ach_hold_release,Returnable ACH funds released,80,ACC-3021,2026-10-15,Omar Haddad
-70,C81:settle-1,acats_in_settled,ACATS transfer in: settled,81,ACC-3021,2026-10-15,Omar Haddad
-71,C82:settle-1,ach_deposit_settled,ACH deposit: settled,82,ACC-3022,2026-10-20,Omar Haddad
-72,C82:release-1,ach_hold_release,Returnable ACH funds released,82,ACC-3022,2026-10-22,Omar Haddad
-73,C83:settle-1,acats_in_settled,ACATS transfer in: settled,83,ACC-3022,2026-10-23,Omar Haddad
-74,C84:settle-1,ach_deposit_settled,ACH deposit: settled,84,ACC-3023,2026-10-20,Omar Haddad
-75,C84:release-1,ach_hold_release,Returnable ACH funds released,84,ACC-3023,2026-10-22,Omar Haddad
-76,C85:settle-1,acats_in_settled,ACATS transfer in: settled,85,ACC-3023,2026-10-23,Omar Haddad
-77,C90:settle-1,loi_in_settled,Re-registration by LOI: settled,90,ACC-3009,2026-10-15,Omar Haddad
-78,C92:submit-1,acats_out_pending,ACATS transfer out: pending (submission 1),92,ACC-3004,2026-10-22,Marisol Vega
+19,C65:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),65,ACC-1990,2026-10-15,Marcus Lee
+20,C66:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),66,ACC-1990,2026-10-15,Marcus Lee
+21,C67:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),67,ACC-2001,2026-10-13,Marcus Lee
+22,C68:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),68,ACC-2001,2026-10-13,Marcus Lee
+23,C69:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),69,ACC-2002,2026-10-15,Sam Okafor
+24,C70:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),70,ACC-2002,2026-10-15,Sam Okafor
+25,C71:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),71,ACC-2003,2026-10-16,system
+26,C72:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),72,ACC-2003,2026-10-16,system
+27,C73:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),73,ACC-2004,2026-10-19,Sam Okafor
+28,C74:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),74,ACC-2004,2026-10-19,Sam Okafor
+29,C75:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),75,ACC-2010,2026-10-23,Marcus Lee
+30,C76:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),76,ACC-2010,2026-10-23,Marcus Lee
+31,C77:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),77,ACC-3010,2026-10-05,Marcus Lee
+32,C78:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),78,ACC-3010,2026-10-05,Marcus Lee
+33,C79:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),79,ACC-3016,2026-10-13,system
+34,C80:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),80,ACC-3016,2026-10-13,system
+35,C81:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),81,ACC-3021,2026-10-09,Sam Okafor
+36,C82:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),82,ACC-3021,2026-10-09,Sam Okafor
+37,C83:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),83,ACC-3022,2026-10-19,Marcus Lee
+38,C84:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),84,ACC-3022,2026-10-19,Marcus Lee
+39,C85:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),85,ACC-3023,2026-10-19,system
+40,C86:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),86,ACC-3023,2026-10-19,system
+41,C87:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),87,ACC-3024,2026-10-23,Sam Okafor
+42,C88:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),88,ACC-3024,2026-10-23,Sam Okafor
+43,C89:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),89,ACC-3025,2026-10-23,Sam Okafor
+44,C90:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),90,ACC-3025,2026-10-23,Sam Okafor
+45,C91:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),91,ACC-3009,2026-08-18,Marcus Lee
+46,C92:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),92,ACC-3017,2026-09-08,system
+47,C65:settle-1,ach_deposit_settled,ACH deposit: settled,65,ACC-1990,2026-10-16,Omar Haddad
+48,C65:release-1,ach_hold_release,Returnable ACH funds released,65,ACC-1990,2026-10-20,Omar Haddad
+49,C66:settle-1,acats_in_settled,ACATS transfer in: settled,66,ACC-1990,2026-10-21,Omar Haddad
+50,C67:settle-1,ach_deposit_settled,ACH deposit: settled,67,ACC-2001,2026-10-14,Omar Haddad
+51,C67:release-1,ach_hold_release,Returnable ACH funds released,67,ACC-2001,2026-10-16,Omar Haddad
+52,C68:settle-1,acats_in_settled,ACATS transfer in: settled,68,ACC-2001,2026-10-19,Omar Haddad
+53,C69:settle-1,ach_deposit_settled,ACH deposit: settled,69,ACC-2002,2026-10-16,Omar Haddad
+54,C69:release-1,ach_hold_release,Returnable ACH funds released,69,ACC-2002,2026-10-20,Omar Haddad
+55,C70:settle-1,acats_in_settled,ACATS transfer in: settled,70,ACC-2002,2026-10-21,Omar Haddad
+56,C71:settle-1,ach_deposit_settled,ACH deposit: settled,71,ACC-2003,2026-10-19,Omar Haddad
+57,C71:release-1,ach_hold_release,Returnable ACH funds released,71,ACC-2003,2026-10-21,Omar Haddad
+58,C72:settle-1,acats_in_settled,ACATS transfer in: settled,72,ACC-2003,2026-10-22,Omar Haddad
+59,C73:settle-1,ach_deposit_settled,ACH deposit: settled,73,ACC-2004,2026-10-20,Omar Haddad
+60,C73:release-1,ach_hold_release,Returnable ACH funds released,73,ACC-2004,2026-10-22,Omar Haddad
+61,C74:settle-1,acats_in_settled,ACATS transfer in: settled,74,ACC-2004,2026-10-23,Omar Haddad
+62,C77:settle-1,ach_deposit_settled,ACH deposit: settled,77,ACC-3010,2026-10-06,Omar Haddad
+63,C77:release-1,ach_hold_release,Returnable ACH funds released,77,ACC-3010,2026-10-08,Omar Haddad
+64,C78:settle-1,acats_in_settled,ACATS transfer in: settled,78,ACC-3010,2026-10-09,Omar Haddad
+65,C79:settle-1,ach_deposit_settled,ACH deposit: settled,79,ACC-3016,2026-10-14,Omar Haddad
+66,C79:release-1,ach_hold_release,Returnable ACH funds released,79,ACC-3016,2026-10-16,Omar Haddad
+67,C80:settle-1,acats_in_settled,ACATS transfer in: settled,80,ACC-3016,2026-10-19,Omar Haddad
+68,C81:settle-1,ach_deposit_settled,ACH deposit: settled,81,ACC-3021,2026-10-13,Omar Haddad
+69,C81:release-1,ach_hold_release,Returnable ACH funds released,81,ACC-3021,2026-10-15,Omar Haddad
+70,C82:settle-1,acats_in_settled,ACATS transfer in: settled,82,ACC-3021,2026-10-15,Omar Haddad
+71,C83:settle-1,ach_deposit_settled,ACH deposit: settled,83,ACC-3022,2026-10-20,Omar Haddad
+72,C83:release-1,ach_hold_release,Returnable ACH funds released,83,ACC-3022,2026-10-22,Omar Haddad
+73,C84:settle-1,acats_in_settled,ACATS transfer in: settled,84,ACC-3022,2026-10-23,Omar Haddad
+74,C85:settle-1,ach_deposit_settled,ACH deposit: settled,85,ACC-3023,2026-10-20,Omar Haddad
+75,C85:release-1,ach_hold_release,Returnable ACH funds released,85,ACC-3023,2026-10-22,Omar Haddad
+76,C86:settle-1,acats_in_settled,ACATS transfer in: settled,86,ACC-3023,2026-10-23,Omar Haddad
+77,C91:settle-1,loi_in_settled,Re-registration by LOI: settled,91,ACC-3009,2026-10-15,Omar Haddad
+78,C93:submit-1,acats_out_pending,ACATS transfer out: pending (submission 1),93,ACC-3004,2026-10-22,Marisol Vega
 79,RCPT-1,receipt,Fedwire received from Bear River Savings Bank: held in suspense until applied,,,2026-10-20,Omar Haddad
 80,RCPT-1-APPLY,receipt_applied,Fedwire from Bear River Savings Bank applied to ACC-3005,,ACC-3005,2026-10-25,Omar Haddad
-81,C98:submit-1,journal_pending,Journal between accounts: pending (submission 1),98,ACC-3001,2026-10-25,Marcus Lee
-82,C99:submit-1,ach_withdrawal_pending,ACH withdrawal: pending (submission 1),99,ACC-3007,2026-10-20,Hana Sato
-83,C100:submit-1,wire_out_pending,Wire out: pending (submission 1),100,ACC-3011,2026-10-16,Hana Sato
-84,C103:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),103,ACC-1990,2026-10-19,Marcus Lee
-85,C104:submit-1,ach_withdrawal_pending,ACH withdrawal: pending (submission 1),104,ACC-3014,2026-10-19,Hana Sato
-86,C105:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),105,ACC-2001,2026-10-21,Marcus Lee
-87,C106:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),106,ACC-2002,2026-10-22,Sam Okafor
-88,C107:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),107,ACC-2003,2026-10-25,Farid Hosseini
-89,C109:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),109,ACC-3003,2026-10-21,Marcus Lee
-90,C110:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),110,ACC-3013,2026-10-14,system
+81,C99:submit-1,journal_pending,Journal between accounts: pending (submission 1),99,ACC-3001,2026-10-25,Marcus Lee
+82,C100:submit-1,ach_withdrawal_pending,ACH withdrawal: pending (submission 1),100,ACC-3007,2026-10-20,Hana Sato
+83,C101:submit-1,wire_out_pending,Wire out: pending (submission 1),101,ACC-3011,2026-10-16,Hana Sato
+84,C104:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),104,ACC-1990,2026-10-19,Marcus Lee
+85,C105:submit-1,ach_withdrawal_pending,ACH withdrawal: pending (submission 1),105,ACC-3014,2026-10-19,Hana Sato
+86,C106:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),106,ACC-2001,2026-10-21,Marcus Lee
+87,C107:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),107,ACC-2002,2026-10-22,Sam Okafor
+88,C108:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),108,ACC-2003,2026-10-25,Farid Hosseini
+89,C110:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),110,ACC-3003,2026-10-21,Marcus Lee
+90,C111:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),111,ACC-3013,2026-10-14,system
 91,RCPT-2,receipt,Fedwire received from Wasatch Community Bank: held in suspense until applied,,,2026-10-25,Omar Haddad
 92,RCPT-3,receipt,Fedwire received from Harbor Title & Escrow (synthetic): held in suspense until applied,,,2026-10-22,Omar Haddad
 93,RCPT-4,receipt,ACH received from Alder Creek Services LLC (synthetic): held in suspense until applied,,,2026-10-06,Omar Haddad
-94,C99:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,99,ACC-3007,2026-10-21,Omar Haddad
-95,C100:settle-1,wire_out_settled,Wire out: settled,100,ACC-3011,2026-10-16,Omar Haddad
-96,C103:settle-1,ach_deposit_settled,ACH deposit: settled,103,ACC-1990,2026-10-20,Omar Haddad
-97,C103:return-1,ach_deposit_return,ACH deposit: returned after settlement,103,ACC-1990,2026-10-21,Omar Haddad
-98,C104:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,104,ACC-3014,2026-10-20,Omar Haddad
-99,C104:return-1,ach_withdrawal_return,ACH withdrawal: returned after settlement,104,ACC-3014,2026-10-21,Omar Haddad
-100,C105:settle-1,ach_deposit_settled,ACH deposit: settled,105,ACC-2001,2026-10-22,Omar Haddad
-101,C106:settle-1,ach_deposit_settled,ACH deposit: settled,106,ACC-2002,2026-10-23,Omar Haddad
-102,C109:reject-1,acats_in_reversal,"ACATS transfer in: rejected, reversed",109,ACC-3003,2026-10-22,Omar Haddad
+94,C100:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,100,ACC-3007,2026-10-21,Omar Haddad
+95,C101:settle-1,wire_out_settled,Wire out: settled,101,ACC-3011,2026-10-16,Omar Haddad
+96,C104:settle-1,ach_deposit_settled,ACH deposit: settled,104,ACC-1990,2026-10-20,Omar Haddad
+97,C104:return-1,ach_deposit_return,ACH deposit: returned after settlement,104,ACC-1990,2026-10-21,Omar Haddad
+98,C105:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,105,ACC-3014,2026-10-20,Omar Haddad
+99,C105:return-1,ach_withdrawal_return,ACH withdrawal: returned after settlement,105,ACC-3014,2026-10-21,Omar Haddad
+100,C106:settle-1,ach_deposit_settled,ACH deposit: settled,106,ACC-2001,2026-10-22,Omar Haddad
+101,C107:settle-1,ach_deposit_settled,ACH deposit: settled,107,ACC-2002,2026-10-23,Omar Haddad
+102,C110:reject-1,acats_in_reversal,"ACATS transfer in: rejected, reversed",110,ACC-3003,2026-10-22,Omar Haddad
 103,RCPT-2-APPLY,receipt_applied,Fedwire from Wasatch Community Bank applied to ACC-3018,,ACC-3018,2026-10-25,Omar Haddad
 104,RECON-1,recon_fix,Reconciliation fix: RDGIX reinvested its dividend at the transfer agent; holders not yet booked,,,2026-10-25,Omar Haddad
 105,RECON-2,recon_fix,Reconciliation fix: Settlement bank's monthly wire fee debited,,,2026-10-25,Omar Haddad

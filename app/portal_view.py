@@ -18,7 +18,7 @@ from .orm import PORTAL_ROLES, Account, Case, CaseTransition, Firm, Restriction,
 STATUS = {
     "PENDING_ITEMS": "PENDING_ITEMS", "RETURNED": "RETURNED", "OPEN": "OPEN", "OPEN_RESTRICTED": "OPEN_RESTRICTED",
     "APPLIED": "APPLIED", "REDIRECTED": "REDIRECTED", "DECLINED": "DECLINED", "BLOCKED": "DECLINED",
-    "REJECTED": "DECLINED", "ACTIVE": "ACTIVE", "PENDING_CONFIRMATION": "CONFIRMING",
+    "REJECTED": "DECLINED", "ACTIVE": "ACTIVE", "PENDING_CONFIRMATION": "CONFIRMING", "WITHDRAWN": "WITHDRAWN",
 }
 NOTES = {
     "PENDING_ITEMS": "We need the items below before we can continue.",
@@ -32,6 +32,8 @@ NOTES = {
     "CONFIRMING": "We'll contact you and the client to confirm this change before it's applied.",
     "IN_REVIEW": "We're reviewing this request. We'll let you know if we need anything.",
     "ACTIVE": "Active.",
+    "WITHDRAWN": "We closed this request because the items we asked for didn't arrive within 30 days. Submit a new "
+                 "one when you have them.",
     # Release 2
     "COMPLETED": "Done.",
     "BANK_RETURNED": "The bank returned it, so the money is back where it started. The reason is below.",
@@ -71,6 +73,7 @@ PORTAL_SUMMARY = {
     "advisor_move": ("Account", "From", "To", "Advisor", "Effective"),
 }
 ACCOUNT_STATUS = {"OPEN": "OPEN", "PENDING": "PENDING", "RETURNED": "RETURNED", "DECLINED": "DECLINED",
+                  "WITHDRAWN": "WITHDRAWN",
                   "BLOCKED": "DECLINED", "CLOSED": "CLOSED"}
 # Restriction codes in the portal's words; the rest read as a review by the custodian, whatever the code
 CODE_REASON = {

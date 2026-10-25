@@ -127,6 +127,7 @@ function InternalCase() {
       <div className="row" style={{ alignItems: "center", margin: "12px 0" }}>
         <Status status={d.status} stamp />
         {d.sla.due && <span className={d.sla.breached ? "error" : "muted"}>{d.queue_label}: {slaText(d.sla.hours_left)}</span>}
+        {d.queue && <Owner d={d} onDone={done} onFail={fail} />}
       </div>
       {active.length > 0 && (
         <p>{active.map((x) => <span key={x.id} className="code" title={x.description}>{x.code} · owner {x.owner.replace(/_/g, " ")}</span>)}</p>
@@ -821,6 +822,31 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
       ))}
       {canSubmit && <button onClick={submit}>Record items and re-run</button>}
     </div>
+  );
+}
+
+
+/** Who is working the case: claim it, release it, or (a team lead) hand it to someone in the queue. */
+function Owner({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetail, ok: string) => void; onFail: (e: Error) => void }) {
+  const { user } = useAuth();
+  const own = d.ownership;
+  const [people, setPeople] = useState<{ id: number; name: string; open_cases: number }[] | null>(null);
+  const post = (path: string, body: object, ok: string) =>
+    api<CaseDetail>(`/api/cases/${d.id}/${path}`, { body }).then((c) => onDone(c, ok)).catch(onFail);
+  const mine = d.assigned_to?.id === user.id;
+  return (
+    <span className="row small" style={{ alignItems: "center", gap: 6 }}>
+      <span className="muted">Owner:</span>
+      <strong>{d.assigned_to ? (mine ? "You" : d.assigned_to.name) : "Unassigned"}</strong>
+      {own?.can_claim && !d.assigned_to && <button className="small secondary" onClick={() => post("claim", {}, "It's yours.")}>Claim</button>}
+      {own?.can_release && <button className="small secondary" onClick={() => post("assign", { user_id: null }, "Back in the queue, unassigned.")}>Release</button>}
+      {own?.can_assign && (people === null
+        ? <button className="small secondary" onClick={() => api<{ id: number; name: string; open_cases: number }[]>(`/api/cases/${d.id}/assignees`).then(setPeople).catch(onFail)}>Assign…</button>
+        : <select aria-label="Assign to" defaultValue="" onChange={(e) => e.target.value && post("assign", { user_id: Number(e.target.value) }, "Assigned.")}>
+            <option value="">Assign to…</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.open_cases} open)</option>)}
+          </select>)}
+    </span>
   );
 }
 

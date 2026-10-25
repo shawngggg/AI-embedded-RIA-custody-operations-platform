@@ -25,7 +25,7 @@ KINDS = {"insufficient_information": "Insufficient information: the RIA resubmit
          "wrong_document": "Wrong type of document: the RIA resubmits",
          "suspected_fraud": "Suspected fraudulent identity: AML compliance decides"}
 MIN_NOTE = 10
-CLOSED_FOR_CHECKS = {"DECLINED", "BLOCKED", "REJECTED", "RETURNED", "APPLIED", "REDIRECTED", "PENDING_AI_REVIEW",
+CLOSED_FOR_CHECKS = {"DECLINED", "BLOCKED", "REJECTED", "RETURNED", "APPLIED", "REDIRECTED", "WITHDRAWN", "PENDING_AI_REVIEW",
                      "PENDING_FRAUD_REVIEW", "PENDING_SANCTIONS"}
 
 

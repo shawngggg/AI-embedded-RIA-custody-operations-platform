@@ -21,7 +21,7 @@ from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
-from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, related_documents, case_detail, case_summary, decision_dict, get_case_for,
+from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, ownership, related_documents, case_detail, case_summary, decision_dict, get_case_for,
                      review_dict, sla_state)
 
 router = APIRouter(prefix="/api", tags=["cases"])
@@ -55,8 +55,11 @@ def queues(user: User = Depends(require_capability("cases")), db: Session = Depe
 
 @router.get("/cases")
 def list_cases(queue: str | None = None, status: str | None = None, kind: str | None = None,
-               open_only: bool = False, user: User = Depends(current_user), db: Session = Depends(get_db)):
+               open_only: bool = False, mine: bool = False, user: User = Depends(current_user),
+               db: Session = Depends(get_db)):
     q = select(Case).order_by(Case.updated_at.desc())
+    if mine:
+        q = q.where(Case.assigned_to == user.id)
     if queue:
         q = q.where(Case.queue == queue)
     if status:
@@ -83,6 +86,83 @@ def list_cases(queue: str | None = None, status: str | None = None, kind: str | 
 @router.get("/cases/{case_id}")
 def get_case(case_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return case_detail(db, get_case_for(db, user, case_id), user)
+
+
+@router.post("/nigo/run")
+def run_nigo(user: User = Depends(require_roles("ops_supervisor")), db: Session = Depends(get_db)):
+    """NIGO aging by hand (it also runs in the nightly batch): reminders due, and withdrawals at 30 days."""
+    from .. import nigo
+    out = nigo.run(db, user)
+    db.commit()
+    return out
+
+
+# --- Who is working a case: claim, release, assign ---------------------------------------------------------------
+
+class Assign(BaseModel):
+    user_id: int | None = None          # None releases the case back to the queue
+
+
+def assignees(db: Session, case: Case) -> list[User]:
+    """The people a case can go to: active, and working its queue."""
+    if not case.queue:
+        return []
+    return [u for u in db.scalars(select(User).where(User.active.is_(True)).order_by(User.display_name)).all()
+            if works_queue(u, case.queue)]
+
+
+def _set_owner(db: Session, case: Case, actor: User, owner: User | None, action: str) -> None:
+    previous = db.get(User, case.assigned_to) if case.assigned_to else None
+    case.assigned_to, case.assigned_at = (owner.id, utcnow()) if owner else (None, None)
+    audit.record(db, actor, action, "case", case.id, case_id=case.id, queue=case.queue,
+                 to=owner.display_name if owner else None, previous=previous.display_name if previous else None)
+
+
+@router.post("/cases/{case_id}/claim")
+def claim(case_id: int, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    if not ownership(case, user)["can_claim"]:
+        if case.assigned_to == user.id:
+            raise HTTPException(409, "It's already yours")
+        audit.refuse(db, user, "case_claimed", "Only someone who works this case's queue can claim it",
+                     case_id=case.id)
+    if case.assigned_to:
+        holder = db.get(User, case.assigned_to)
+        raise HTTPException(409, f"{holder.display_name} is working it; a team lead can reassign it")
+    _set_owner(db, case, user, user, "case_claimed")
+    db.commit()
+    return case_detail(db, case, user)
+
+
+@router.get("/cases/{case_id}/assignees")
+def list_assignees(case_id: int, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    if not ownership(case, user)["can_assign"]:
+        audit.refuse(db, user, "case_assigned", "Team leads assign work in the queues they run", case_id=case.id)
+    return [{"id": u.id, "name": u.display_name, "role": u.role, "team": u.team,
+             "open_cases": len(db.scalars(select(Case.id).where(Case.assigned_to == u.id,
+                                                                Case.closed_at.is_(None))).all())}
+            for u in assignees(db, case)]
+
+
+@router.post("/cases/{case_id}/assign")
+def assign(case_id: int, body: Assign, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    can = ownership(case, user)
+    if body.user_id is None:
+        if not can["can_release"]:
+            audit.refuse(db, user, "case_released", "Only the person working it or a team lead can release it",
+                         case_id=case.id)
+        _set_owner(db, case, user, None, "case_released")
+    else:
+        if not can["can_assign"]:
+            audit.refuse(db, user, "case_assigned", "Team leads assign work in the queues they run", case_id=case.id)
+        owner = db.get(User, body.user_id)
+        if owner is None or owner not in assignees(db, case):
+            raise HTTPException(422, "Assign it to someone who works this queue")
+        _set_owner(db, case, user, owner, "case_assigned")
+    db.commit()
+    return case_detail(db, case, user)
 
 
 class Corrections(BaseModel):

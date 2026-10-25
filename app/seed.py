@@ -470,6 +470,8 @@ def _seed(db: Session) -> None:
     db.flush()
     from .seed_r2 import seed_release2
     seed_release2(db, users)                  # the ledger, transfers, receipts, and breaks (release 2)
+    from . import nigo
+    nigo.run(db, None)              # the nightly NIGO check, caught up: reminders sent, the 30-day-old one withdrawn
     from .risk_register import sweep_sla_breaches
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
     seed_access_events(db, users)

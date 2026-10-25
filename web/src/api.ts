@@ -59,6 +59,7 @@ export type CaseSummary = {
   firm: string | null; account_id: string | null; target_id: string; created_at: string; updated_at: string;
   queue_entered_at: string | null; path: string | null;
   sla: { due: string | null; breached: boolean; hours_left: number | null };
+  assigned_to?: { id: number; name: string } | null; assigned_at?: string | null;
 };
 
 export type Restriction = {
@@ -83,6 +84,7 @@ export type Correction = {
 };
 
 export type CaseDetail = CaseSummary & {
+  ownership?: { can_claim: boolean; can_release: boolean; can_assign: boolean };
   related_documents?: { title: string; case_id: number; documents: Doc[] } | null;
   application: any; decisions: any; result: any; extra: any; restrictions: Restriction[];
   decision_log: Decision[]; corrections: Correction[]; manual_steps: number; nigo_count: number;

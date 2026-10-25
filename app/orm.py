@@ -178,6 +178,10 @@ class Case(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     manual_steps: Mapped[int] = mapped_column(Integer, default=0)
     nigo_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Who is working it: claimed by a person who works its queue, or assigned by a team lead; cleared when the case
+    # moves to another queue
+    assigned_to: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class CaseTransition(Base):

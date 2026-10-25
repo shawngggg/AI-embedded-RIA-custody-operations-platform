@@ -86,6 +86,8 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
     from .servicing import R2_KINDS, run as run_r2
     if case.kind in R2_KINDS:            # release 2 workflows (custody/): transfers, products, lifecycle, ...
         return run_r2(db, case, actor)
+    if case.status == "WITHDRAWN":       # closed by NIGO aging (app/nigo.py): a new request starts over
+        return None
     as_of = settings.today()
     decisions = decisions_of(case)
     identity_issue = issue_for_engine(case)
@@ -119,6 +121,12 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
                              confirmation=case.decisions.get("confirmation"), identity_issue=identity_issue)
     else:
         raise ValueError(f"Unknown case kind {case.kind}")
+    reminders = (case.extra or {}).get("reminders")
+    if reminders and res.status in ("PENDING_ITEMS", "RETURNED"):
+        from .nigo import SOURCE, WITHDRAW_DAYS
+        res.add(OPS, "Reminders to the requester (NIGO aging)", f"{len(reminders)} sent",
+                [f"Day {r['day']}: {r['on']}" for r in reminders]
+                + [f"Withdrawn after {WITHDRAW_DAYS} days without the items ({SOURCE.lower()})"])
     rework = (case.extra or {}).get("rework")
     if rework and res.status in ("PENDING_ACCEPTANCE", "PENDING_ITEMS"):
         if rework.get("kind") == "send_back":     # the principal sent it back before accepting (app/acceptance.py)
@@ -226,6 +234,10 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
     case.updated_at = now
     queue = queue_for(case.kind, res.status)
     if queue != case.queue:
+        if case.assigned_to:                 # a new queue is another team's work: back to that queue, unassigned
+            audit.record(db, actor, "case_released", "case", case.id, case_id=case.id, queue=case.queue,
+                         reason=f"moved to {queue or 'no queue'}")
+            case.assigned_to, case.assigned_at = None, None
         case.queue = queue
         case.queue_entered_at = now if queue else None
         case.sla_due = now + timedelta(hours=QUEUES[queue]["sla_hours"]) if queue else None

@@ -1089,7 +1089,8 @@ INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "qu
                       "available_decisions", "queue_entered_at"}
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
                    "CONFIRMING", "IN_REVIEW", "SUBMITTED",
-                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD"}   # release 2 transfers, in the portal's words
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD",   # release 2 transfers, in the portal's words
+                   "WITHDRAWN"}                                           # closed by NIGO aging
 
 
 def test_rias_and_clients_see_nothing_of_custody_operations(as_user):
@@ -1627,3 +1628,62 @@ def test_a_list_update_rescreens_everyone_and_holds_a_new_match(as_user):
     assert "ACC-3006" not in [a["target"] for a in again["alerts"]]                 # cleared: not raised again
     runs = as_user("ops.supervisor").get("/api/screening").json()["runs"]
     assert [r["trigger"] for r in runs[:2]] == ["nightly", "list_change"]
+
+
+# --- Case ownership and NIGO aging (industry-practice review, Oct. 25, 2026) -----------------------------------------
+
+def test_a_case_is_claimed_assigned_and_released_by_the_right_people(as_user):
+    cid = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    assert as_user("ops.cip").post(f"/api/cases/{cid}/claim").status_code == 403       # not CIP's queue
+    mine = as_user("ops.analyst").post(f"/api/cases/{cid}/claim").json()
+    assert mine["assigned_to"]["name"] == "Jamie Ortiz" and mine["ownership"]["can_release"]
+    assert [c["id"] for c in as_user("ops.analyst").get("/api/cases?mine=true").json()] == [cid]
+    assert as_user("ops.analyst").post(f"/api/cases/{cid}/assign", json={"user_id": 1}).status_code == 403
+    people = as_user("ops.supervisor").get(f"/api/cases/{cid}/assignees").json()
+    other = next(p for p in people if p["name"] != "Jamie Ortiz")
+    moved = as_user("ops.supervisor").post(f"/api/cases/{cid}/assign", json={"user_id": other["id"]}).json()
+    assert moved["assigned_to"]["id"] == other["id"]
+    cip = next(u for u in as_user("admin.platform").get("/api/admin/users").json() if u["username"] == "ops.cip")
+    assert as_user("ops.supervisor").post(f"/api/cases/{cid}/assign",
+                                          json={"user_id": cip["id"]}).status_code == 422   # doesn't work the queue
+    released = as_user("ops.supervisor").post(f"/api/cases/{cid}/assign", json={"user_id": None}).json()
+    assert released["assigned_to"] is None
+    events = {e["action"] for e in as_user("ops.supervisor").get(f"/api/cases/{cid}/audit").json()}
+    assert {"case_claimed", "case_assigned", "case_released"} <= events
+
+
+def test_moving_to_another_queue_hands_the_case_back(as_user):
+    cid = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    as_user("ops.analyst").post(f"/api/cases/{cid}/claim")
+    lpoa = upload_sample(as_user("bonneville.advisor"), cid, "lpoa")
+    w9 = upload_sample(as_user("ops.analyst"), cid, "w9")
+    detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"lpoa_signed": True, "tax_form": "W-9"},
+        "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}}).json()
+    assert detail["queue"] == "principal_acceptance" and detail["assigned_to"] is None
+
+
+def test_nigo_requests_get_reminders_and_close_at_30_days(as_user):
+    ops = as_user("ops.supervisor")
+    calloway = case_id(ops, "Calloway Family Trust")
+    detail = ops.get(f"/api/cases/{calloway}").json()
+    assert detail["status"] == "PENDING_ITEMS" and [r["day"] for r in detail["extra"]["reminders"]] == [7]
+    assert any(s["step"].startswith("Reminders to the requester") for s in detail["result"]["steps"])
+    old = case_id(ops, "Wyatt Ostrander")
+    gone = ops.get(f"/api/cases/{old}").json()
+    assert gone["status"] == "WITHDRAWN" and gone["queue"] is None and gone["closed_at"]
+    box = {(e["template"], e["case_id"]) for e in ops.get("/api/outbox").json()["emails"]}
+    assert ("items_reminder", calloway) in box and ("withdrawn", old) in box
+    assert ops.post("/api/nigo/run").json() == {"on": ops.post("/api/nigo/run").json()["on"], "reminded": [],
+                                                "withdrawn": []}          # nothing new due today
+    assert as_user("ops.analyst").post("/api/nigo/run").status_code == 403
+    from datetime import timedelta
+    from app import nigo
+    from app.config import settings
+    from app.db import SessionLocal
+    with SessionLocal() as db:
+        later = nigo.run(db, None, today=settings.today() + timedelta(days=22))
+        db.commit()
+    assert calloway in [w["case"] for w in later["withdrawn"]]
+    upload = as_user("ops.analyst").post(f"/api/cases/{calloway}/corrections", json={"fields": {"client_signature": True}})
+    assert upload.status_code == 409                                        # a withdrawn case takes no items

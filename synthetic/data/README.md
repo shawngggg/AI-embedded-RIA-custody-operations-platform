@@ -18,8 +18,8 @@ Three sources, and they agree with each other:
 
 | File | Rows | What it is |
 | --- | ---: | --- |
-| `cases.csv` | 110 | Every case the seed creates (onboarding, accounts, changes, transfers, money movement): status and queue |
-| `people.csv` | 66 | CIP: each person on a firm or account application, with what was screened and verified |
+| `cases.csv` | 111 | Every case the seed creates (onboarding, accounts, changes, transfers, money movement): status and queue |
+| `people.csv` | 67 | CIP: each person on a firm or account application, with what was screened and verified |
 | `restrictions.csv` | 12 | Active restriction codes and why they were placed |
 | `accounts.csv` | 31 | The open accounts: RIA, registration, restriction codes, and the ledger's cash and value |
 | `securities.csv` | 28 | The security master: synthetic CUSIP-format IDs with valid check digits, prices, where held, and whether the platform accepts each one |

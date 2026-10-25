@@ -6,7 +6,7 @@ import { Loading, slaText, Status, useLoad, when } from "../util";
 type WorkData = {
   greeting_name: string; team_label: string | null;
   queues: { key: string; label: string; count: number; breached: number }[];
-  needs_you: CaseSummary[]; needs_you_total: number; breached: number;
+  needs_you: CaseSummary[]; needs_you_total: number; breached: number; assigned_to_me?: number;
   to_approve: Decision[]; my_proposals: Decision[];
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
@@ -39,7 +39,7 @@ export default function Work() {
       <div className="grid tiles work-tiles">
         {can.queues && <Link className="tile" to="/queues">
           <div className="label">Needs you</div><div className="value">{d.needs_you_total}</div>
-          <div className={`sub ${d.breached ? "alert" : ""}`}>{d.breached ? `${d.breached} past SLA` : "Nothing past SLA"}</div>
+          <div className={`sub ${d.breached ? "alert" : ""}`}>{d.assigned_to_me ? `${d.assigned_to_me} assigned to you · ` : ""}{d.breached ? `${d.breached} past SLA` : "Nothing past SLA"}</div>
         </Link>}
         {can.approvals && <Link className="tile" to="/approvals">
           <div className="label">Waiting for your approval</div><div className="value">{d.to_approve.length}</div>
@@ -71,14 +71,16 @@ export default function Work() {
       {d.queues.length > 0 && (
         <>
           <h2>Needs you</h2>
-          <p className="muted small">From the queues you work: {d.queues.map((q) => `${q.label} (${q.count})`).join(", ")}. Oldest SLA first.</p>
+          <p className="muted small">From the queues you work: {d.queues.map((q) => `${q.label} (${q.count})`).join(", ")}. Yours first, then
+            the unassigned, oldest SLA first; a case a colleague claimed stays with them.</p>
           {d.needs_you.length ? (
             <div className="scroll"><table>
-              <thead><tr><th>Case</th><th>Queue</th><th>Status</th><th>Waiting since</th><th>SLA</th></tr></thead>
+              <thead><tr><th>Case</th><th>Queue</th><th>Status</th><th>Owner</th><th>Waiting since</th><th>SLA</th></tr></thead>
               <tbody>{d.needs_you.map((c) => (
                 <tr key={c.id} className="link" onClick={() => navigate(`/cases/${c.id}`)}>
                   <td><Link to={`/cases/${c.id}`} onClick={(e) => e.stopPropagation()}>#{c.id} {c.title}</Link></td>
                   <td className="small">{c.queue_label}</td><td><Status status={c.status} /></td>
+                  <td className="small">{c.assigned_to ? (c.assigned_to.id === user.id ? "You" : c.assigned_to.name) : <span className="muted">Unassigned</span>}</td>
                   <td className="small">{when(c.queue_entered_at)}</td>
                   <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
                 </tr>))}</tbody>

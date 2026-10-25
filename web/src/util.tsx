@@ -20,7 +20,7 @@ export const STATUS: Record<string, [string, string]> = {
   PENDING_CORRECTION: ["Correction", "escalate"], OVERDUE: ["Overdue", "block"],
   AWAITING_SETTLEMENT: ["In transit", "quiet"], AWAITING_REREGISTRATION: ["LOI out", "quiet"],
   WAITING_PRODUCT: ["Product acceptance", "refer"], COMPLETED: ["Completed", "clear"],
-  IN_TRANSIT: ["In transit", "quiet"], ON_HOLD: ["Temporary hold", "refer"], BANK_RETURNED: ["Returned by the bank", "refer"], CLOSED: ["Closed", "quiet"],
+  IN_TRANSIT: ["In transit", "quiet"], WITHDRAWN: ["Withdrawn", "quiet"], ON_HOLD: ["Temporary hold", "refer"], BANK_RETURNED: ["Returned by the bank", "refer"], CLOSED: ["Closed", "quiet"],
 };
 
 export function Status({ status, stamp }: { status: string; stamp?: boolean }) {

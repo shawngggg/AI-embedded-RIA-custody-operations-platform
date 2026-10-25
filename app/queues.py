@@ -78,7 +78,7 @@ _BY_STATUS = {
     "PENDING_REWORK": "rework",
 }
 
-CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED", "CLEARED"}
+CLOSED = {"ACTIVE", "OPEN", "APPLIED", "DECLINED", "BLOCKED", "REJECTED", "REDIRECTED", "CLEARED", "WITHDRAWN"}
 
 # Release 2 cases map their own statuses (a status with no queue is waiting on someone outside the team)
 KIND_QUEUES = {
