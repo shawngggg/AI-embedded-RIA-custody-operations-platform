@@ -270,7 +270,9 @@ def clean_applications(n_a: int = 12, n_b: int = 8) -> list[dict]:
         app_ = {"group": "pure_ria", "registration_type": "individual",
                 "holders": [{"name": f"{first[i]} Gate{i:02d}", "role": "account_holder", "date_of_birth": f"19{60 + i}-0{1 + i % 9}-1{i % 9}",
                              "address": f"{100 + i} S State St, Salt Lake City, UT 84111", "tax_id": f"900-00-{3100 + i}",
-                             "occupation": "Engineer"}],
+                             "occupation": "Engineer", "phone": f"801-555-{100 + i:04d}",
+                             "email": f"{first[i].lower()}.gate{i:02d}@example.com"}],
+                "trusted_contact_declined": True,
                 "account_purpose": "Long-term investing", "source_of_funds": "Salary", "source_of_wealth": "Salary and savings"}
         r = as_user(advisor).post("/api/portal/accounts", json={"application": app_, "documents": ACCOUNT_DOCS})
         assert r.status_code == 200, r.text
@@ -300,8 +302,11 @@ def work_release2() -> None:
     for u in ("ops.analyst", "ops.service", "granite.advisor"):
         attempt("callback outside asset transfer", u, "post", f"/api/cases/{big}/actions/callback",
                 {"data": {"confirmed": "yes", "phone": "801-555-0110"}})
+    detail = as_user("ops.transfers").get(f"/api/cases/{big}").json()
+    phone = next(f for a in detail["actions"] if a["key"] == "callback" for f in a["fields"]
+                 if f["name"] == "phone")["options"][0][0]                     # a number on file (MM-006)
     r = as_user("ops.transfers").post(f"/api/cases/{big}/actions/callback",
-                                      json={"data": {"confirmed": "yes", "phone": "801-555-0110"}})
+                                      json={"data": {"confirmed": "yes", "phone": phone}})
     assert r.status_code == 200 and r.json()["case"]["status"] == "PENDING_RELEASE", r.text
     d = as_user("ops.transfers").post(f"/api/cases/{big}/decisions", json={
         "decision_type": "release", "value": "released", "reference": "REL-GATE-02"}).json()

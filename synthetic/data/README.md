@@ -2,7 +2,7 @@
 
 Everything here is invented: firms, people, tax IDs (900-00-xxxx, a range no one is issued), accounts,
 securities, prices, banks, and amounts. It's what the demo seeds and shows, written out by
-`python -m synthetic.export` on business day 2026-10-23.
+`python -m synthetic.export` on business day 2026-10-25.
 
 Three sources, and they agree with each other:
 
@@ -11,7 +11,7 @@ Three sources, and they agree with each other:
   incoming ACATS, then every transfer and money movement case the seed runs through the workflows. Every
   posting has legs at three layers, and in each one, asset by asset: the client legs equal the RIA master
   legs, the master legs equal minus the client control accounts (GL 2100 cash, 2500 securities), and the
-  general ledger legs sum to zero. All 108 postings here pass all three. Positions, balances, and
+  general ledger legs sum to zero. All 105 postings here pass all three. Positions, balances, and
   `ledger.csv` are what those postings add up to.
 - **Trading and billing** are the release 3 previews (`synthetic/book.py`), built on the ledger's positions:
   an account with a DOCS code or an outgoing transfer trades nothing, and fees bill on ledger values.
@@ -28,13 +28,13 @@ Three sources, and they agree with each other:
 | `masters.csv` | 3 | Each RIA master account: cash by bucket and securities value; it equals the sum of its clients |
 | `ledger.csv` | 13 | The general ledger: cash and securities value by chart account |
 | `ledger_checks.csv` | 3 | The three-layer checks: clients equal their RIA master; masters equal the GL; the GL balances |
-| `ledger_entries.csv` | 108 | Every posting, with the case or receipt behind it |
-| `ledger_legs.csv` | 2447 | Each posting's legs at the client, RIA master, and general ledger layers (they sum to zero) |
+| `ledger_entries.csv` | 105 | Every posting, with the case or receipt behind it |
+| `ledger_legs.csv` | 2423 | Each posting's legs at the client, RIA master, and general ledger layers (they sum to zero) |
 | `transfers.csv` | 45 | Every transfer and money movement case: wires, ACH, journals, IRA distributions, ACATS, LOI |
 | `transfer_positions.csv` | 145 | Each ACATS or LOI case's positions and the route the transferability rules gave them |
 | `bank_links.csv` | 31 | Verified bank accounts in the client's name (money moves only to or from these) |
 | `receipts.csv` | 4 | Money that arrived at the settlement bank with no request behind it, and what happened to it |
-| `settlement_flows.csv` | 4 | Today's cash at the settlement bank, netted by channel |
+| `settlement_flows.csv` | 2 | Today's cash at the settlement bank, netted by channel |
 | `recon_breaks.csv` | 5 | Books against the street (DTC, transfer agents, sponsors, the bank): each break, its cause, and how it was resolved |
 | `orders.csv` | 20 | The trading blotter for yesterday and today: block orders, fund orders, self-directed orders |
 | `allocations.csv` | 72 | Each order's allocations to accounts at one average price |

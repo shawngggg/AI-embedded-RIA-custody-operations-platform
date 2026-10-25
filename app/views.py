@@ -36,12 +36,38 @@ CORRECTIONS = {
     "ACC-004": [("tax_form", "Tax form received (W-9, W-8BEN, or W-8BEN-E)", "text")],
     "ACC-006": [("entity_formation_documents", "Formation documents or trust instrument received", "bool")],
     "ACC-007": [("entity_ein", "Entity EIN", "text")],
+    "ACC-008": [("holder_phones", "Phone number for each account holder", "per_person")],
+    "ACC-009": [("ira_type", "IRA type", "choice")],
+    "ACC-010": [("ira_adoption_agreement", "IRA adoption agreement received", "bool")],
+    "ACC-011": [("beneficiaries", "Beneficiaries and their shares", "beneficiaries")],
+    "ACC-012": [("joint_tenancy", "Joint tenancy", "choice")],
+    "ACC-013": [("holder_shares", "Each holder's share (tenants in common)", "per_person")],
+    "ACC-014": [("employer_consent", "Employer's written consent received (FINRA Rule 3210)", "bool")],
     "CDD-001": [("account_purpose", "Account purpose and expected activity", "text")],
     "CDD-BO": [("beneficial_ownership_certification", "Beneficial ownership certification received", "bool")],
     "CHG-002": [("client_signature", "Client-signed change form received", "bool")],
     "CHG-003": [("medallion_guarantee", "Medallion signature guarantee received", "bool")],
     "CHG-004": [("new_bank", "Bank name, ABA routing number, and last 4 of the account", "bank")],
 }
+
+# A choice field's options, and the person attribute a per-person field sets
+CHOICES = {
+    "ira_type": [("traditional", "Traditional IRA"), ("roth", "Roth IRA"), ("sep", "SEP IRA"),
+                 ("inherited", "Inherited IRA")],
+    "joint_tenancy": [("jtwros", "Joint tenants with right of survivorship"), ("tenants_in_common", "Tenants in common"),
+                      ("community_property", "Community property"), ("tenants_by_entirety", "Tenants by the entirety")],
+}
+PER_PERSON = {"holder_phones": "phone", "holder_shares": "ownership_pct"}
+NATURAL_ROLES = ("account_holder", "trustee", "authorized_signer", "control_person")
+
+
+def _people_for(case: Case, field: str) -> list[dict]:
+    holders = (case.application or {}).get("holders", [])
+    if field == "holder_phones":
+        return [{"name": h["name"], "value": h.get("phone") or ""} for h in holders
+                if h.get("role", "account_holder") in NATURAL_ROLES]
+    return [{"name": h["name"], "value": h.get("ownership_pct") or 0} for h in holders
+            if h.get("role", "account_holder") == "account_holder"]
 
 
 def user_dict(db: Session, u: User) -> dict:
@@ -152,6 +178,8 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
             types = field_docs(case.kind, field)
             out.append({"field": field, "label": label, "type": "document" if types else kind,
                         "rule_id": f["rule_id"], "reason": f["reason"], "current": case.application.get(field),
+                        "options": [{"value": v, "label": l} for v, l in CHOICES.get(field, [])],
+                        "people": _people_for(case, field) if field in PER_PERSON else [],
                         "doc_types": [{"value": t, "label": DOC_TYPES[t]["label"]} for t in types],
                         "documents": [doc_dict(d) for d in docs
                                       if d.doc_type in types and d.status in ("received", "in_good_order")]})

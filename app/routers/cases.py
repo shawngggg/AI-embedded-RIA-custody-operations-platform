@@ -21,7 +21,7 @@ from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
-from ..views import (CLIENT_KINDS, CORRECTIONS, RIA_KINDS, case_detail, case_summary, decision_dict, get_case_for,
+from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, case_detail, case_summary, decision_dict, get_case_for,
                      review_dict, sla_state)
 
 router = APIRouter(prefix="/api", tags=["cases"])
@@ -97,6 +97,45 @@ class Corrections(BaseModel):
 OPS = ("ops_analyst", "ops_supervisor")
 
 
+def _checked_extras(fields: dict) -> dict[str, dict]:
+    """Validate the structured items (a choice, a value per person, beneficiaries) in place. Per-person values come
+    back separately, because they land on the holders rather than as a field of their own."""
+    for f, options in CHOICES.items():
+        if f in fields and fields[f] not in {v for v, _l in options}:
+            raise HTTPException(422, f"{f.replace('_', ' ').capitalize()} must be one of: "
+                                     + ", ".join(l for _v, l in options))
+    per_person = {}
+    for f in PER_PERSON:
+        if f not in fields:
+            continue
+        values = fields.pop(f)
+        if not isinstance(values, dict) or not values:
+            raise HTTPException(422, "Give a value for each person, by name")
+        if f == "holder_phones":
+            if any(not str(v or "").strip() for v in values.values()):
+                raise HTTPException(422, "Give a phone number for each person")
+            values = {k: str(v).strip() for k, v in values.items()}
+        else:
+            try:
+                values = {k: float(v) for k, v in values.items()}
+            except (TypeError, ValueError):
+                raise HTTPException(422, "Each share is a number from 0 to 100")
+            if any(not 0 <= v <= 100 for v in values.values()):
+                raise HTTPException(422, "Each share is a number from 0 to 100")
+        per_person[f] = values
+    if "beneficiaries" in fields:
+        rows = fields["beneficiaries"]
+        if not isinstance(rows, list) or not all(isinstance(b, dict) and str(b.get("name") or "").strip() for b in rows):
+            raise HTTPException(422, "Name each beneficiary")
+        try:
+            fields["beneficiaries"] = [{"name": str(b["name"]).strip(), "relationship": b.get("relationship") or None,
+                                        "kind": "contingent" if b.get("kind") == "contingent" else "primary",
+                                        "share": float(b.get("share") or 0)} for b in rows]
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Each share is a number from 0 to 100")
+    return per_person
+
+
 @router.post("/cases/{case_id}/corrections")
 def submit_corrections(case_id: int, body: Corrections, user: User = Depends(current_user),
                        db: Session = Depends(get_db)):
@@ -106,11 +145,13 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
     if not waiting or not (case.result or {}).get("findings", {}).get("decisions"):
         raise HTTPException(409, "This case isn't waiting for items")
-    allowed = {f for rows in CORRECTIONS.values() for f, _l, kind in rows if kind in ("bool", "text", "bank")}
+    allowed = {f for rows in CORRECTIONS.values() for f, _l, kind in rows
+               if kind in ("bool", "text", "bank", "choice", "per_person", "beneficiaries")}
     unknown = set(body.fields) - allowed
     if unknown:
         raise HTTPException(422, f"Not a correctable field: {', '.join(sorted(unknown))}")
     fields = dict(body.fields)
+    per_person = _checked_extras(fields)
 
     # Items backed by a document need the document, and a person in operations to check it
     claimed = [f for f, v in fields.items() if v and field_docs(case.kind, f)]
@@ -138,6 +179,9 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
 
     app = dict(case.application)
     app.update(fields)
+    for field, values in per_person.items():
+        attr = PER_PERSON[field]
+        app["holders"] = [{**h, attr: values[h["name"]]} if h.get("name") in values else h for h in app.get("holders", [])]
     if body.verify_people:
         app["people"] = [{**p, "identity_verified": True} for p in app.get("people", [])]
     if body.control_person:
@@ -150,7 +194,7 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
         if doc.status != "in_good_order":
             mark(db, doc, "in_good_order", user.display_name, user, body.overrides.get(field))
         supersede_others(db, doc, field_docs(case.kind, field), user.display_name, user)
-    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted(fields),
+    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted([*fields, *per_person]),
                  verify_people=body.verify_people or None, control_person=body.control_person, note=body.note,
                  documents=[{"id": d.id, "doc_type": d.doc_type, "sha256": d.sha256} for d in evidence] or None)
     run_case(db, case, user)

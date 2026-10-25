@@ -1,13 +1,13 @@
 target,code,reason,owner,placed_by,placed_at
-ACC-2005,SANC,Flagged-list match: Ilya Sorvetkin,sanctions,Marcus Lee,2026-10-23
-ACC-2006,EDDP,HIGH risk; EDD pending,aml_compliance,Marcus Lee,2026-10-22
-ACC-2010,DOCS,Outstanding: Client-signed fee authorization; Form W-9 or W-8,operations,Avery Collins,2026-10-22
-ACC-3022,DOCS,Outstanding: Client-signed fee authorization,operations,Avery Collins,2026-10-15
-ACC-3023,DOCS,Outstanding: Form W-9 or W-8,operations,Avery Collins,2026-10-17
-ACC-3024,CIPV,Identity verification pending: Hazel Montoya,operations,Sam Okafor,2026-10-20
-ACC-3025,CIPV,Identity verification pending: Rupert Asante,operations,Sam Okafor,2026-10-21
-ACC-3030,IDFR,Suspected fraudulent identity: Ingrid Solberg,aml_compliance,Taylor Brooks,2026-10-23
-ACC-3032,EDDP,HIGH risk; EDD pending,aml_compliance,Marcus Lee,2026-10-22
-ACC-3033,SANC,Flagged-list match: Teodor M. Halloran,sanctions,Marcus Lee,2026-10-23
-FIRM-310006,SANC,"Flagged-list match: Ilya Sorvetin, Meridian Gate Capital LLC",sanctions,Jamie Ortiz,2026-10-23
-FIRM-310007,EDDP,HIGH risk; EDD pending,aml_compliance,Jamie Ortiz,2026-10-22
+ACC-2005,SANC,Flagged-list match: Ilya Sorvetkin,sanctions,Marcus Lee,2026-10-25
+ACC-2006,EDDP,HIGH risk; EDD pending,aml_compliance,Marcus Lee,2026-10-24
+ACC-2010,DOCS,Outstanding: Client-signed fee authorization; Form W-9 or W-8,operations,Avery Collins,2026-10-23
+ACC-3022,DOCS,Outstanding: Client-signed fee authorization,operations,Avery Collins,2026-10-17
+ACC-3023,DOCS,Outstanding: Form W-9 or W-8,operations,Avery Collins,2026-10-19
+ACC-3024,CIPV,Identity verification pending: Hazel Montoya,operations,Sam Okafor,2026-10-21
+ACC-3025,CIPV,Identity verification pending: Rupert Asante,operations,Sam Okafor,2026-10-23
+ACC-3030,IDFR,Suspected fraudulent identity: Ingrid Solberg,aml_compliance,Taylor Brooks,2026-10-25
+ACC-3032,EDDP,HIGH risk; EDD pending,aml_compliance,Marcus Lee,2026-10-24
+ACC-3033,SANC,Flagged-list match: Teodor M. Halloran,sanctions,Marcus Lee,2026-10-25
+FIRM-310006,SANC,"Flagged-list match: Ilya Sorvetin, Meridian Gate Capital LLC",sanctions,Jamie Ortiz,2026-10-25
+FIRM-310007,EDDP,HIGH risk; EDD pending,aml_compliance,Jamie Ortiz,2026-10-23

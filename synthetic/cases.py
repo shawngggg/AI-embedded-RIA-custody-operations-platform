@@ -61,10 +61,33 @@ _n = 0
 def _holder(name: str, role: str = "account_holder", verified: bool = True, pct: float = 0.0, **kw) -> Person:
     global _n
     _n += 1
+    # 555-0100 to 555-0199 is the fictional range; example.com is reserved for examples
     return Person(name, role, pct, date_of_birth=kw.pop("dob", f"19{55 + _n % 35}-{1 + _n % 12:02d}-{1 + _n % 27:02d}"),
                   address=kw.pop("address", f"{100 + 37 * _n} E {200 + 10 * (_n % 9)} S, {_TOWNS[_n % len(_TOWNS)]}"),
                   tax_id=f"900-00-{5000 + _n}", occupation=kw.pop("occupation", "Retired"),
+                  phone=kw.pop("phone", f"801-555-{100 + _n % 100:04d}"),
+                  email=kw.pop("email", ".".join(name.lower().replace("'", "").split()[::len(name.split()) - 1 or 1])
+                               + "@example.com"),
                   identity_verified=verified, **kw)
+
+
+def _record(n: int, holders: list[Person], registration: str, purpose: str) -> dict:
+    """The account record beyond CIP (added after the Oct. 25 review): IRA type, adoption agreement, and a
+    beneficiary; joint tenancy; and a trusted contact on two in three natural-person accounts (the rest declined)."""
+    last = holders[0].name.split()[-1] if holders else "Client"
+    out: dict = {}
+    if registration == "ira":
+        out.update(ira_type="roth" if "roth" in purpose.lower() else "traditional", ira_adoption_agreement=True,
+                   beneficiaries=[{"name": f"Jordan {last}", "relationship": "spouse", "kind": "primary", "share": 100}])
+    if registration == "joint":
+        out["joint_tenancy"] = "jtwros"
+    if registration in ("individual", "joint", "ira", "trust"):
+        if n % 3:
+            out["trusted_contact"] = {"name": f"Casey {last}", "relationship": "sibling",
+                                      "phone": f"801-555-{150 + n % 50:04d}", "email": f"casey.{last.lower()}@example.com"}
+        else:
+            out["trusted_contact_declined"] = True
+    return out
 
 
 def _account(n: int, holders: list[Person], registration: str = "individual", *, funding: float, purpose: str,
@@ -74,7 +97,8 @@ def _account(n: int, holders: list[Person], registration: str = "individual", *,
         f"APP-{3000 + n}", f"ACC-{3000 + n}", group, registration, holders,
         lpoa_signed=lpoa, fee_authorization=fee, client_signature=signature, tax_form=tax, account_purpose=purpose,
         source_of_funds="Salary and savings" if registration != "ira" else "Rollover from an employer plan",
-        source_of_wealth="Career earnings and savings", expected_initial_funding=funding, **(entity or {}))
+        source_of_wealth="Career earnings and savings", expected_initial_funding=funding,
+        **_record(n, holders, registration, purpose), **(entity or {}))
 
 
 def _scenarios() -> list[AccountScenario]:

@@ -1,6 +1,6 @@
 account,name,type,cash,securities_value,positions
-1010,Settlement bank,asset,1652999.44,0.0,0
-1020,Cash in transit: ACH and wires due in,asset,2500.0,0.0,0
+1010,Settlement bank,asset,1641499.44,0.0,0
+1020,Cash in transit: ACH and wires due in,asset,14000.0,0.0,0
 1500,Securities at DTC,asset,0.0,32392934.9,18
 1510,Securities at transfer agents (Fund/SERV),asset,0.0,5727937.8,3
 1520,Securities held at sponsors,asset,0.0,253871.8,1

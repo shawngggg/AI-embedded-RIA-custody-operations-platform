@@ -584,7 +584,9 @@ def test_other_firms_cannot_change_an_account(as_user):
 
 NEW_APP = {"group": "pure_ria", "registration_type": "individual",
            "holders": [{"name": "Nina Park", "role": "account_holder", "date_of_birth": "1987-04-02",
-                        "address": "300 S State St, Salt Lake City, UT 84111", "tax_id": "900-00-3001"}],
+                        "address": "300 S State St, Salt Lake City, UT 84111", "tax_id": "900-00-3001",
+                        "phone": "801-555-0131", "email": "nina.park@example.com"}],
+           "trusted_contact": {"name": "Leo Park", "relationship": "brother", "phone": "801-555-0132"},
            "account_purpose": "Long-term investing", "source_of_funds": "Salary", "source_of_wealth": "Salary"}
 
 
@@ -630,6 +632,36 @@ def test_a_regulatory_gap_waits_for_items(as_user):
     assert submitted["status"] == "PENDING_ITEMS" and "result" not in submitted
     detail = as_user("ops.analyst").get(f"/api/cases/{submitted['id']}").json()
     assert "CDD-001" in [d["rule_id"] for d in detail["result"]["findings"]["decisions"]]
+
+
+def test_an_ira_comes_back_for_its_record_and_the_ria_completes_it(as_user):
+    holder = {**NEW_APP["holders"][0], "name": "Iris Moreau", "phone": None}
+    app = {**NEW_APP, "registration_type": "ira", "holders": [holder],
+           "beneficiaries": [{"name": "Paul Moreau", "kind": "primary", "share": 90}]}
+    ria = as_user("granite.advisor")
+    submitted = ria.post("/api/portal/accounts", json={"application": app, "documents": ACCOUNT_DOCS}).json()
+    assert submitted["status"] == "PENDING_ITEMS"
+    items = {c["field"]: c for c in submitted["corrections"]}
+    assert set(items) == {"holder_phones", "ira_type", "ira_adoption_agreement", "beneficiaries"}
+    assert items["holder_phones"]["type"] == "per_person" and items["holder_phones"]["people"][0]["name"] == "Iris Moreau"
+    assert items["ira_type"]["options"][0]["value"] == "traditional"
+    assert items["ira_adoption_agreement"]["type"] == "document"
+    cid = submitted["id"]
+    bad = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {"ira_type": "gold"}})
+    assert bad.status_code == 422
+    blank = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {"holder_phones": {"Iris Moreau": " "}}})
+    assert blank.status_code == 422
+    after = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {
+        "holder_phones": {"Iris Moreau": "801-555-0133"}, "ira_type": "roth",
+        "beneficiaries": [{"name": "Paul Moreau", "kind": "primary", "share": 100}]}}).json()
+    assert {c["field"] for c in after["corrections"]} == {"ira_adoption_agreement"}     # only the document is left
+    agreement = upload_sample(ria, cid, "ira_adoption_agreement")
+    detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"ira_adoption_agreement": True}, "documents": {"ira_adoption_agreement": agreement["id"]}}).json()
+    assert detail["status"] == "PENDING_ACCEPTANCE"
+    assert detail["application"]["holders"][0]["phone"] == "801-555-0133"
+    record = next(s for s in detail["result"]["steps"] if s["step"].startswith("Account record"))
+    assert any("Roth IRA" in n for n in record["detail"]) and any("Leo Park" in n for n in record["detail"])
 
 
 

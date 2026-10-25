@@ -696,6 +696,16 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
   const [another, setAnother] = useState<Record<string, boolean>>({});     // field -> show the upload for a different copy
   const [control, setControl] = useState("");
   const [bank, setBank] = useState({ name: "", aba: "", account_last4: "" });
+  // A value per person (phones, tenants-in-common shares), keyed field -> name -> value
+  const [perPerson, setPerPerson] = useState<Record<string, Record<string, string>>>(() => Object.fromEntries(
+    d.corrections.filter((c) => c.type === "per_person").map((c) => [c.field,
+      Object.fromEntries((c.people ?? []).map((p) => [p.name, String(p.value ?? "")]))])));
+  type Ben = { name: string; relationship: string; kind: string; share: number };
+  const [bens, setBens] = useState<Ben[]>(() => {
+    const c = d.corrections.find((x) => x.type === "beneficiaries");
+    return ((c?.current as Ben[] | undefined) ?? []).map((b) => ({ ...b, relationship: b.relationship ?? "" }));
+  });
+  const setBen = (i: number, patch: Partial<Ben>) => setBens(bens.map((b, j) => (j === i ? { ...b, ...patch } : b)));
   const docItems = d.corrections.filter((c) => c.type === "document");
   const otherItems = d.corrections.filter((c) => c.type !== "document");
 
@@ -712,6 +722,9 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
       if (c.type === "bool" && values[c.field]) fields[c.field] = true;
       if (c.type === "text" && (values[c.field] ?? "").trim()) fields[c.field] = values[c.field].trim();
       if (c.type === "bank" && bank.name && bank.aba && bank.account_last4) fields.new_bank = bank;
+      if (c.type === "choice" && values[c.field]) fields[c.field] = values[c.field];
+      if (c.type === "per_person" && Object.values(perPerson[c.field] ?? {}).some((v) => v.trim())) fields[c.field] = perPerson[c.field];
+      if (c.type === "beneficiaries" && bens.some((b) => b.name.trim())) fields.beneficiaries = bens.filter((b) => b.name.trim());
     });
     const notes = Object.fromEntries(Object.entries(overrides).filter(([k, v]) => documents[k] && v.trim()));
     api<CaseDetail>(`/api/cases/${d.id}/corrections`, { body: { fields, documents, overrides: notes, verify_people: verify, control_person: control || null } })
@@ -772,6 +785,35 @@ function Corrections({ d, onDone, onFail, onRefresh }: {
               <div className="field"><label htmlFor="bl">Account last 4</label><input id="bl" type="text" value={bank.account_last4} onChange={(e) => setBank({ ...bank, account_last4: e.target.value })} /></div>
             </div>
           )}
+          {c.type === "choice" && <><label htmlFor={c.field}>{c.label}</label>
+            <select id={c.field} value={values[c.field] ?? ""} onChange={(e) => setValues({ ...values, [c.field]: e.target.value })}>
+              <option value="">Choose…</option>
+              {(c.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select></>}
+          {c.type === "per_person" && <><strong>{c.label}</strong>
+            <div className="small muted">{c.reason}</div>
+            <div className="row">
+              {(c.people ?? []).map((p, i) => (
+                <div className="field" key={p.name}><label htmlFor={`${c.field}-${i}`}>{p.name}</label>
+                  <input id={`${c.field}-${i}`} type={c.field === "holder_shares" ? "number" : "tel"} value={perPerson[c.field]?.[p.name] ?? ""}
+                    onChange={(e) => setPerPerson({ ...perPerson, [c.field]: { ...perPerson[c.field], [p.name]: e.target.value } })} /></div>
+              ))}
+            </div></>}
+          {c.type === "beneficiaries" && <><strong>{c.label}</strong>
+            <div className="small muted">{c.reason}. Each kind (primary, contingent) adds up to 100%.</div>
+            {bens.map((b, i) => (
+              <div className="row" key={i}>
+                <div className="field"><label htmlFor={`ben-n${i}`}>Name</label>
+                  <input id={`ben-n${i}`} type="text" value={b.name} onChange={(e) => setBen(i, { name: e.target.value })} /></div>
+                <div className="field" style={{ flex: "0 1 150px" }}><label htmlFor={`ben-k${i}`}>Kind</label>
+                  <select id={`ben-k${i}`} value={b.kind} onChange={(e) => setBen(i, { kind: e.target.value })}>
+                    <option value="primary">Primary</option><option value="contingent">Contingent</option></select></div>
+                <div className="field" style={{ flex: "0 1 110px" }}><label htmlFor={`ben-s${i}`}>Share %</label>
+                  <input id={`ben-s${i}`} type="number" min={0} max={100} value={b.share} onChange={(e) => setBen(i, { share: Number(e.target.value) })} /></div>
+                <button type="button" className="secondary small" onClick={() => setBens(bens.filter((_, j) => j !== i))}>Remove</button>
+              </div>
+            ))}
+            <button type="button" className="secondary small" onClick={() => setBens([...bens, { name: "", relationship: "", kind: "primary", share: 0 }])}>Add a beneficiary</button></>}
           <span className="muted small mono">{c.rule_id}</span>
         </div>
       ))}

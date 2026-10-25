@@ -66,6 +66,26 @@ def account_view(db: Session, a: Account) -> dict:
             "client_key": a.client_key}
 
 
+def phones_on_file(a: Account) -> list[tuple[str, str]]:
+    """(number, whose) from the account record: each holder's phone and any later contact-information change. A
+    callback (MM-006) dials one of these, never a number on the request."""
+    app = a.application or {}
+    out: list[tuple[str, str]] = []
+    for h in app.get("holders", []):
+        if (h.get("phone") or "").strip():
+            out.append((h["phone"].strip(), h.get("name") or "Account holder"))
+    maint = app.get("maintenance") or {}
+    for key in ("phone", "new_phone"):
+        if (maint.get(key) or "").strip():
+            out.append((maint[key].strip(), "Updated by an account change"))
+    seen, unique = set(), []
+    for number, whose in out:
+        if number not in seen:
+            seen.add(number)
+            unique.append((number, whose))
+    return unique
+
+
 def mark_decedent(view: dict, case: Case) -> dict:
     """On a deceased account's case, the named decedent (or the first holder) isn't a survivor."""
     name = (case.application or {}).get("decedent") or (view["holders"][0]["name"] if view["holders"] else None)

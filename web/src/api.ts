@@ -79,6 +79,7 @@ export type DocRef = { id: number; type_label: string; filename: string; status:
 export type Correction = {
   field: string; label: string; type: string; rule_id: string; reason: string; current: any;
   doc_types: { value: string; label: string }[]; documents: Doc[];
+  options?: { value: string; label: string }[]; people?: { name: string; value: string | number }[];
 };
 
 export type CaseDetail = CaseSummary & {

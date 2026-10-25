@@ -61,6 +61,42 @@ def missing_cip_information(ctx: AccountContext, as_of: date) -> list[str]:
     return gaps
 
 
+def _natural_people(app: AccountApplication) -> list:
+    if app.registration_type in LEGAL_ENTITY_TYPES:
+        return [p for p in app.holders if p.role == "control_person"]
+    return [p for p in app.holders if p.role in ("account_holder", "trustee", "authorized_signer")] or app.holders
+
+
+def missing_phone(ctx: AccountContext, as_of: date) -> list[str]:
+    """Each account holder (or an entity's control person) needs a phone number on file: callbacks dial it."""
+    return [p.name for p in _natural_people(ctx.application) if not (p.phone or "").strip()]
+
+
+def beneficiary_shares_off(ctx: AccountContext, as_of: date) -> list[str]:
+    """Primary beneficiaries' shares add up to 100%, and so do contingent ones when there are any."""
+    out = []
+    for kind in ("primary", "contingent"):
+        rows = [b for b in ctx.application.beneficiaries if (b.get("kind") or "primary") == kind]
+        total = round(sum(float(b.get("share") or 0) for b in rows), 4)
+        if rows and abs(total - 100) > 0.001:
+            out.append(f"{kind.capitalize()} beneficiaries add up to {total:g}%")
+    return out
+
+
+def tenancy_shares_off(ctx: AccountContext, as_of: date) -> bool:
+    app = ctx.application
+    if app.registration_type != "joint" or app.joint_tenancy != "tenants_in_common":
+        return False
+    holders = [p for p in app.holders if p.role == "account_holder"]
+    return abs(sum(p.ownership_pct for p in holders) - 100) > 0.001
+
+
+def needs_employer_consent(ctx: AccountContext, as_of: date) -> list[str]:
+    app = ctx.application
+    return [] if app.employer_consent else [f"{p.name} ({p.finra_affiliation or 'a FINRA member'})"
+                                            for p in app.holders if p.finra_affiliated]
+
+
 def beneficial_owners_needed_v2(ctx: AccountContext, as_of: date) -> bool:
     app = ctx.application
     return app.first_entity_account or not app.bo_info_confirmed_current
@@ -82,7 +118,13 @@ COMPUTED = {
     "beneficial_owners_needed_v2": beneficial_owners_needed_v2,
     "is_legal_entity_customer": lambda c, d: c.application.registration_type in LEGAL_ENTITY_TYPES,
     "is_entity": lambda c, d: c.application.registration_type in LEGAL_ENTITY_TYPES + ("trust",),
+    "missing_phone": missing_phone,
+    "beneficiary_shares_off": beneficiary_shares_off,
+    "tenancy_shares_off": tenancy_shares_off,
+    "needs_employer_consent": needs_employer_consent,
 }
+
+REVIEW = "2026-10-25"   # added after the industry-practice review (Shawn, Oct. 25, 2026)
 
 ACCOUNT_RULES = [
     # --- In good order -----------------------------------------------------
@@ -125,6 +167,47 @@ ACCOUNT_RULES = [
              {"field": "application.entity_ein", "operator": "is_blank"}],
      "disposition": Disposition.REFER, "reason": "Entity EIN missing",
      "required_documents": ["Entity EIN"]},
+    # --- The account record (added after the industry-practice review) --------
+    {"rule_id": "ACC-008", "version": "1", "effective_date": REVIEW,
+     "source": "Platform policy: a phone number on file for each account holder, so a callback (MM-006) dials a "
+               "number from the record, never one on the request",
+     "field": "missing_phone", "operator": "is_present",
+     "disposition": Disposition.REFER, "reason": "Phone number missing for an account holder",
+     "required_documents": ["Phone number for each account holder"]},
+    {"rule_id": "ACC-009", "version": "1", "effective_date": REVIEW,
+     "source": "IRC 408 and 408A: the IRA type sets contribution, distribution, and reporting rules",
+     "all": [{"field": "application.registration_type", "operator": "equals", "value": "ira"},
+             {"field": "application.ira_type", "operator": "is_blank"}],
+     "disposition": Disposition.REFER, "reason": "IRA type missing (traditional, Roth, SEP, or inherited)",
+     "required_documents": ["IRA type"]},
+    {"rule_id": "ACC-010", "version": "1", "effective_date": REVIEW,
+     "source": "IRC 408(a) and (h): an IRA is held under a written custodial agreement (the custodian's "
+               "adoption agreement)",
+     "all": [{"field": "application.registration_type", "operator": "equals", "value": "ira"},
+             {"field": "application.ira_adoption_agreement", "operator": "equals", "value": False}],
+     "disposition": Disposition.REFER, "reason": "IRA adoption agreement missing",
+     "required_documents": ["Signed IRA adoption agreement"]},
+    {"rule_id": "ACC-011", "version": "1", "effective_date": REVIEW,
+     "source": "Platform policy: beneficiary shares must be complete, or the custodian can't settle a claim",
+     "field": "beneficiary_shares_off", "operator": "is_present",
+     "disposition": Disposition.REFER, "reason": "Beneficiary shares don't add up to 100%",
+     "required_documents": ["Beneficiary designation with shares that add up to 100%"]},
+    {"rule_id": "ACC-012", "version": "1", "effective_date": REVIEW,
+     "source": "State property law: a joint account's tenancy decides who owns it at a death",
+     "all": [{"field": "application.registration_type", "operator": "equals", "value": "joint"},
+             {"field": "application.joint_tenancy", "operator": "is_blank"}],
+     "disposition": Disposition.REFER, "reason": "Joint tenancy missing",
+     "required_documents": ["Joint tenancy (JTWROS, tenants in common, community property, or entirety)"]},
+    {"rule_id": "ACC-013", "version": "1", "effective_date": REVIEW,
+     "source": "State property law: tenants in common hold stated shares",
+     "field": "tenancy_shares_off", "operator": "equals", "value": True,
+     "disposition": Disposition.REFER, "reason": "Tenants-in-common shares don't add up to 100%",
+     "required_documents": ["Each joint owner's share"]},
+    {"rule_id": "ACC-014", "version": "1", "effective_date": REVIEW,
+     "source": "FINRA Rule 3210 (accounts at other broker-dealers: the employer's prior written consent)",
+     "field": "needs_employer_consent", "operator": "is_present",
+     "disposition": Disposition.REFER, "reason": "Account holder works at a FINRA member: employer's consent needed",
+     "required_documents": ["Employer's written consent (FINRA Rule 3210)"]},
     # --- Path B: the custodian's own CDD ------------------------------------
     {"rule_id": "CDD-001", "version": "1", "effective_date": BASELINE,
      "source": "31 CFR 1023.210(b)(5)(i) (understand the nature and purpose of the relationship)",

@@ -33,6 +33,12 @@ class Person:
     adverse_media: bool = False
     iar_registration_required: bool = False
     iar_registered: bool = False
+    phone: str | None = None             # on file for callbacks (MM-006): a number from the record, never the request
+    email: str | None = None
+    finra_affiliated: bool = False       # works at a FINRA member firm (FINRA Rule 3210)
+    finra_affiliation: str | None = None
+    public_company_control: bool = False  # director, officer, or 10% holder of a public company (Rule 144)
+    public_company: str | None = None
 
 
 @dataclass
@@ -102,6 +108,14 @@ class AccountApplication:
     expected_initial_funding: float = 0.0
     third_party_funding: bool = False
     funding_positions: list[Position] = field(default_factory=list)
+    # Added after the industry-practice review (Oct. 25, 2026)
+    ira_type: str | None = None                # traditional | roth | sep | inherited
+    ira_adoption_agreement: bool = False       # the custodian's IRA adoption agreement, signed
+    beneficiaries: list[dict] = field(default_factory=list)   # {name, relationship, kind: primary|contingent, share}
+    joint_tenancy: str | None = None           # jtwros | tenants_in_common | community_property | tenants_by_entirety
+    trusted_contact: dict | None = None        # {name, phone, email, relationship} (FINRA Rule 4512(a)(1)(F))
+    trusted_contact_declined: bool = False
+    employer_consent: bool = False             # FINRA Rule 3210 consent from an account holder's member employer
 
     @property
     def is_entity(self) -> bool:

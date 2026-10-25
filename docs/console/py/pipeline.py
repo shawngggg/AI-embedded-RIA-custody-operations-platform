@@ -451,6 +451,50 @@ def onboard_firm_from_package(document_text: str, as_of: date, *, client=None, p
 # Client account opening (map 02)
 # ---------------------------------------------------------------------------
 
+NATURAL_PERSON_TYPES = ("individual", "joint", "ira", "trust")
+TENANCY = {"jtwros": "joint tenants with right of survivorship", "tenants_in_common": "tenants in common",
+           "community_property": "community property", "tenants_by_entirety": "tenants by the entirety"}
+IRA_TYPES = {"traditional": "traditional IRA", "roth": "Roth IRA", "sep": "SEP IRA", "inherited": "inherited IRA"}
+
+
+def _account_record_step(res: OnboardingResult, app: AccountApplication) -> None:
+    """What the account record holds beyond CIP: contacts, the trusted contact (FINRA Rule 4512(a)(1)(F)), tenancy,
+    IRA details and beneficiaries, and affiliations. None of it holds the account on its own."""
+    notes = []
+    phones = [f"{p.name}: {p.phone}" for p in app.holders if p.phone]
+    if phones:
+        notes.append("Phone on file: " + "; ".join(phones))
+    if app.registration_type in NATURAL_PERSON_TYPES:
+        tc = app.trusted_contact or {}
+        if tc.get("name"):
+            notes.append(f"Trusted contact: {tc['name']}" + (f" ({tc['relationship']})" if tc.get("relationship") else "")
+                         + "; disclosure sent with the account notice")
+        elif app.trusted_contact_declined:
+            notes.append("Trusted contact: the client declined; disclosure sent, and asked again at each update")
+        else:
+            notes.append("Trusted contact: not provided; the request goes to the RIA (reasonable efforts, "
+                         "FINRA Rule 4512)")
+    if app.registration_type == "joint" and app.joint_tenancy:
+        notes.append(f"Tenancy: {TENANCY.get(app.joint_tenancy, app.joint_tenancy)}")
+    if app.registration_type == "ira" and app.ira_type:
+        notes.append(f"IRA type: {IRA_TYPES.get(app.ira_type, app.ira_type)}; adoption agreement "
+                     + ("signed" if app.ira_adoption_agreement else "missing"))
+    if app.beneficiaries:
+        notes.append("Beneficiaries: " + "; ".join(
+            f"{b.get('name')} ({b.get('kind') or 'primary'}, {float(b.get('share') or 0):g}%)" for b in app.beneficiaries))
+    elif app.registration_type == "ira":
+        notes.append("No beneficiary designated: the adoption agreement's default applies")
+    for p in app.holders:
+        if p.finra_affiliated:
+            notes.append(f"{p.name} works at {p.finra_affiliation or 'a FINRA member'}: employer consent "
+                         + ("on file" if app.employer_consent else "requested") + " (FINRA Rule 3210)")
+        if p.public_company_control:
+            notes.append(f"{p.name} is a control person of {p.public_company or 'a public company'}: sales of its "
+                         "stock need a Rule 144 review")
+    if notes:
+        res.add(OPS, "Account record: contacts, trusted contact, tenancy, IRA, affiliations", "Recorded", notes)
+
+
 def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date, *,
                  existing: list[Account] | None = None, ria_active: bool = True, ria_risk_tier: str = "LOW",
                  flagged=None, registry=None, decisions=None, by: str = "ops.analyst",
@@ -504,6 +548,7 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                 res.requested_items)
     else:
         res.add(AI, extract, "In good order")
+    _account_record_step(res, app)
 
     if path is Path.A:
         res.add(RULES, "Path A applies?", "Yes: pure RIA account under a reliance-eligible RIA")

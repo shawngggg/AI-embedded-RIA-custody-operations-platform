@@ -1,5 +1,3 @@
 channel,net,direction
-ACH,21800.0,Receive
 Fedwire,125000.0,Receive
-NSCC (ACATS),12812.5,Receive
 Other,-35.0,Pay

@@ -45,6 +45,9 @@ DOC_TYPES = {
     "change_form": {"label": "Client-signed change form", "signed": True},
     "medallion": {"label": "Medallion signature guarantee", "signed": True},
     "application_package": {"label": "RIA application package", "signed": False},
+    "ira_adoption_agreement": {"label": "IRA adoption agreement", "signed": True},
+    "employer_consent": {"label": "Employer's written consent (FINRA Rule 3210)", "signed": True},
+    "sloa": {"label": "Standing letter of authorization (third-party payments)", "signed": True},
     # Release 2: transfers, products, and the account lifecycle
     "transfer_form": {"label": "Client-signed transfer or disbursement form", "signed": True},
     "cost_basis_statement": {"label": "Cost-basis transfer statement", "signed": False},
@@ -65,7 +68,8 @@ FIELD_DOCS = {
     "account": {"client_signature": ["account_application"], "lpoa_signed": ["lpoa"],
                 "fee_authorization": ["fee_authorization"], "tax_form": ["w9", "w8ben", "w8bene"],
                 "entity_formation_documents": ["formation_documents"],
-                "beneficial_ownership_certification": ["bo_certification"]},
+                "beneficial_ownership_certification": ["bo_certification"],
+                "ira_adoption_agreement": ["ira_adoption_agreement"], "employer_consent": ["employer_consent"]},
     "firm": {"formation_documents": ["formation_documents"], "ownership_chart": ["ownership_chart"],
              "beneficial_ownership_certification": ["bo_certification"],
              "custodial_agreement_signed": ["custodial_agreement"], "reliance_contract": ["reliance_contract"],
@@ -251,6 +255,13 @@ def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[s
         lines += [f"Legal entity customer: {who}", "Certification of beneficial owners and a control person."]
     elif doc_type == "identity_documents":
         lines += [f"Identity documents for: {', '.join(names) or who}"]
+    elif doc_type == "ira_adoption_agreement":
+        kind = {"roth": "Roth IRA", "sep": "SEP IRA", "inherited": "inherited IRA"}.get(app.get("ira_type"), "traditional IRA")
+        lines += [f"Depositor: {who}", f"Account: {case.account_id or ''}",
+                  f"adopts the custodian's {kind} custodial agreement (IRS Form 5305-A model terms)."]
+    elif doc_type == "employer_consent":
+        lines += [f"Employee: {who}", "Our firm consents to this account under FINRA Rule 3210.",
+                  "Please send duplicate statements to our compliance department."]
     else:
         lines += [f"For: {who}"]
     if DOC_TYPES[doc_type].get("signed"):

@@ -7,14 +7,31 @@ import { type DocChoice, IntakeDocRow, TAX_FORMS, toUploads } from "../docs";
 type Holder = {
   name: string; role: string; ownership_pct: number; date_of_birth: string; address: string; tax_id: string;
   country_of_residence: string; nationality: string; occupation: string; is_pep: boolean;
+  phone: string; email: string; finra_affiliated: boolean; finra_affiliation: string;
+  public_company_control: boolean; public_company: string;
 };
 
 const blankHolder = (role = "account_holder"): Holder => ({
   name: "", role, ownership_pct: 0, date_of_birth: "", address: "", tax_id: "",
   country_of_residence: "United States", nationality: "United States", occupation: "", is_pep: false,
+  phone: "", email: "", finra_affiliated: false, finra_affiliation: "", public_company_control: false, public_company: "",
 });
 
+type Beneficiary = { name: string; relationship: string; kind: "primary" | "contingent"; share: number };
+const blankBeneficiary = (kind: Beneficiary["kind"] = "primary"): Beneficiary => ({ name: "", relationship: "", kind, share: 100 });
+type Contact = { name: string; relationship: string; phone: string; email: string };
+
 const ENTITY_TYPES = ["trust", "llc", "corporation"];
+// Natural-person accounts carry a trusted contact (FINRA Rule 4512); a trust's trustees count here too.
+const TRUSTED_CONTACT_TYPES = ["individual", "joint", "ira", "trust"];
+
+const IRA_TYPES: [string, string][] = [
+  ["traditional", "Traditional IRA"], ["roth", "Roth IRA"], ["sep", "SEP IRA"], ["inherited", "Inherited IRA"],
+];
+const TENANCY: [string, string][] = [
+  ["jtwros", "Joint tenants with right of survivorship"], ["tenants_in_common", "Tenants in common"],
+  ["community_property", "Community property"], ["tenants_by_entirety", "Tenants by the entirety"],
+];
 
 const ROLES: [string, string][] = [
   ["account_holder", "Account holder"], ["owner", "Beneficial owner (25% or more)"],
@@ -28,15 +45,23 @@ type Form = {
   docs: Record<string, DocChoice>; tax_doc: string;
   account_purpose: string; source_of_funds: string; source_of_wealth: string; expected_initial_funding: number;
   third_party_funding: boolean;
+  ira_type: string; joint_tenancy: string; beneficiaries: Beneficiary[];
+  trusted_contact: Contact; trusted_contact_declined: boolean;
 };
+
+const blankDocs = (): Record<string, DocChoice> => ({
+  account_application: null, lpoa: null, fee_authorization: null, tax: null, formation_documents: null,
+  bo_certification: null, ira_adoption_agreement: null, employer_consent: null,
+});
 
 const blank: Form = {
   group: "pure_ria", registration_type: "individual", holders: [blankHolder()],
   entity_name: "", entity_ein: "", entity_type: "operating_company",
   first_entity_account: true, bo_info_confirmed_current: false,
-  docs: { account_application: null, lpoa: null, fee_authorization: null, tax: null, formation_documents: null,
-    bo_certification: null }, tax_doc: "w9",
+  docs: blankDocs(), tax_doc: "w9",
   account_purpose: "", source_of_funds: "", source_of_wealth: "", expected_initial_funding: 0, third_party_funding: false,
+  ira_type: "", joint_tenancy: "", beneficiaries: [],
+  trusted_contact: { name: "", relationship: "", phone: "", email: "" }, trusted_contact_declined: false,
 };
 
 // A clean individual application, so the demo can show straight-through processing in one click.
@@ -44,10 +69,11 @@ const sample: Form = {
   ...blank,
   holders: [{
     ...blankHolder(), name: "Theo Lindqvist", date_of_birth: "1988-09-14", address: "77 Canyon Rd, Park City, UT 84060",
-    tax_id: "900-00-3101", occupation: "Architect",
+    tax_id: "900-00-3101", occupation: "Architect", phone: "435-555-0148", email: "theo.lindqvist@example.com",
   }],
-  docs: { account_application: { sample: true }, lpoa: { sample: true }, fee_authorization: { sample: true },
-    tax: { sample: true }, formation_documents: null, bo_certification: null },
+  docs: { ...blankDocs(), account_application: { sample: true }, lpoa: { sample: true }, fee_authorization: { sample: true },
+    tax: { sample: true } },
+  trusted_contact: { name: "Ingrid Lindqvist", relationship: "Sister", phone: "435-555-0149", email: "" },
   account_purpose: "Long-term investing", source_of_funds: "Employment income", source_of_wealth: "Salary and savings",
   expected_initial_funding: 320000,
 };
@@ -60,11 +86,22 @@ export default function NewAccount() {
   const [busy, setBusy] = useState(false);
   const entity = ENTITY_TYPES.includes(f.registration_type);
   const pure = f.group === "pure_ria";
+  const ira = f.registration_type === "ira";
+  const joint = f.registration_type === "joint";
+  const tic = joint && f.joint_tenancy === "tenants_in_common";
+  const wantsContact = TRUSTED_CONTACT_TYPES.includes(f.registration_type);
+  const affiliated = f.holders.some((h) => h.finra_affiliated);
+  const takesBeneficiaries = ira || f.registration_type === "individual" || joint;
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
   const setDoc = (k: string, v: DocChoice) => setF((x) => ({ ...x, docs: { ...x.docs, [k]: v } }));
   const setHolder = (i: number, patch: Partial<Holder>) =>
     setF((x) => ({ ...x, holders: x.holders.map((h, j) => (j === i ? { ...h, ...patch } : h)) }));
+  const setBen = (i: number, patch: Partial<Beneficiary>) =>
+    setF((x) => ({ ...x, beneficiaries: x.beneficiaries.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+  const setContact = (patch: Partial<Contact>) => setF((x) => ({ ...x, trusted_contact: { ...x.trusted_contact, ...patch } }));
+  const shareTotal = (kind: Beneficiary["kind"]) =>
+    f.beneficiaries.filter((b) => b.kind === kind && b.name.trim()).reduce((s, b) => s + (Number(b.share) || 0), 0);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -73,12 +110,23 @@ export default function NewAccount() {
     const holders = f.holders.filter((h) => h.name.trim()).map((h) => ({
       ...h, date_of_birth: h.date_of_birth || null, address: h.address || null, tax_id: h.tax_id || null,
       occupation: h.occupation || null, pep_type: h.is_pep ? "foreign" : null,
+      phone: h.phone.trim() || null, email: h.email.trim() || null,
+      finra_affiliation: h.finra_affiliated ? h.finra_affiliation || null : null,
+      public_company: h.public_company_control ? h.public_company || null : null,
     }));
+    const tc = f.trusted_contact;
     const application: Record<string, unknown> = {
       group: f.group, registration_type: f.registration_type, holders,
       account_purpose: f.account_purpose || null, source_of_funds: f.source_of_funds || null,
       source_of_wealth: f.source_of_wealth || null, expected_initial_funding: Number(f.expected_initial_funding) || 0,
       third_party_funding: f.third_party_funding,
+      ira_type: ira ? f.ira_type || null : null,
+      joint_tenancy: joint ? f.joint_tenancy || null : null,
+      beneficiaries: takesBeneficiaries
+        ? f.beneficiaries.filter((b) => b.name.trim()).map((b) => ({ ...b, share: Number(b.share) || 0 })) : [],
+      trusted_contact: wantsContact && !f.trusted_contact_declined && tc.name.trim()
+        ? { name: tc.name.trim(), relationship: tc.relationship || null, phone: tc.phone || null, email: tc.email || null } : null,
+      trusted_contact_declined: wantsContact && f.trusted_contact_declined,
     };
     if (entity) {
       Object.assign(application, {
@@ -92,6 +140,8 @@ export default function NewAccount() {
         [f.tax_doc, f.docs.tax]];
       if (pure) wanted.push(["lpoa", f.docs.lpoa], ["fee_authorization", f.docs.fee_authorization]);
       if (entity) wanted.push(["formation_documents", f.docs.formation_documents], ["bo_certification", f.docs.bo_certification]);
+      if (ira) wanted.push(["ira_adoption_agreement", f.docs.ira_adoption_agreement]);
+      if (affiliated) wanted.push(["employer_consent", f.docs.employer_consent]);
       const c = await api<CaseDetail>("/api/portal/accounts", { body: { application, documents: toUploads(wanted) } });
       navigate(`/portal/cases/${c.id}`);
     } catch (err) {
@@ -132,9 +182,28 @@ export default function NewAccount() {
                 <option value="corporation">Corporation</option>
               </select>
             </div>
+            {ira && (
+              <div className="field">
+                <label htmlFor="ira">IRA type</label>
+                <select id="ira" value={f.ira_type} onChange={(e) => set("ira_type", e.target.value)}>
+                  <option value="">Choose…</option>
+                  {IRA_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            )}
+            {joint && (
+              <div className="field">
+                <label htmlFor="ten">Joint tenancy</label>
+                <select id="ten" value={f.joint_tenancy} onChange={(e) => set("joint_tenancy", e.target.value)}>
+                  <option value="">Choose…</option>
+                  {TENANCY.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            )}
           </div>
           {!pure && <p className="small muted">Self-directed accounts need no LPOA or fee authorization. After opening, the
             client makes changes to the account and your firm sees it view-only.</p>}
+          {tic && <p className="small muted">Tenants in common: give each holder's share below. The shares add up to 100%.</p>}
         </div>
 
         {entity && (
@@ -177,8 +246,8 @@ export default function NewAccount() {
                       {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select></div>
                 )}
-                {entity && (
-                  <div className="field" style={{ flex: "0 1 130px" }}><label htmlFor={`p${i}`}>Ownership %</label>
+                {(entity || tic) && (
+                  <div className="field" style={{ flex: "0 1 130px" }}><label htmlFor={`p${i}`}>{tic ? "Share %" : "Ownership %"}</label>
                     <input id={`p${i}`} type="number" min={0} max={100} value={h.ownership_pct}
                       onChange={(e) => setHolder(i, { ownership_pct: Number(e.target.value) })} /></div>
                 )}
@@ -194,6 +263,13 @@ export default function NewAccount() {
               <div className="field"><label htmlFor={`a${i}`}>Residential address</label>
                 <input id={`a${i}`} type="text" value={h.address} onChange={(e) => setHolder(i, { address: e.target.value })} /></div>
               <div className="row">
+                <div className="field"><label htmlFor={`ph${i}`}>Phone</label>
+                  <input id={`ph${i}`} type="tel" placeholder="801-555-0100" value={h.phone} onChange={(e) => setHolder(i, { phone: e.target.value })} /></div>
+                <div className="field"><label htmlFor={`em${i}`}>Email</label>
+                  <input id={`em${i}`} type="email" value={h.email} onChange={(e) => setHolder(i, { email: e.target.value })} /></div>
+              </div>
+              <p className="small muted" style={{ marginTop: 0 }}>Callbacks on money movement dial a number on file, never one on the request.</p>
+              <div className="row">
                 <div className="field"><label htmlFor={`c${i}`}>Country of residence</label>
                   <input id={`c${i}`} type="text" value={h.country_of_residence} onChange={(e) => setHolder(i, { country_of_residence: e.target.value })} /></div>
                 <div className="field"><label htmlFor={`na${i}`}>Nationality</label>
@@ -201,6 +277,20 @@ export default function NewAccount() {
               </div>
               <label className="check"><input type="checkbox" checked={h.is_pep} onChange={(e) => setHolder(i, { is_pep: e.target.checked })} />
                 Holds or held a senior public role (politically exposed person)</label>
+              <label className="check"><input type="checkbox" checked={h.finra_affiliated}
+                onChange={(e) => setHolder(i, { finra_affiliated: e.target.checked })} />
+                Works for a FINRA member firm (or lives with someone who does)</label>
+              {h.finra_affiliated && (
+                <div className="field"><label htmlFor={`fa${i}`}>Member firm</label>
+                  <input id={`fa${i}`} type="text" value={h.finra_affiliation} onChange={(e) => setHolder(i, { finra_affiliation: e.target.value })} /></div>
+              )}
+              <label className="check"><input type="checkbox" checked={h.public_company_control}
+                onChange={(e) => setHolder(i, { public_company_control: e.target.checked })} />
+                Director, officer, or 10% shareholder of a public company</label>
+              {h.public_company_control && (
+                <div className="field"><label htmlFor={`pc${i}`}>Company</label>
+                  <input id={`pc${i}`} type="text" value={h.public_company} onChange={(e) => setHolder(i, { public_company: e.target.value })} /></div>
+              )}
               {f.holders.length > 1 && (
                 <button type="button" className="secondary small" onClick={() => set("holders", f.holders.filter((_, j) => j !== i))}>Remove person</button>
               )}
@@ -209,6 +299,61 @@ export default function NewAccount() {
           <button type="button" className="secondary small"
             onClick={() => set("holders", [...f.holders, blankHolder(entity ? "owner" : "account_holder")])}>Add a person</button>
         </div>
+
+        {takesBeneficiaries && (
+          <div className="panel">
+            <h2 style={{ marginTop: 0 }}>{ira ? "Beneficiaries" : "Transfer on death beneficiaries (optional)"}</h2>
+            {ira && f.beneficiaries.length === 0 && <p className="small muted">No beneficiary named: the adoption agreement's default applies.</p>}
+            {f.beneficiaries.map((b, i) => (
+              <div className="row" key={i}>
+                <div className="field"><label htmlFor={`bn${i}`}>Name</label>
+                  <input id={`bn${i}`} type="text" value={b.name} onChange={(e) => setBen(i, { name: e.target.value })} /></div>
+                <div className="field"><label htmlFor={`br${i}`}>Relationship</label>
+                  <input id={`br${i}`} type="text" value={b.relationship} onChange={(e) => setBen(i, { relationship: e.target.value })} /></div>
+                <div className="field" style={{ flex: "0 1 150px" }}><label htmlFor={`bk${i}`}>Kind</label>
+                  <select id={`bk${i}`} value={b.kind} onChange={(e) => setBen(i, { kind: e.target.value as Beneficiary["kind"] })}>
+                    <option value="primary">Primary</option><option value="contingent">Contingent</option>
+                  </select></div>
+                <div className="field" style={{ flex: "0 1 110px" }}><label htmlFor={`bs${i}`}>Share %</label>
+                  <input id={`bs${i}`} type="number" min={0} max={100} value={b.share} onChange={(e) => setBen(i, { share: Number(e.target.value) })} /></div>
+                <button type="button" className="secondary small" onClick={() => set("beneficiaries", f.beneficiaries.filter((_, j) => j !== i))}>Remove</button>
+              </div>
+            ))}
+            {f.beneficiaries.some((b) => b.name.trim()) && (
+              <p className="small muted">Primary shares: {shareTotal("primary")}%
+                {f.beneficiaries.some((b) => b.kind === "contingent") && <> · Contingent shares: {shareTotal("contingent")}%</>}. Each kind adds up to 100%.</p>
+            )}
+            <button type="button" className="secondary small"
+              onClick={() => set("beneficiaries", [...f.beneficiaries, blankBeneficiary(f.beneficiaries.some((b) => b.kind === "primary") ? "contingent" : "primary")])}>
+              Add a beneficiary</button>
+          </div>
+        )}
+
+        {wantsContact && (
+          <div className="panel">
+            <h2 style={{ marginTop: 0 }}>Trusted contact</h2>
+            <p className="small muted">Someone the custodian may call about suspected financial exploitation, or to confirm the
+              client's health or whereabouts (FINRA Rule 4512). The contact can't act on the account.</p>
+            {!f.trusted_contact_declined && (
+              <>
+                <div className="row">
+                  <div className="field"><label htmlFor="tcn">Name</label>
+                    <input id="tcn" type="text" value={f.trusted_contact.name} onChange={(e) => setContact({ name: e.target.value })} /></div>
+                  <div className="field"><label htmlFor="tcr">Relationship</label>
+                    <input id="tcr" type="text" value={f.trusted_contact.relationship} onChange={(e) => setContact({ relationship: e.target.value })} /></div>
+                </div>
+                <div className="row">
+                  <div className="field"><label htmlFor="tcp">Phone</label>
+                    <input id="tcp" type="tel" value={f.trusted_contact.phone} onChange={(e) => setContact({ phone: e.target.value })} /></div>
+                  <div className="field"><label htmlFor="tce">Email</label>
+                    <input id="tce" type="email" value={f.trusted_contact.email} onChange={(e) => setContact({ email: e.target.value })} /></div>
+                </div>
+              </>
+            )}
+            <label className="check"><input type="checkbox" checked={f.trusted_contact_declined}
+              onChange={(e) => set("trusted_contact_declined", e.target.checked)} />The client declined to name a trusted contact</label>
+          </div>
+        )}
 
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Documents</h2>
@@ -226,6 +371,10 @@ export default function NewAccount() {
             value={f.docs.formation_documents} onChange={(v) => setDoc("formation_documents", v)} />}
           {entity && <IntakeDocRow label="Beneficial ownership certification" value={f.docs.bo_certification}
             onChange={(v) => setDoc("bo_certification", v)} />}
+          {ira && <IntakeDocRow label="IRA adoption agreement" value={f.docs.ira_adoption_agreement}
+            onChange={(v) => setDoc("ira_adoption_agreement", v)} />}
+          {affiliated && <IntakeDocRow label="Employer consent letter (FINRA Rule 3210)" value={f.docs.employer_consent}
+            onChange={(v) => setDoc("employer_consent", v)} />}
         </div>
 
         <div className="panel">

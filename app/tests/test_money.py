@@ -89,11 +89,15 @@ def test_a_large_wire_waits_for_a_callback_on_a_number_on_file(as_user):
     assert _status(as_user("ops.transfers"), cid) == "PENDING_CALLBACK"
     assert as_user("ops.service").post(f"/api/cases/{cid}/actions/callback",
                                        json={"data": {"confirmed": "yes", "phone": "801-555-0110"}}).status_code == 403
+    action = next(a for a in as_user("ops.transfers").get(f"/api/cases/{cid}").json()["actions"] if a["key"] == "callback")
+    on_file = [o[0] for o in next(f for f in action["fields"] if f["name"] == "phone")["options"]]
+    assert on_file and all(n.startswith("801-555-01") for n in on_file)        # from the account record
+    for number in ("", "801-555-0999"):           # none named, or one off the request: refused (MM-006)
+        r = as_user("ops.transfers").post(f"/api/cases/{cid}/actions/callback",
+                                          json={"data": {"confirmed": "yes", "phone": number}})
+        assert r.status_code == 422, number
     r = as_user("ops.transfers").post(f"/api/cases/{cid}/actions/callback",
-                                      json={"data": {"confirmed": "yes", "phone": ""}})
-    assert r.status_code == 422                                   # say which number on file was called
-    r = as_user("ops.transfers").post(f"/api/cases/{cid}/actions/callback",
-                                      json={"data": {"confirmed": "yes", "phone": "801-555-0110"}})
+                                      json={"data": {"confirmed": "yes", "phone": on_file[0]}})
     assert r.json()["case"]["status"] == "PENDING_RELEASE"
     d = as_user("ops.transfers").post(f"/api/cases/{cid}/decisions", json={
         "decision_type": "release", "value": "released", "reference": "REL-T-3"}).json()
