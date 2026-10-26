@@ -417,3 +417,24 @@ def test_the_nightly_batch_runs_by_token_or_by_the_supervisor(as_user, monkeypat
     assert by_hand["by"] == "Priya Raman"
     recent = as_user("ops.supervisor").get("/api/nightly").json()
     assert recent["scheduled"] and len(recent["runs"]) == 2 and recent["can_run"]
+
+
+def test_quarterly_statements_reach_each_client_and_only_their_people(as_user):
+    ops = as_user("ops.supervisor").get("/api/statements").json()
+    assert ops and {s["period_end"] for s in ops} == {ops[0]["period_end"]}
+    granite = as_user("granite.advisor").get("/api/statements").json()
+    firm_accounts = {a["id"] for a in as_user("granite.advisor").get("/api/money/accounts").json()}
+    assert granite and {s["account_id"] for s in granite} <= firm_accounts and len(granite) < len(ops)
+    mine = as_user("client.farid").get("/api/statements").json()
+    assert {s["account_id"] for s in mine} <= {"ACC-2003"}
+    other = next(s for s in ops if s["account_id"] not in firm_accounts)
+    assert as_user("granite.advisor").get(f"/api/statements/{other['id']}/file").status_code == 404
+    pdf = as_user("granite.advisor").get(f"/api/statements/{granite[0]['id']}/file")
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF") and b"15c3-2" in pdf.content
+    import hashlib
+    assert hashlib.sha256(pdf.content).hexdigest() == granite[0]["sha256"]
+    assert as_user("ops.analyst").post("/api/statements/generate").status_code == 403
+    again = as_user("ops.supervisor").post("/api/statements/generate").json()
+    assert again["generated"] == 0 and again["already"] == len(ops)                # once per account and quarter
+    box = as_user("ops.supervisor").get("/api/outbox").json()["emails"]
+    assert sum(e["template"] == "statement_ready" for e in box) >= len(ops)

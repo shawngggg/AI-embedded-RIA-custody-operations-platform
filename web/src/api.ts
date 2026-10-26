@@ -120,6 +120,7 @@ export type AiSuggestion = {
 export type Tally = { suggestions: number; reviewed: number; pending: number; accepted: number; edited: number;
   rejected: number; share_accepted: number | null; cases: number };
 export type SuggestionSummary = { live: Tally; illustrative: Tally; by_field: (Tally & { field: string; label: string })[];
+  qa?: { sampled: number; checked: number; agreed: number; disagreed: number; agreement: number | null; every: number };
   by_prompt: (Tally & { prompt_version: string | null; model: string | null })[];
   recent_changes?: { id: number; case_id: number | null; case: string; mode: string; field: string; label: string;
     status: string; suggested: string; final: string | null; reason: string | null; by: string; at: string }[] };

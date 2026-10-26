@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type CaseSummary, type Decision } from "../api";
 import { useAuth } from "../auth";
@@ -68,6 +69,8 @@ export default function Work() {
           <div className="sub">Requested by another administrator</div></Link>}
       </div>
 
+      {can.ai_review && <AiQa />}
+
       {d.queues.length > 0 && (
         <>
           <h2>Needs you</h2>
@@ -112,5 +115,40 @@ export default function Work() {
         </>
       )}
     </>
+  );
+}
+
+
+type QaItem = { id: number; case_id: number; case: string; label: string; suggested: string | null; quote: string;
+  reviewed_by: string; outcome: string; final: string | null; reason: string | null };
+
+/** The AI review QA sample: values a colleague reviewed, for a second person to check against the package. */
+function AiQa() {
+  const q = useLoad(() => api<{ items: QaItem[]; every: number }>("/api/ai-qa"), []);
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  if (!q.data || q.data.items.length === 0) return null;
+  const decide = (i: QaItem, verdict: string) => api<{ items: QaItem[]; every: number }>(`/api/ai-qa/${i.id}`, { body: { verdict, note: notes[i.id] ?? "" } })
+    .then((r) => { q.setData(r); setMsg({ ok: verdict === "agree" ? "Agreed." : "Disagreement logged as a risk event for your team." }); })
+    .catch((e: Error) => setMsg({ error: e.message }));
+  return (
+    <div className="panel">
+      <h2 style={{ marginTop: 0 }}>Second review: AI-read values ({q.data.items.length})</h2>
+      <p className="small muted">1 in {q.data.every} values a colleague reviewed comes to a second person. Open the case's package and check
+        the first review: agree, or say what the package shows.</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      {q.data.items.map((i) => (
+        <div key={i.id} className="evidence" style={{ marginBottom: 8 }}>
+          <div className="small"><Link to={`/cases/${i.case_id}`}>{i.case}</Link> · {i.label}: the AI read <strong>{i.suggested ?? "nothing"}</strong>;
+            {" "}{i.reviewed_by} {i.outcome} it{i.final ? ` as ${i.final}` : ""}{i.reason ? ` (${i.reason})` : ""}.</div>
+          {i.quote && <div className="small muted">Package: “{i.quote}”</div>}
+          <div className="row" style={{ alignItems: "end", marginTop: 6 }}>
+            <div className="field"><label htmlFor={`qa${i.id}`}>If you disagree, what the package shows</label>
+              <input id={`qa${i.id}`} type="text" value={notes[i.id] ?? ""} onChange={(e) => setNotes({ ...notes, [i.id]: e.target.value })} /></div>
+            <button className="small" onClick={() => decide(i, "agree")}>Agree</button>
+            <button className="small secondary" onClick={() => decide(i, "disagree")}>Disagree</button>
+          </div>
+        </div>))}
+    </div>
   );
 }

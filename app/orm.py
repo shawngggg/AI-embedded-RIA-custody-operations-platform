@@ -15,6 +15,7 @@ from sqlalchemy import (JSON, BigInteger, Boolean, Date, DateTime, Float, Foreig
                         String, Text, text)
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .crypto import ProtectedJSON
 from .db import Base
 
 
@@ -109,6 +110,10 @@ class User(Base):
     individual_crd: Mapped[str | None] = mapped_column(String(20), nullable=True)
     team: Mapped[str | None] = mapped_column(String(40), nullable=True)       # OPS_TEAMS key, operations only
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # A password sign-in needs a second factor (app/totp.py): the TOTP secret, sealed like a tax ID (app/crypto.py)
+    mfa_secret: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    mfa_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)     # a code works once
 
 
 class RoleGrant(Base):
@@ -132,7 +137,7 @@ class Firm(Base):
     crd: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     legal_name: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(30), default="ONBOARDING")    # ONBOARDING | ACTIVE | DECLINED
-    application: Mapped[dict] = mapped_column(JSON)
+    application: Mapped[dict] = mapped_column(ProtectedJSON)
     reliance_eligible: Mapped[bool] = mapped_column(Boolean, default=False)
     risk_tier: Mapped[str | None] = mapped_column(String(10), nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -149,7 +154,7 @@ class Account(Base):
     status: Mapped[str] = mapped_column(String(30), default="PENDING")  # PENDING | OPEN | CLOSED
     path: Mapped[str | None] = mapped_column(String(2), nullable=True)
     risk_tier: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    application: Mapped[dict] = mapped_column(JSON)
+    application: Mapped[dict] = mapped_column(ProtectedJSON)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     change_history: Mapped[list] = mapped_column(JSON, default=list)   # [[change_type, iso date], ...]
     rep_code: Mapped[str | None] = mapped_column(String(20), nullable=True)   # the advisor's code at the RIA
@@ -166,9 +171,9 @@ class Case(Base):
     target_id: Mapped[str] = mapped_column(String(60), index=True)    # where restriction codes sit
     status: Mapped[str] = mapped_column(String(40), default="NEW")
     queue: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
-    application: Mapped[dict] = mapped_column(JSON)
+    application: Mapped[dict] = mapped_column(ProtectedJSON)
     decisions: Mapped[dict] = mapped_column(JSON, default=dict)
-    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    result: Mapped[dict | None] = mapped_column(ProtectedJSON, nullable=True)
     extra: Mapped[dict] = mapped_column(JSON, default=dict)           # extraction result, change confirmation
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -390,6 +395,12 @@ class AiSuggestion(Base):
     reviewed_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Quality check: a sample of reviewed values goes to a second person, who agrees or disagrees with the first review
+    qa_selected: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    qa_verdict: Mapped[str | None] = mapped_column(String(20), nullable=True)      # agree | disagree
+    qa_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qa_by_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    qa_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AiUsage(Base):
@@ -589,3 +600,50 @@ class FlaggedListEntry(Base):
     source: Mapped[str] = mapped_column(String(200))
     added_by: Mapped[str] = mapped_column(String(120))
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PrivacyIncident(Base):
+    """
+    A possible data incident under Regulation S-P (17 CFR 248.30, as amended in 2024): assessed, contained, and either
+    noticed to the affected customers within 30 days of becoming aware, or documented as not reasonably likely to cause
+    substantial harm or inconvenience. A service provider's incident counts too; the provider owes notice within 72
+    hours of becoming aware. See app/privacy.py.
+    """
+    __tablename__ = "privacy_incidents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ref: Mapped[str] = mapped_column(String(20), unique=True)
+    summary: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="assessing")   # assessing | contained | closed
+    aware_on: Mapped[date] = mapped_column(Date)
+    reported_by: Mapped[str] = mapped_column(String(120))
+    service_provider: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    provider_aware_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accounts: Mapped[list] = mapped_column(JSON, default=list)            # account ids whose information was involved
+    information: Mapped[str | None] = mapped_column(Text, nullable=True)  # what kind of customer information
+    contained_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    containment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    determination: Mapped[str | None] = mapped_column(String(20), nullable=True)   # notify | no_notice
+    determination_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    determined_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notices_sent_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notices_sent: Mapped[int] = mapped_column(Integer, default=0)
+    risk_event_id: Mapped[int | None] = mapped_column(ForeignKey("ops_risk_events.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Statement(Base):
+    """A client's quarterly account statement (FINRA Rule 2231; what an adviser with custody relies on under Advisers
+    Act Rule 206(4)-2): the PDF, its fingerprint, and what it summarized. See app/statements.py."""
+    __tablename__ = "statements"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"), index=True)
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date, index=True)
+    filename: Mapped[str] = mapped_column(String(120))
+    sha256: Mapped[str] = mapped_column(String(64))
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    generated_by: Mapped[str] = mapped_column(String(120))
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    notices: Mapped[int] = mapped_column(Integer, default=0)

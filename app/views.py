@@ -14,6 +14,7 @@ from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .access import capabilities, may_propose
 from .orm import OPS_TEAMS, PORTAL_ROLES, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
+from .crypto import mask_tax_ids, sees_tax_ids
 from .queues import DECISIONS, QUEUES
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
@@ -77,7 +78,7 @@ def user_dict(db: Session, u: User) -> dict:
             "note": u.demo_note, "firm": {"id": firm.id, "crd": firm.crd, "name": firm.legal_name} if firm else None,
             "client_account_id": u.client_account_id,
             "registrations": [{"code": r, "label": REGISTRATIONS.get(r, r)} for r in (u.registrations or [])],
-            "individual_crd": u.individual_crd,
+            "individual_crd": u.individual_crd, "mfa": bool(u.mfa_enabled_at), "has_password": bool(u.password_hash),
             "can_accept_accounts": u.role in ("ria_service", "ria_service_lead") and holds_principal(u),
             "team": u.team, "team_label": OPS_TEAMS.get(u.team) if u.team else None,
             "capabilities": capabilities(u),
@@ -249,7 +250,8 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
                          .order_by(PendingDecision.proposed_at.desc())).all()
     account = db.get(Account, c.account_id) if c.account_id else None
     data.update({
-        "application": c.application, "decisions": c.decisions, "result": c.result, "extra": c.extra,
+        "application": c.application if sees_tax_ids(user) else mask_tax_ids(c.application),
+        "decisions": c.decisions, "result": c.result, "extra": c.extra,
         "restrictions": [restriction_dict(r) for r in restrictions],
         "decision_log": [decision_dict(db, d) for d in pending],
         "available_decisions": [] if user.role in ("ria_admin", "ria_user", "client") else available_decisions(c, user),

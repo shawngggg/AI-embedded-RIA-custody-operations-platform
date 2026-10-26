@@ -103,6 +103,12 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
   a sanctions hold.
 - The release 3 pages (trading, billing) open with a read-only preview of the synthetic book: operations sees its
   area; an RIA its own firm; a client their own account. The portal never gets a restriction code or a fail.
+- Data protection: `ProtectedJSON` (`app/crypto.py`) seals `tax_id` and `date_of_birth` in applications, case results,
+  and account and firm records; `views.case_detail` masks tax IDs for people outside `crypto.sees_tax_ids`. A password
+  sign-in is two steps (`app/totp.py`; a challenge token is never a session). The audit log is insert-only on Postgres
+  (`app/audit_guard.py`, reinstalled by every `copy_database`) and its export is hash-chained (`app/audit_chain.py`).
+  Reg S-P incidents (`app/privacy.py`), the AI review QA sample (`ai_suggestions.QA_EVERY`), and quarterly statements
+  (`app/statements.py`) are the rest of the review's group 6.
 - The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
   Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
 

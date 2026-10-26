@@ -318,6 +318,28 @@ def review_suggestion(case_id: int, suggestion_id: int, body: SuggestionReview,
     return case_detail(db, case, user)
 
 
+class QaReview(BaseModel):
+    verdict: str                                 # agree | disagree
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/ai-qa")
+def ai_qa_queue(user: User = Depends(require_capability("ai_review")), db: Session = Depends(get_db)):
+    """The QA sample waiting for this person: values someone else on their team reviewed."""
+    return {"items": ai_suggestions.qa_queue(db, user), "every": ai_suggestions.QA_EVERY}
+
+
+@router.post("/ai-qa/{suggestion_id}")
+def ai_qa_review(suggestion_id: int, body: QaReview, user: User = Depends(require_capability("ai_review")),
+                 db: Session = Depends(get_db)):
+    s = db.get(AiSuggestion, suggestion_id)
+    if s is None:
+        raise HTTPException(404, "No such suggestion")
+    ai_suggestions.qa_review(db, s, user, body.verdict, body.note)
+    db.commit()
+    return {"items": ai_suggestions.qa_queue(db, user), "every": ai_suggestions.QA_EVERY}
+
+
 class TakeAction(BaseModel):
     data: dict = Field(default_factory=dict)
 

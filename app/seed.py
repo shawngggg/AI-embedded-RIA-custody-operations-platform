@@ -333,6 +333,8 @@ def copy_database(source, target) -> None:
             if target.dialect.name == "postgresql" and len(pk) == 1 and isinstance(pk[0].type, Integer):
                 dst.execute(text(f"SELECT setval(pg_get_serial_sequence('{table.name}', '{pk[0].name}'), "
                                  f"COALESCE((SELECT MAX({pk[0].name}) FROM {table.name}), 0) + 1, false)"))
+        from .audit_guard import install
+        install(dst)                          # the audit log stays insert-only in the rebuilt tables
 
 
 def seed(db: Session) -> None:
@@ -470,8 +472,9 @@ def _seed(db: Session) -> None:
     db.flush()
     from .seed_r2 import seed_release2
     seed_release2(db, users)                  # the ledger, transfers, receipts, and breaks (release 2)
-    from . import nigo
+    from . import nigo, statements
     nigo.run(db, None)              # the nightly NIGO check, caught up: reminders sent, the 30-day-old one withdrawn
+    statements.generate(db, None)   # last quarter's statements, as the first nightly run after the quarter made them
     from .risk_register import sweep_sla_breaches
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
     seed_access_events(db, users)

@@ -161,6 +161,8 @@ export function AccountLedger({ portal }: { portal?: boolean }) {
   const detail = useLoad(() => id ? api<AccountDetail>(`/api/money/accounts/${id}`) : Promise.resolve(null as any), [id]);
   const d = detail.data as AccountDetail | null;
   const cash = useMemo(() => d?.positions.find((p) => p.asset === "USD"), [d]);
+  const stmts = useLoad(() => id ? api<{ id: number; period_start: string; period_end: string; sha256: string }[]>(`/api/statements?account_id=${id}`)
+    : Promise.resolve([]), [id]);
   return (
     <>
       <label style={{ maxWidth: 420, display: "block" }}>Account
@@ -192,6 +194,10 @@ export function AccountLedger({ portal }: { portal?: boolean }) {
         </table></div>
         <h3>{portal ? "Activity" : "Ledger entries"}</h3>
         {portal ? <Activity entries={d.entries} /> : <Entries entries={d.entries as LedgerEntry[]} compact />}
+        <h3>Quarterly statements</h3>
+        {(stmts.data ?? []).length === 0 ? <div className="empty">No statements yet.</div> : <ul className="small">{(stmts.data ?? []).map((st) => (
+          <li key={st.id}><a href={`/api/statements/${st.id}/file`} target="_blank" rel="noreferrer">{st.period_start} to {st.period_end}</a>
+            {!portal && <span className="muted mono"> · SHA-256 {st.sha256.slice(0, 12)}…</span>}</li>))}</ul>}
       </>}
     </>
   );

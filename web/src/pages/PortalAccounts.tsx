@@ -8,12 +8,14 @@ export default function PortalAccounts() {
   const { user } = useAuth();
   const accounts = useLoad(() => api<any[]>("/api/portal/accounts"), []);
   const cases = useLoad(() => api<CaseSummary[]>("/api/cases"), []);
+  const statements = useLoad(() => api<{ id: number; account_id: string; period_start: string; period_end: string;
+    summary: { closing_value: number } }[]>("/api/statements"), []);
   const client = user.role === "client";
   return (
     <>
       <h1>{client ? "Your self-directed account" : "Accounts and requests"}</h1>
       <p className="muted">{client ? "You can change your account details here. Your RIA can see this account but doesn't manage it. Trading and transfers arrive in later releases."
-        : "Submit applications and account changes for your firm's pure RIA accounts. Self-directed accounts are view-only for the RIA; the client changes them. Transfers, trading, and fee billing arrive in later releases."}</p>
+        : "Submit applications and account changes for your firm's pure RIA accounts. Self-directed accounts are view-only for the RIA; the client changes them. Trading and fee billing arrive in a later release."}</p>
       <div className="actions" style={{ marginBottom: 16 }}>
         {!client && <Link to="/portal/new-account"><button>New account application</button></Link>}
         <Link to="/portal/change"><button className={client ? "" : "secondary"}>Request an account change</button></Link>
@@ -32,6 +34,17 @@ export default function PortalAccounts() {
           ))}</tbody>
         </table></div>
       ) : <div className="empty">No accounts yet.</div>}
+      <h2>Statements</h2>
+      <p className="muted small">Quarterly statements go to each client straight from the custodian; your firm gets a copy.</p>
+      {!statements.data ? <Loading /> : statements.data.length ? (
+        <div className="scroll"><table>
+          <thead><tr><th>Account</th><th>Quarter</th><th className="num">Value at the end</th><th /></tr></thead>
+          <tbody>{statements.data.map((st) => (
+            <tr key={st.id}><td className="mono">{st.account_id}</td><td>{st.period_start} to {st.period_end}</td>
+              <td className="num">${st.summary.closing_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td><a href={`/api/statements/${st.id}/file`} target="_blank" rel="noreferrer">Open the PDF</a></td></tr>))}</tbody>
+        </table></div>
+      ) : <div className="empty">No statements yet.</div>}
       <h2>Requests</h2>
       {!cases.data ? <Loading /> : cases.data.length ? (
         <div className="scroll"><table>

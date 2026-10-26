@@ -31,9 +31,21 @@ export default function SignIn({ onSignedIn }: { onSignedIn: (u: User) => void }
     .then(() => api<{ case_id: number }>("/api/walkthrough", { body: { first_time: firstTime } }))
     .then((w) => { rememberWalkthrough(w.case_id); window.location.assign(`/cases/${w.case_id}`); })
     .catch((e) => setError(e.message));
+  // A password never signs in alone: step two is a code from an authenticator app (or, the first time, enrolling one)
+  type Step = { mfa_required?: boolean; mfa_setup_required?: boolean; challenge: string; secret?: string; otpauth?: string };
+  const [step, setStep] = useState<Step | null>(null);
+  const [code, setCode] = useState("");
   const login = (e: React.FormEvent) => {
     e.preventDefault();
-    api<User>("/api/auth/login", { body: { username, password } }).then(onSignedIn).catch((err) => setError(err.message));
+    setError(null);
+    api<Step>("/api/auth/login", { body: { username, password } }).then((s) => { setStep(s); setCode(""); })
+      .catch((err) => setError(err.message));
+  };
+  const second = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!step) return;
+    api<User>(step.mfa_setup_required ? "/api/auth/mfa/enroll" : "/api/auth/mfa", { body: { challenge: step.challenge, code } })
+      .then(onSignedIn).catch((err) => setError(err.message));
   };
 
   return (
@@ -80,11 +92,30 @@ export default function SignIn({ onSignedIn }: { onSignedIn: (u: User) => void }
         </>
       )}
       <h2>Sign in with a password</h2>
-      <form className="panel" onSubmit={login} style={{ maxWidth: 420 }}>
+      {step ? (
+        <form className="panel" onSubmit={second} style={{ maxWidth: 520 }}>
+          {step.mfa_setup_required ? (
+            <>
+              <p className="small">First sign-in: add this account to an authenticator app (Google Authenticator, Microsoft Authenticator,
+                1Password, and so on), then enter the 6-digit code it shows.</p>
+              <div className="field"><label>Setup key</label><code style={{ wordBreak: "break-all" }}>{step.secret}</code></div>
+              <p className="small muted" style={{ wordBreak: "break-all" }}>Or paste this link into the app: {step.otpauth}</p>
+            </>
+          ) : <p className="small">Enter the 6-digit code from your authenticator app.</p>}
+          <div className="field"><label htmlFor="otp">Code</label>
+            <input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+              onChange={(e) => setCode(e.target.value)} /></div>
+          <div className="actions">
+            <button type="submit" disabled={code.replace(/\D/g, "").length !== 6}>Sign in</button>
+            <button type="button" className="secondary" onClick={() => setStep(null)}>Start over</button>
+          </div>
+        </form>
+      ) : <form className="panel" onSubmit={login} style={{ maxWidth: 420 }}>
         <div className="field"><label htmlFor="u">Username</label><input id="u" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
         <div className="field"><label htmlFor="p">Password</label><input id="p" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-        <button type="submit">Sign in</button>
-      </form>
+        <button type="submit">Continue</button>
+        <p className="small muted" style={{ marginBottom: 0 }}>Then a code from your authenticator app: a password never signs in alone.</p>
+      </form>}
     </div>
   );
 }

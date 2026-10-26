@@ -227,6 +227,38 @@ def make_pdf(title: str, lines: list[str]) -> bytes:
     return bytes(out)
 
 
+def make_pdf_pages(title: str, lines: list[str], per_page: int = 44) -> bytes:
+    """A multi-page PDF with a text layer (statements): the title on page one, then the lines, 44 to a page in 9-point
+    type, each page numbered."""
+    chunks = [lines[i:i + per_page] for i in range(0, max(len(lines), 1), per_page)] or [[]]
+    n = len(chunks)
+    font_obj = 3 + 2 * n                       # 1 catalog, 2 pages, then a page and its contents for each page
+    objects = [b"<< /Type /Catalog /Pages 2 0 R >>",
+               b"<< /Type /Pages /Kids [" + b" ".join(f"{3 + 2 * i} 0 R".encode() for i in range(n))
+               + f"] /Count {n} >>".encode()]
+    for i, chunk in enumerate(chunks):
+        body = ["BT", "/F1 14 Tf", "54 750 Td", f"({_pdf_escape(title if i == 0 else title + ' (continued)')}) Tj",
+                "/F1 9 Tf"]
+        for line in chunk:
+            body += ["0 -15 Td", f"({_pdf_escape(line)}) Tj"]
+        body += ["ET", "BT", "/F1 8 Tf", "54 30 Td", f"(Page {i + 1} of {n}) Tj", "ET"]
+        stream = "\n".join(body).encode("latin-1", "replace")
+        objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {font_obj} "
+                       f"0 R >> >> /Contents {4 + 2 * i} 0 R >>".encode())
+        objects.append(b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream")
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, obj in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
 def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[str, bytes]:
     """A synthetic document for this case that passes the pre-checks."""
     app = case.application or {}
