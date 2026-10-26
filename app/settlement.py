@@ -227,6 +227,9 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
     released = release_ach_holds(db, actor)
     receipts = match_receipts(db, actor)
     reconfirmed = sloa_annual_notices(db)
+    from .protection import check as protection_check
+    protect = protection_check(db, actor)
+    reserve, control = protect["reserve"], protect["possession"]
     proof = ledger.proof(db)
     flows = net_flows(db, today)
     net = round(sum(f["net"] for f in flows), 2)
@@ -246,6 +249,16 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
         {"step": "Check the invariant: clients = RIA master; RIA masters = GL", "outcome":
          "Balanced" if all(c["ok"] for c in proof["checks"]) else "Out of balance",
          "detail": [c["check"] for c in proof["checks"] if not c["ok"]], "rule_ids": ["LED-001"]},
+        {"step": "Customer protection (Rule 15c3-3): the reserve formula and possession or control", "outcome":
+         (f"Reserve deficit ${reserve['deficit']:,.2f}: deposit by {reserve['deposit_due']}" if reserve["deficit"]
+          else f"Reserve covered (${reserve['excess']:,.2f} excess)")
+         + (f"; {len(control['deficits'])} possession-or-control deficit"
+            + ("s" if len(control["deficits"]) != 1 else "") if control["deficits"] else "; every security in control"),
+         "detail": [f"Credits ${reserve['total_credits']:,.2f}; debits ${reserve['total_debits']:,.2f} after the 2% "
+                    f"reduction; required ${reserve['required']:,.2f}; on deposit ${reserve['on_deposit']:,.2f}",
+                    f"{control['in_control']} of {control['securities']} securities fully in control"]
+                   + [f"{d['name']}: short {d['deficit']:,.4f}" for d in control["deficits"]],
+         "rule_ids": ["CP-001", "CP-002"]},
         {"step": "Send net funding and settlement instructions", "outcome":
          f"{'Receive' if net >= 0 else 'Pay'} ${abs(net):,.2f} net at the settlement bank",
          "detail": [f"{f['channel']}: {f['direction'].lower()} ${abs(f['net']):,.2f}" for f in flows], "rule_ids": []},
@@ -256,7 +269,8 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
     ]
     run = SettlementRun(business_date=today, run_by=actor.display_name if actor else "system",
                         result={"steps": steps, "flows": flows, "net": net, "checks": proof["checks"],
-                                "delivered": delivered, "released": released, "receipts": receipts})
+                                "protection": protect, "delivered": delivered, "released": released,
+                                "receipts": receipts})
     db.add(run)
     db.flush()
     audit.record(db, actor, "settlement_cycle_run", "settlement_run", run.id, business_date=today.isoformat(),

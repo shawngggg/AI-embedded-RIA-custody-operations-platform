@@ -168,7 +168,7 @@ def location_books(db: Session) -> dict[tuple[str, str], float]:
     """What the books say each location holds: (GL location account, asset) -> quantity."""
     out = {}
     for _layer, acct, asset, _bucket, u in balances(db, layer="gl"):
-        if acct in set(LOCATION_GL.values()) | {"1010"} and u:
+        if acct in set(LOCATION_GL.values()) | {"1010", "1030"} and u:
             out[(acct, asset)] = out.get((acct, asset), 0) + rules.amount(u)
     return out
 

@@ -1,13 +1,14 @@
 account,name,type,cash,securities_value,positions
-1010,Settlement bank,asset,1641499.44,0.0,0
+1010,Settlement bank,asset,-137890.03,0.0,0
 1020,Cash in transit: ACH and wires due in,asset,14000.0,0.0,0
+1030,Special reserve bank account for the exclusive benefit of customers (15c3-3),asset,1770000.0,0.0,0
 1500,Securities at DTC,asset,0.0,32392934.9,18
 1510,Securities at transfer agents (Fund/SERV),asset,0.0,5727937.8,3
 1520,Securities held at sponsors,asset,0.0,253871.8,1
 1590,Securities in transit: incoming transfers,asset,0.0,930292.08,11
-2100,Client cash (owed to clients),liability,-1590153.37,0.0,0
+2100,Client cash (owed to clients),liability,-1595447.35,0.0,0
 2190,Suspense: unapplied receipts,liability,-49750.0,0.0,0
-2200,In-transit suspense: outgoing cash,liability,-15031.07,0.0,0
+2200,In-transit suspense: outgoing cash,liability,-347.62,0.0,0
 2210,Securities due out: outgoing transfers,liability,0.0,-443849.59,9
 2500,Client securities (owed to clients),liability,0.0,-38861186.99,33
 2700,Federal withholding payable,liability,-600.0,0.0,0

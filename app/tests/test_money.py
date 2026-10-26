@@ -222,13 +222,15 @@ def test_breaks_resolve_and_then_the_books_certify(as_user):
     assert {b["pattern"] for b in open_} == {"unexplained", "ach_return_unbooked", "late_delivery"}
     assert all(b["status"] == "resolved" for b in view["breaks"] if b["pattern"] in ("dividend_reinvestment",
                                                                                        "bank_fee"))
-    assert next(b for b in open_ if b["pattern"] == "unexplained")["escalated"]
+    assert next(b for b in open_ if b["pattern"] == "unexplained" and "SFLX" in b["note"])["escalated"]
+    control = s.get("/api/settlement").json()["protection"]["possession"]
+    assert [d["name"] for d in control["deficits"]] and control["deficits"][0]["deficit"] == 40   # DTC's 40 CDVG short
     assert as_user("ops.trade").post("/api/recon/run").status_code == 403          # trade reads, settlement acts
     s = as_user("ops.settlement")
     for b in open_:
         body = {"resolution": "Approved the drafted resolution after checking the evidence"}
         if b["pattern"] == "unexplained":
-            body = {"resolution": "DTC confirmed its own error and reversed the 12 shares"}
+            body = {"resolution": "DTC confirmed its own error and corrected the position"}
         r = s.post(f"/api/recon/breaks/{b['id']}/resolve", json=body)
         assert r.status_code == 200, r.text
     ret = next(b for b in open_ if b["pattern"] == "ach_return_unbooked")
@@ -370,3 +372,48 @@ def test_a_temporary_hold_under_rule_2165_stops_a_disbursement(as_user):
         "note": "Spoke with the client and the trusted contact; the payee is the client's own bank"}).json()
     lifted = as_user("aml.checker").post(f"/api/decisions/{r['id']}/approve").json()
     assert lifted["status"] == "PENDING_RELEASE"
+
+
+# --- customer protection and the nightly batch (industry-practice review, Oct. 25, 2026) ---------------------------
+
+def test_the_reserve_formula_flags_a_deficit_and_a_deposit_covers_it(as_user):
+    view = as_user("ops.settlement").get("/api/settlement").json()
+    r = view["protection"]["reserve"]
+    assert r["required"] > 0 and r["excess"] > 0 and r["deficit"] == 0           # the seeded opening deposit
+    s = as_user("ops.settlement")                                     # a large wire arrives and is applied
+    receipt = s.post("/api/settlement/receipts", json={"channel": "Fedwire", "amount": 2_000_000,
+                                                       "sender": "Bear River Savings Bank",
+                                                       "memo": "FBO ACC-3006 Samuel Adeyemi: inheritance"}).json()
+    rid = next(x["id"] for x in receipt["receipts"] if x["amount"] == 2_000_000)
+    as_user("ops.settlement").post(f"/api/settlement/receipts/{rid}/apply",
+                                   json={"account_id": "ACC-3006", "note": "Memo names the account and the client"})
+    run = as_user("ops.settlement").post("/api/settlement/run").json()
+    short = run["protection"]["reserve"]
+    assert short["deficit"] > 0 and short["deposit_due"].endswith("10:00 ET")
+    step = next(x for x in run["last_run"]["steps"] if "15c3-3" in x["step"])
+    assert step["outcome"].startswith("Reserve deficit") and "CP-001" in step["rule_ids"]
+    events = as_user("ops.supervisor").get("/api/risk-events").json()["events"]
+    assert any(e["source"] == "protection" and e["risk_type"] == "financial" and "Reserve" in e["category"] for e in events)
+    assert as_user("ops.transfers").post("/api/settlement/reserve/deposit",
+                                         json={"amount": 1, "note": "not my team's job"}).status_code == 403
+    covered = as_user("ops.settlement").post("/api/settlement/reserve/deposit", json={
+        "amount": round(short["deficit"] + 10_000, -3), "note": "Covers today's reserve deficit"}).json()
+    assert covered["protection"]["reserve"]["deficit"] == 0
+    assert all(c["ok"] for c in covered["checks"])                     # moving cash between banks keeps the layers
+
+
+def test_the_nightly_batch_runs_by_token_or_by_the_supervisor(as_user, monkeypatch):
+    from app.config import settings
+    c = as_user("ops.analyst")
+    assert c.post("/api/nightly/run").status_code == 403                # not the supervisor (refused and logged)
+    c.cookies.clear()
+    assert c.post("/api/nightly/run").status_code == 401                # nobody signed in, no token
+    assert c.post("/api/nightly/run", headers={"X-Nightly-Token": "guess"}).status_code == 403   # none configured
+    monkeypatch.setattr(settings, "nightly_token", "test-token-0123456789")
+    assert c.post("/api/nightly/run", headers={"X-Nightly-Token": "wrong"}).status_code == 403
+    out = c.post("/api/nightly/run", headers={"X-Nightly-Token": "test-token-0123456789"}).json()
+    assert out["by"] == "Scheduler" and out["screening"]["parties"] > 40 and "reserve_deficit" in out["settlement"]
+    by_hand = as_user("ops.supervisor").post("/api/nightly/run").json()
+    assert by_hand["by"] == "Priya Raman"
+    recent = as_user("ops.supervisor").get("/api/nightly").json()
+    assert recent["scheduled"] and len(recent["runs"]) == 2 and recent["can_run"]

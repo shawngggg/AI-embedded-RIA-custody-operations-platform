@@ -58,6 +58,14 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+def optional_user(request: Request, db: Session) -> User | None:
+    """The signed-in user, or None (for an endpoint a scheduler can also call with its own token)."""
+    try:
+        return current_user(request, db)
+    except HTTPException:
+        return None
+
+
 def require_roles(*roles: str):
     def guard(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)) -> User:
         if user.role not in roles:

@@ -25,6 +25,8 @@ class Settings:
     anthropic_org_id: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_ORGANIZATION_ID", ""))
     as_of: str = field(default_factory=lambda: os.environ.get("AS_OF", ""))   # fixed evaluation date (tests)
     clock: str = field(default_factory=lambda: os.environ.get("CLOCK", ""))   # fixed Eastern time, HH:MM (tests, seed)
+    # The nightly batch's shared secret (Secret Manager): Cloud Scheduler sends it as X-Nightly-Token
+    nightly_token: str = field(default_factory=lambda: os.environ.get("NIGHTLY_TOKEN", ""))
     session_hours: int = field(default_factory=lambda: int(os.environ.get("SESSION_HOURS", "8")))
     cookie_secure: bool = field(default_factory=lambda: _bool("COOKIE_SECURE", False))
     static_dir: Path = field(default_factory=lambda: Path(os.environ.get("STATIC_DIR", str(ROOT / "web" / "dist"))))

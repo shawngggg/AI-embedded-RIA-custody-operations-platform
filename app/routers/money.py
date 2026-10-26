@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from custody import money as engine
 from custody.ledger import CASH
 
-from .. import audit, ledger, portal_view, recon, settlement
+from .. import audit, ledger, portal_view, protection, recon, settlement
 from ..access import capabilities, require_capability
 from ..config import settings
 from ..db import get_db
@@ -303,7 +303,8 @@ def _settlement_view(db: Session) -> dict:
     return {"as_of": today.isoformat(), "last_run": settlement.run_dict(last), "checks": proof["checks"],
             "trial_balance": ledger.trial_balance(db), "masters": ledger.masters(db),
             "receipts": [settlement.receipt_dict(r, today) for r in receipts],
-            "in_transit": settlement.in_transit(db), "today_flows": settlement.net_flows(db, today)}
+            "in_transit": settlement.in_transit(db), "today_flows": settlement.net_flows(db, today),
+            "protection": protection.compute(db)}
 
 
 @router.get("/settlement")
@@ -315,6 +316,21 @@ def _settler(user: User, db: Session, what: str) -> None:
     if not _can_work(user, "settlement"):
         audit.refuse(db, user, what, "Only the settlement and reconciliation team works the settlement cycle",
                      target_type="endpoint", target_id=f"/api/settlement ({what})")
+
+
+class ReserveDeposit(BaseModel):
+    amount: float = Field(gt=0, le=100_000_000)
+    note: str = Field(min_length=10, max_length=300)
+
+
+@router.post("/settlement/reserve/deposit")
+def reserve_deposit(body: ReserveDeposit, user: User = Depends(require_capability("settlement")),
+                    db: Session = Depends(get_db)):
+    """Rule 15c3-3: move cash from the settlement bank into the special reserve bank account."""
+    _settler(user, db, "reserve_deposit")
+    protection.deposit(db, user, body.amount, body.note)
+    db.commit()
+    return _settlement_view(db) | {"can_act": True}
 
 
 @router.post("/settlement/run")

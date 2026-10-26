@@ -39,7 +39,9 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
 - `app/`: FastAPI, SQLAlchemy, Alembic (`migrations/`). `app/access.py` is the capability model; menus and the API
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
   `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
-- `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle; `app/recon.py` reconciles;
+- `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle (with `app/protection.py`, Rule 15c3-3:
+  the reserve formula and possession or control); `app/recon.py` reconciles; `app/nightly.py` is the evening batch
+  (Cloud Scheduler with `NIGHTLY_TOKEN`, or the supervisor by hand);
   `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 18 transfer scenarios, receipts, breaks);
   `app/routers/money.py` is the transfers, settlement, recon, and ledger API.
 - `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds the release 3 book

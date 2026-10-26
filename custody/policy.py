@@ -96,6 +96,21 @@ RULES = [
        "Platform policy, set ahead of the networks' own deadlines: Fedwire takes third-party transfers until "
        "6:45 pm ET and the last same-day ACH window closes at 4:45 pm ET (Federal Reserve, Dec. 23, 2019, effective "
        "March 2021)", effective=REVIEW, cutoffs={"Fedwire": "17:00", "ACH": "15:00"}),
+    # Customer protection (SEC Rule 15c3-3)
+    _r("CP-001", "The reserve formula runs every business day as of the close: customer credits less customer debits "
+       "(reduced by 2% for a daily computation), deposited in the special reserve bank account for the exclusive "
+       "benefit of customers; a deficit is deposited no later than one hour after banks open on the second business "
+       "day after the computation date",
+       "SEC Rule 15c3-3(e) and Exhibit A; the 2024 amendments require a daily computation from $500 million in "
+       "average total credits (compliance date June 30, 2026) and allow the 2% reduction for daily computers. The "
+       "daily computation below that threshold is the platform's choice", effective=REVIEW, debit_reduction=0.02,
+       deposit_bdays=2, deposit_by="10:00"),
+    _r("CP-002", "Every business day, the stock record for customers' fully paid securities at good control locations "
+       "(DTC, the fund transfer agents, the sponsors of non-traded products) is compared with what the street confirms "
+       "there; a shortfall is a deficit to bring back into control, logged as a financial risk event",
+       "SEC Rule 15c3-3(b) and (d) (possession or control of fully paid and excess margin securities; the rule sets "
+       "how fast a deficit must be cleared by its cause); treating transfer agents and sponsors as control locations "
+       "is a platform assumption", effective=REVIEW),
     # Cash settlement (map 12)
     _r("STL-001", "Unapplied incoming cash is matched to an account from the wire memo or ACH addenda; a match at 0.90 "
        "confidence or above applies itself, anything lower waits in suspense for an analyst",

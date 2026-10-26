@@ -471,3 +471,22 @@ def test_a_temporary_hold_stops_a_disbursement_until_its_lifted_or_it_expires():
     assert run(req, decisions={"hold_events": [placed, review("declined")]}).status == "REJECTED"
     later = run(req, ctx(as_of=date(2026, 11, 13)), decisions={"hold_events": [placed]})
     assert later.status == "PENDING_RELEASE"                                              # it expired
+
+
+def test_the_reserve_formula_nets_credits_against_debits_and_dates_the_deposit():
+    from custody import protection
+    cash = {"ACC-1": units(60_000), "ACC-2": units(40_000), "ACC-3": units(-1_000)}
+    gl = {("2190", CASH): -units(5_000), ("2200", CASH): -units(2_500)}
+    r = protection.reserve_computation(cash, gl, units(100_000), date(2026, 10, 23))      # a Friday
+    assert r["total_credits"] == 107_500 and r["gross_debits"] == 1_000 and r["debit_reduction"] == 20
+    assert r["required"] == 106_520 and r["deficit"] == 6_520
+    assert r["deposit_due"] == "2026-10-27 10:00 ET"                                    # the second business day
+    ok = protection.reserve_computation(cash, gl, units(110_000), date(2026, 10, 23))
+    assert ok["excess"] == 3_480 and ok["deposit_due"] is None
+
+
+def test_possession_or_control_finds_securities_the_street_doesnt_confirm():
+    from custody import protection
+    r = protection.possession_or_control({STUM: units(100), "X": units(5)}, {STUM: units(100), "X": units(3)},
+                                         {"X": "Example fund"})
+    assert r["securities"] == 2 and [d["security"] for d in r["deficits"]] == ["X"] and r["deficits"][0]["deficit"] == 2

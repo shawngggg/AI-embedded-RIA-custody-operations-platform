@@ -1,24 +1,24 @@
 entry,ref,kind,description,case,account,effective,posted_by
 1,OPEN-ACC-3001,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3001,2026-08-16,system
 2,OPEN-ACC-3002,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3002,2026-08-24,system
-3,OPEN-ACC-3003,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3003,2026-09-01,system
+3,OPEN-ACC-3003,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3003,2026-09-02,system
 4,OPEN-ACC-3004,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3004,2026-09-10,system
 5,OPEN-ACC-3005,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3005,2026-09-14,system
 6,OPEN-ACC-3006,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3006,2026-09-22,system
-7,OPEN-ACC-3007,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3007,2026-09-26,system
-8,OPEN-ACC-3008,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3008,2026-09-30,system
+7,OPEN-ACC-3007,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3007,2026-09-27,system
+8,OPEN-ACC-3008,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3008,2026-10-01,system
 9,OPEN-ACC-3009,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3009,2026-08-18,system
 10,OPEN-ACC-3011,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3011,2026-08-28,system
-11,OPEN-ACC-3012,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3012,2026-09-05,system
+11,OPEN-ACC-3012,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3012,2026-09-06,system
 12,OPEN-ACC-3013,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3013,2026-09-18,system
 13,OPEN-ACC-3014,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3014,2026-09-24,system
-14,OPEN-ACC-3015,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3015,2026-09-28,system
+14,OPEN-ACC-3015,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3015,2026-09-29,system
 15,OPEN-ACC-3017,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3017,2026-09-08,system
-16,OPEN-ACC-3018,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3018,2026-09-03,system
+16,OPEN-ACC-3018,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3018,2026-09-04,system
 17,OPEN-ACC-3019,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3019,2026-09-16,system
 18,OPEN-ACC-3020,opening_balance,Opening balance: positions and cash brought onto the release 2 ledger (synthetic conversion),,ACC-3020,2026-09-20,system
-19,C65:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),65,ACC-1990,2026-10-15,Marcus Lee
-20,C66:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),66,ACC-1990,2026-10-15,Marcus Lee
+19,C65:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),65,ACC-1990,2026-10-16,Marcus Lee
+20,C66:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),66,ACC-1990,2026-10-16,Marcus Lee
 21,C67:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),67,ACC-2001,2026-10-13,Marcus Lee
 22,C68:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),68,ACC-2001,2026-10-13,Marcus Lee
 23,C69:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),69,ACC-2002,2026-10-15,Sam Okafor
@@ -39,15 +39,15 @@ entry,ref,kind,description,case,account,effective,posted_by
 38,C84:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),84,ACC-3022,2026-10-19,Marcus Lee
 39,C85:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),85,ACC-3023,2026-10-19,system
 40,C86:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),86,ACC-3023,2026-10-19,system
-41,C87:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),87,ACC-3024,2026-10-23,Sam Okafor
-42,C88:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),88,ACC-3024,2026-10-23,Sam Okafor
+41,C87:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),87,ACC-3024,2026-10-26,Sam Okafor
+42,C88:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),88,ACC-3024,2026-10-26,Sam Okafor
 43,C89:submit-1,ach_deposit_pending,ACH deposit: pending (submission 1),89,ACC-3025,2026-10-23,Sam Okafor
 44,C90:submit-1,acats_in_pending,ACATS transfer in: pending (submission 1),90,ACC-3025,2026-10-23,Sam Okafor
 45,C91:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),91,ACC-3009,2026-08-18,Marcus Lee
 46,C92:submit-1,loi_in_pending,Re-registration by LOI: pending (submission 1),92,ACC-3017,2026-09-08,system
-47,C65:settle-1,ach_deposit_settled,ACH deposit: settled,65,ACC-1990,2026-10-16,Omar Haddad
-48,C65:release-1,ach_hold_release,Returnable ACH funds released,65,ACC-1990,2026-10-20,Omar Haddad
-49,C66:settle-1,acats_in_settled,ACATS transfer in: settled,66,ACC-1990,2026-10-21,Omar Haddad
+47,C65:settle-1,ach_deposit_settled,ACH deposit: settled,65,ACC-1990,2026-10-19,Omar Haddad
+48,C65:release-1,ach_hold_release,Returnable ACH funds released,65,ACC-1990,2026-10-21,Omar Haddad
+49,C66:settle-1,acats_in_settled,ACATS transfer in: settled,66,ACC-1990,2026-10-22,Omar Haddad
 50,C67:settle-1,ach_deposit_settled,ACH deposit: settled,67,ACC-2001,2026-10-14,Omar Haddad
 51,C67:release-1,ach_hold_release,Returnable ACH funds released,67,ACC-2001,2026-10-16,Omar Haddad
 52,C68:settle-1,acats_in_settled,ACATS transfer in: settled,68,ACC-2001,2026-10-19,Omar Haddad
@@ -92,15 +92,16 @@ entry,ref,kind,description,case,account,effective,posted_by
 91,RCPT-2,receipt,Fedwire received from Wasatch Community Bank: held in suspense until applied,,,2026-10-25,Omar Haddad
 92,RCPT-3,receipt,Fedwire received from Harbor Title & Escrow (synthetic): held in suspense until applied,,,2026-10-22,Omar Haddad
 93,RCPT-4,receipt,ACH received from Alder Creek Services LLC (synthetic): held in suspense until applied,,,2026-10-06,Omar Haddad
-94,C100:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,100,ACC-3007,2026-10-21,Omar Haddad
-95,C101:settle-1,wire_out_settled,Wire out: settled,101,ACC-3011,2026-10-16,Omar Haddad
-96,C104:settle-1,ach_deposit_settled,ACH deposit: settled,104,ACC-1990,2026-10-20,Omar Haddad
-97,C104:return-1,ach_deposit_return,ACH deposit: returned after settlement,104,ACC-1990,2026-10-21,Omar Haddad
-98,C105:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,105,ACC-3014,2026-10-20,Omar Haddad
-99,C105:return-1,ach_withdrawal_return,ACH withdrawal: returned after settlement,105,ACC-3014,2026-10-21,Omar Haddad
-100,C106:settle-1,ach_deposit_settled,ACH deposit: settled,106,ACC-2001,2026-10-22,Omar Haddad
-101,C107:settle-1,ach_deposit_settled,ACH deposit: settled,107,ACC-2002,2026-10-23,Omar Haddad
-102,C110:reject-1,acats_in_reversal,"ACATS transfer in: rejected, reversed",110,ACC-3003,2026-10-22,Omar Haddad
-103,RCPT-2-APPLY,receipt_applied,Fedwire from Wasatch Community Bank applied to ACC-3018,,ACC-3018,2026-10-25,Omar Haddad
-104,RECON-1,recon_fix,Reconciliation fix: RDGIX reinvested its dividend at the transfer agent; holders not yet booked,,,2026-10-25,Omar Haddad
-105,RECON-2,recon_fix,Reconciliation fix: Settlement bank's monthly wire fee debited,,,2026-10-25,Omar Haddad
+94,RESERVE-2026-10-25-1,reserve_deposit,Deposit to the special reserve bank account (Rule 15c3-3): opening deposit: the required reserve plus a 5% cushion,,,2026-10-25,Omar Haddad
+95,C100:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,100,ACC-3007,2026-10-21,Omar Haddad
+96,C101:settle-1,wire_out_settled,Wire out: settled,101,ACC-3011,2026-10-16,Omar Haddad
+97,C104:settle-1,ach_deposit_settled,ACH deposit: settled,104,ACC-1990,2026-10-20,Omar Haddad
+98,C104:return-1,ach_deposit_return,ACH deposit: returned after settlement,104,ACC-1990,2026-10-21,Omar Haddad
+99,C105:settle-1,ach_withdrawal_settled,ACH withdrawal: settled,105,ACC-3014,2026-10-20,Omar Haddad
+100,C105:return-1,ach_withdrawal_return,ACH withdrawal: returned after settlement,105,ACC-3014,2026-10-21,Omar Haddad
+101,C106:settle-1,ach_deposit_settled,ACH deposit: settled,106,ACC-2001,2026-10-22,Omar Haddad
+102,C107:settle-1,ach_deposit_settled,ACH deposit: settled,107,ACC-2002,2026-10-23,Omar Haddad
+103,C110:reject-1,acats_in_reversal,"ACATS transfer in: rejected, reversed",110,ACC-3003,2026-10-22,Omar Haddad
+104,RCPT-2-APPLY,receipt_applied,Fedwire from Wasatch Community Bank applied to ACC-3018,,ACC-3018,2026-10-25,Omar Haddad
+105,RECON-1,recon_fix,Reconciliation fix: RDGIX reinvested its dividend at the transfer agent; holders not yet booked,,,2026-10-25,Omar Haddad
+106,RECON-2,recon_fix,Reconciliation fix: Settlement bank's monthly wire fee debited,,,2026-10-25,Omar Haddad

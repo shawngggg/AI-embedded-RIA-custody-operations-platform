@@ -25,6 +25,7 @@ CASH = "USD"
 CHART = {
     "1010": ("Settlement bank", "asset"),
     "1020": ("Cash in transit: ACH and wires due in", "asset"),
+    "1030": ("Special reserve bank account for the exclusive benefit of customers (15c3-3)", "asset"),
     "1300": ("Fails to deliver: receivable from the street", "asset"),
     "1500": ("Securities at DTC", "asset"),
     "1510": ("Securities at transfer agents (Fund/SERV)", "asset"),

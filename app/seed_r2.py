@@ -391,11 +391,18 @@ def seed_release2(db: Session, users: dict) -> None:
     sflx = next((s.cusip for s in sb.SECURITIES if s.ticker == "SFLX"), None)
     recon.report(db, location="1500", asset=sflx, difference=12, pattern="unexplained",
                  note="DTC shows 12 more SFLX shares than the books", opened_on=days(7))
+    stum = next((s.cusip for s in sb.SECURITIES if s.ticker == "STUM"), None)
+    at_dtc = {a: q for (loc, a), q in ledger.location_books(db).items() if loc == "1500" and a not in (stum, sflx)}
+    if at_dtc:                                       # DTC short of the books: out of control until it's traced
+        short = max(at_dtc, key=at_dtc.get)
+        ticker = db.get(Security, short).ticker or short
+        recon.report(db, location="1500", asset=short, difference=-40, pattern="unexplained",
+                     note=f"DTC shows 40 fewer {ticker} shares than the books: a possession-or-control deficit "
+                          "(Rule 15c3-3) until it's traced", opened_on=today)
     if unbooked_return is not None:
         recon.report(db, location="1010", asset=CASH, difference=-7_500.00, pattern="ach_return_unbooked",
                      note=f"R01 return on {unbooked_return.account_id}'s ACH deposit debited at the bank",
                      case_id=unbooked_return.id, account_id=unbooked_return.account_id, opened_on=today)
-    stum = next((s.cusip for s in sb.SECURITIES if s.ticker == "STUM"), None)
     late = next((c for c in db.scalars(select(Case).where(Case.kind == "transfer", Case.status == "COMPLETED")).all()
                  if (c.application or {}).get("type") == "acats_in"), None)
     if late is not None:
@@ -404,7 +411,12 @@ def seed_release2(db: Session, users: dict) -> None:
                      account_id=late.account_id, case_id=late.id, opened_on=days(2))
     db.flush()
 
-    # 4. The day's cycle, as the settlement team runs it
+    # 4. The special reserve bank account (Rule 15c3-3): the required reserve plus a cushion, then the day's cycle
+    import math
+    from . import protection
+    need = protection.compute(db)["reserve"]["required"]
+    protection.deposit(db, actor, math.ceil(need * 1.05 / 10_000) * 10_000,
+                       "opening deposit: the required reserve plus a 5% cushion")
     settlement.run_cycle(db, actor)
     recon.run(db, actor)
     db.flush()

@@ -14,7 +14,8 @@ uses the built-in sample package and its illustrative, hand-written model respon
 | Cloud Run | Request-based billing, minimum 0 instances, maximum 1 | The free tier covers 2 million requests, 180,000 vCPU-seconds, and 360,000 GiB-seconds a month ([pricing](https://cloud.google.com/run/pricing)). An idle service costs nothing. |
 | Neon | Free | 100 compute-hours and 1 GB of storage per project a month. The database suspends after 5 idle minutes ([limits](https://neon.com/faqs/free-plan-limits-and-quotas)). |
 | Artifact Registry | Cleanup policy keeps the latest image only | One image is well within the free storage. |
-| Secret Manager | Three secrets | The free tier covers 6 active secret versions and 10,000 reads a month ([pricing](https://cloud.google.com/secret-manager/pricing)). Each cold start reads the three secrets once. |
+| Secret Manager | Up to four secrets | The free tier covers 6 active secret versions and 10,000 reads a month ([pricing](https://cloud.google.com/secret-manager/pricing)). Each cold start reads the secrets once. |
+| Cloud Scheduler | One job (the nightly batch, step 8) | The first three jobs per billing account are free ([pricing](https://cloud.google.com/scheduler/pricing)). Each weekday run wakes Cloud Run and Neon for a minute or two. |
 | Anthropic (optional) | Pay as you go, with `AI_DAILY_CAP=50` | Claude Haiku 5.5 costs about $0.001 per package read, so at most about $1–2 a month. Also set a spend limit in the Anthropic Console. |
 
 Free tiers change. Check the linked pages before you deploy. A budget alert (step 6) emails you if
@@ -216,6 +217,36 @@ curl -s $URL/api/health
 Open the URL and sign in as a demo user. The first request after an idle period takes a few seconds,
 because Cloud Run starts the container and Neon resumes the database.
 
+## 8. The nightly batch (Cloud Scheduler)
+
+Every business day at 6:30 pm Eastern the batch runs the settlement cycle (with the Rule 15c3-3 reserve computation and
+possession-or-control check), reconciliation, ongoing sanctions screening, and NIGO aging (`app/nightly.py`). Cloud
+Scheduler calls `POST /api/nightly/run` with a shared token in the `X-Nightly-Token` header. The token is generated
+in Cloud Shell straight into Secret Manager, so nobody types or sees it. Until this is set up, the operations
+supervisor runs the same batch with **Settlement and recon → Run end of day now**.
+
+```bash
+gcloud services enable cloudscheduler.googleapis.com
+python3 -c "import secrets; print(secrets.token_urlsafe(32), end='')" \
+  | gcloud secrets create ria-nightly-token --data-file=-
+gcloud secrets add-iam-policy-binding ria-nightly-token \
+  --member="serviceAccount:ria-custody-run@$(gcloud config get-value project).iam.gserviceaccount.com" \
+  --role=roles/secretmanager.secretAccessor
+gcloud run services update ria-custody --region us-central1 --update-secrets NIGHTLY_TOKEN=ria-nightly-token:latest
+
+URL=$(gcloud run services describe ria-custody --region us-central1 --format='value(status.url)')
+gcloud scheduler jobs create http ria-nightly --location us-central1 \
+  --schedule "30 18 * * 1-5" --time-zone America/New_York \
+  --uri "$URL/api/nightly/run" --http-method POST --attempt-deadline 300s \
+  --headers "X-Nightly-Token=$(gcloud secrets versions access latest --secret ria-nightly-token)"
+gcloud scheduler jobs run ria-nightly --location us-central1     # try it once now
+```
+
+If the service runs as the default compute identity rather than `ria-custody-run` (step 3 without the federation
+setup), bind that identity to the secret instead. The scheduler skips weekends; on a market or Federal Reserve holiday
+the batch still runs, and the calendars inside it treat the day as closed. A wrong or missing token is refused (403)
+and logged.
+
 ## Settings
 
 | Variable | Default | Meaning |
@@ -237,6 +268,8 @@ because Cloud Run starts the container and Neon resumes the database.
 | `MAIL_SENDER` | none | The mailbox notices are sent from |
 | `MAIL_ALLOWED_DOMAINS` | none | Comma-separated domains a live provider may send to; empty means any |
 | `PORTAL_URL` | the demo's portal URL | Base of the portal links in notices |
+| `NIGHTLY_TOKEN` | none | The nightly batch's shared token (Secret Manager); without it only the supervisor's hand run works |
+| `CLOCK` | the real Eastern time | A fixed `HH:MM` for the rail cutoffs (tests and the seed pin it) |
 
 ## Updating
 
@@ -259,6 +292,10 @@ own.
 
 The release 2 migration (`cf373bde83dc`) adds the ledger, the security master, bank links, grants, receipts, and the
 settlement and reconciliation runs. It runs on startup like every other migration; nothing needs doing by hand.
+
+The industry-practice review (Oct. 25, 2026) adds two migrations: `d94e95d449a0` (the flagged list updates the
+sanctions team adds) and `dfde31c129be` (case ownership). Both run on startup. The image now installs `tzdata`, so the
+rail cutoffs read Eastern time on Cloud Run's slim image.
 
 ## Automatic deploys from GitHub
 
