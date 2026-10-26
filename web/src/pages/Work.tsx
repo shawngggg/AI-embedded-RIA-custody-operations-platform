@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type CaseSummary, type Decision } from "../api";
 import { useAuth } from "../auth";
@@ -6,7 +7,7 @@ import { Loading, slaText, Status, useLoad, when } from "../util";
 type WorkData = {
   greeting_name: string; team_label: string | null;
   queues: { key: string; label: string; count: number; breached: number }[];
-  needs_you: CaseSummary[]; needs_you_total: number; breached: number;
+  needs_you: CaseSummary[]; needs_you_total: number; breached: number; assigned_to_me?: number;
   to_approve: Decision[]; my_proposals: Decision[];
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
@@ -39,7 +40,7 @@ export default function Work() {
       <div className="grid tiles work-tiles">
         {can.queues && <Link className="tile" to="/queues">
           <div className="label">Needs you</div><div className="value">{d.needs_you_total}</div>
-          <div className={`sub ${d.breached ? "alert" : ""}`}>{d.breached ? `${d.breached} past SLA` : "Nothing past SLA"}</div>
+          <div className={`sub ${d.breached ? "alert" : ""}`}>{d.assigned_to_me ? `${d.assigned_to_me} assigned to you · ` : ""}{d.breached ? `${d.breached} past SLA` : "Nothing past SLA"}</div>
         </Link>}
         {can.approvals && <Link className="tile" to="/approvals">
           <div className="label">Waiting for your approval</div><div className="value">{d.to_approve.length}</div>
@@ -68,17 +69,21 @@ export default function Work() {
           <div className="sub">Requested by another administrator</div></Link>}
       </div>
 
+      {can.ai_review && <AiQa />}
+
       {d.queues.length > 0 && (
         <>
           <h2>Needs you</h2>
-          <p className="muted small">From the queues you work: {d.queues.map((q) => `${q.label} (${q.count})`).join(", ")}. Oldest SLA first.</p>
+          <p className="muted small">From the queues you work: {d.queues.map((q) => `${q.label} (${q.count})`).join(", ")}. Yours first, then
+            the unassigned, oldest SLA first; a case a colleague claimed stays with them.</p>
           {d.needs_you.length ? (
             <div className="scroll"><table>
-              <thead><tr><th>Case</th><th>Queue</th><th>Status</th><th>Waiting since</th><th>SLA</th></tr></thead>
+              <thead><tr><th>Case</th><th>Queue</th><th>Status</th><th>Owner</th><th>Waiting since</th><th>SLA</th></tr></thead>
               <tbody>{d.needs_you.map((c) => (
                 <tr key={c.id} className="link" onClick={() => navigate(`/cases/${c.id}`)}>
                   <td><Link to={`/cases/${c.id}`} onClick={(e) => e.stopPropagation()}>#{c.id} {c.title}</Link></td>
                   <td className="small">{c.queue_label}</td><td><Status status={c.status} /></td>
+                  <td className="small">{c.assigned_to ? (c.assigned_to.id === user.id ? "You" : c.assigned_to.name) : <span className="muted">Unassigned</span>}</td>
                   <td className="small">{when(c.queue_entered_at)}</td>
                   <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
                 </tr>))}</tbody>
@@ -110,5 +115,40 @@ export default function Work() {
         </>
       )}
     </>
+  );
+}
+
+
+type QaItem = { id: number; case_id: number; case: string; label: string; suggested: string | null; quote: string;
+  reviewed_by: string; outcome: string; final: string | null; reason: string | null };
+
+/** The AI review QA sample: values a colleague reviewed, for a second person to check against the package. */
+function AiQa() {
+  const q = useLoad(() => api<{ items: QaItem[]; every: number }>("/api/ai-qa"), []);
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  if (!q.data || q.data.items.length === 0) return null;
+  const decide = (i: QaItem, verdict: string) => api<{ items: QaItem[]; every: number }>(`/api/ai-qa/${i.id}`, { body: { verdict, note: notes[i.id] ?? "" } })
+    .then((r) => { q.setData(r); setMsg({ ok: verdict === "agree" ? "Agreed." : "Disagreement logged as a risk event for your team." }); })
+    .catch((e: Error) => setMsg({ error: e.message }));
+  return (
+    <div className="panel">
+      <h2 style={{ marginTop: 0 }}>Second review: AI-read values ({q.data.items.length})</h2>
+      <p className="small muted">1 in {q.data.every} values a colleague reviewed comes to a second person. Open the case's package and check
+        the first review: agree, or say what the package shows.</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      {q.data.items.map((i) => (
+        <div key={i.id} className="evidence" style={{ marginBottom: 8 }}>
+          <div className="small"><Link to={`/cases/${i.case_id}`}>{i.case}</Link> · {i.label}: the AI read <strong>{i.suggested ?? "nothing"}</strong>;
+            {" "}{i.reviewed_by} {i.outcome} it{i.final ? ` as ${i.final}` : ""}{i.reason ? ` (${i.reason})` : ""}.</div>
+          {i.quote && <div className="small muted">Package: “{i.quote}”</div>}
+          <div className="row" style={{ alignItems: "end", marginTop: 6 }}>
+            <div className="field"><label htmlFor={`qa${i.id}`}>If you disagree, what the package shows</label>
+              <input id={`qa${i.id}`} type="text" value={notes[i.id] ?? ""} onChange={(e) => setNotes({ ...notes, [i.id]: e.target.value })} /></div>
+            <button className="small" onClick={() => decide(i, "agree")}>Agree</button>
+            <button className="small secondary" onClick={() => decide(i, "disagree")}>Disagree</button>
+          </div>
+        </div>))}
+    </div>
   );
 }

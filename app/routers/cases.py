@@ -1,5 +1,5 @@
 """Cases, queues, corrections, and maker-checker decisions."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ from ..config import settings
 from ..documents import CORRECTABLE, DOC_TYPES, case_documents, field_docs, mark, supersede_others
 from .. import rescission
 from ..db import get_db
-from ..orm import PORTAL_ROLES, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
+from ..orm import PORTAL_ROLES, Account, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
 from .. import portal_view
 from ..access import approval_refusal, capabilities, may_propose, require_capability
 from ..queues import DECISIONS, QUEUES, works_queue
@@ -21,7 +21,7 @@ from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
 from ..traceability import stamp
-from ..views import (CLIENT_KINDS, CORRECTIONS, RIA_KINDS, case_detail, case_summary, decision_dict, get_case_for,
+from ..views import (CHOICES, CLIENT_KINDS, CORRECTIONS, PER_PERSON, RIA_KINDS, ownership, related_documents, case_detail, case_summary, decision_dict, get_case_for,
                      review_dict, sla_state)
 
 router = APIRouter(prefix="/api", tags=["cases"])
@@ -55,8 +55,11 @@ def queues(user: User = Depends(require_capability("cases")), db: Session = Depe
 
 @router.get("/cases")
 def list_cases(queue: str | None = None, status: str | None = None, kind: str | None = None,
-               open_only: bool = False, user: User = Depends(current_user), db: Session = Depends(get_db)):
+               open_only: bool = False, mine: bool = False, user: User = Depends(current_user),
+               db: Session = Depends(get_db)):
     q = select(Case).order_by(Case.updated_at.desc())
+    if mine:
+        q = q.where(Case.assigned_to == user.id)
     if queue:
         q = q.where(Case.queue == queue)
     if status:
@@ -85,6 +88,83 @@ def get_case(case_id: int, user: User = Depends(current_user), db: Session = Dep
     return case_detail(db, get_case_for(db, user, case_id), user)
 
 
+@router.post("/nigo/run")
+def run_nigo(user: User = Depends(require_roles("ops_supervisor")), db: Session = Depends(get_db)):
+    """NIGO aging by hand (it also runs in the nightly batch): reminders due, and withdrawals at 30 days."""
+    from .. import nigo
+    out = nigo.run(db, user)
+    db.commit()
+    return out
+
+
+# --- Who is working a case: claim, release, assign ---------------------------------------------------------------
+
+class Assign(BaseModel):
+    user_id: int | None = None          # None releases the case back to the queue
+
+
+def assignees(db: Session, case: Case) -> list[User]:
+    """The people a case can go to: active, and working its queue."""
+    if not case.queue:
+        return []
+    return [u for u in db.scalars(select(User).where(User.active.is_(True)).order_by(User.display_name)).all()
+            if works_queue(u, case.queue)]
+
+
+def _set_owner(db: Session, case: Case, actor: User, owner: User | None, action: str) -> None:
+    previous = db.get(User, case.assigned_to) if case.assigned_to else None
+    case.assigned_to, case.assigned_at = (owner.id, utcnow()) if owner else (None, None)
+    audit.record(db, actor, action, "case", case.id, case_id=case.id, queue=case.queue,
+                 to=owner.display_name if owner else None, previous=previous.display_name if previous else None)
+
+
+@router.post("/cases/{case_id}/claim")
+def claim(case_id: int, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    if not ownership(case, user)["can_claim"]:
+        if case.assigned_to == user.id:
+            raise HTTPException(409, "It's already yours")
+        audit.refuse(db, user, "case_claimed", "Only someone who works this case's queue can claim it",
+                     case_id=case.id)
+    if case.assigned_to:
+        holder = db.get(User, case.assigned_to)
+        raise HTTPException(409, f"{holder.display_name} is working it; a team lead can reassign it")
+    _set_owner(db, case, user, user, "case_claimed")
+    db.commit()
+    return case_detail(db, case, user)
+
+
+@router.get("/cases/{case_id}/assignees")
+def list_assignees(case_id: int, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    if not ownership(case, user)["can_assign"]:
+        audit.refuse(db, user, "case_assigned", "Team leads assign work in the queues they run", case_id=case.id)
+    return [{"id": u.id, "name": u.display_name, "role": u.role, "team": u.team,
+             "open_cases": len(db.scalars(select(Case.id).where(Case.assigned_to == u.id,
+                                                                Case.closed_at.is_(None))).all())}
+            for u in assignees(db, case)]
+
+
+@router.post("/cases/{case_id}/assign")
+def assign(case_id: int, body: Assign, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    case = get_case_for(db, user, case_id)
+    can = ownership(case, user)
+    if body.user_id is None:
+        if not can["can_release"]:
+            audit.refuse(db, user, "case_released", "Only the person working it or a team lead can release it",
+                         case_id=case.id)
+        _set_owner(db, case, user, None, "case_released")
+    else:
+        if not can["can_assign"]:
+            audit.refuse(db, user, "case_assigned", "Team leads assign work in the queues they run", case_id=case.id)
+        owner = db.get(User, body.user_id)
+        if owner is None or owner not in assignees(db, case):
+            raise HTTPException(422, "Assign it to someone who works this queue")
+        _set_owner(db, case, user, owner, "case_assigned")
+    db.commit()
+    return case_detail(db, case, user)
+
+
 class Corrections(BaseModel):
     fields: dict = Field(default_factory=dict)
     documents: dict[str, int] = Field(default_factory=dict)   # field -> id of the document that evidences it
@@ -97,6 +177,45 @@ class Corrections(BaseModel):
 OPS = ("ops_analyst", "ops_supervisor")
 
 
+def _checked_extras(fields: dict) -> dict[str, dict]:
+    """Validate the structured items (a choice, a value per person, beneficiaries) in place. Per-person values come
+    back separately, because they land on the holders rather than as a field of their own."""
+    for f, options in CHOICES.items():
+        if f in fields and fields[f] not in {v for v, _l in options}:
+            raise HTTPException(422, f"{f.replace('_', ' ').capitalize()} must be one of: "
+                                     + ", ".join(l for _v, l in options))
+    per_person = {}
+    for f in PER_PERSON:
+        if f not in fields:
+            continue
+        values = fields.pop(f)
+        if not isinstance(values, dict) or not values:
+            raise HTTPException(422, "Give a value for each person, by name")
+        if f == "holder_phones":
+            if any(not str(v or "").strip() for v in values.values()):
+                raise HTTPException(422, "Give a phone number for each person")
+            values = {k: str(v).strip() for k, v in values.items()}
+        else:
+            try:
+                values = {k: float(v) for k, v in values.items()}
+            except (TypeError, ValueError):
+                raise HTTPException(422, "Each share is a number from 0 to 100")
+            if any(not 0 <= v <= 100 for v in values.values()):
+                raise HTTPException(422, "Each share is a number from 0 to 100")
+        per_person[f] = values
+    if "beneficiaries" in fields:
+        rows = fields["beneficiaries"]
+        if not isinstance(rows, list) or not all(isinstance(b, dict) and str(b.get("name") or "").strip() for b in rows):
+            raise HTTPException(422, "Name each beneficiary")
+        try:
+            fields["beneficiaries"] = [{"name": str(b["name"]).strip(), "relationship": b.get("relationship") or None,
+                                        "kind": "contingent" if b.get("kind") == "contingent" else "primary",
+                                        "share": float(b.get("share") or 0)} for b in rows]
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Each share is a number from 0 to 100")
+    return per_person
+
+
 @router.post("/cases/{case_id}/corrections")
 def submit_corrections(case_id: int, body: Corrections, user: User = Depends(current_user),
                        db: Session = Depends(get_db)):
@@ -106,11 +225,13 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
     waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
     if not waiting or not (case.result or {}).get("findings", {}).get("decisions"):
         raise HTTPException(409, "This case isn't waiting for items")
-    allowed = {f for rows in CORRECTIONS.values() for f, _l, kind in rows if kind in ("bool", "text", "bank")}
+    allowed = {f for rows in CORRECTIONS.values() for f, _l, kind in rows
+               if kind in ("bool", "text", "bank", "choice", "per_person", "beneficiaries")}
     unknown = set(body.fields) - allowed
     if unknown:
         raise HTTPException(422, f"Not a correctable field: {', '.join(sorted(unknown))}")
     fields = dict(body.fields)
+    per_person = _checked_extras(fields)
 
     # Items backed by a document need the document, and a person in operations to check it
     claimed = [f for f, v in fields.items() if v and field_docs(case.kind, f)]
@@ -138,6 +259,9 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
 
     app = dict(case.application)
     app.update(fields)
+    for field, values in per_person.items():
+        attr = PER_PERSON[field]
+        app["holders"] = [{**h, attr: values[h["name"]]} if h.get("name") in values else h for h in app.get("holders", [])]
     if body.verify_people:
         app["people"] = [{**p, "identity_verified": True} for p in app.get("people", [])]
     if body.control_person:
@@ -150,7 +274,7 @@ def submit_corrections(case_id: int, body: Corrections, user: User = Depends(cur
         if doc.status != "in_good_order":
             mark(db, doc, "in_good_order", user.display_name, user, body.overrides.get(field))
         supersede_others(db, doc, field_docs(case.kind, field), user.display_name, user)
-    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted(fields),
+    audit.record(db, user, "items_received", "case", case.id, case_id=case.id, fields=sorted([*fields, *per_person]),
                  verify_people=body.verify_people or None, control_person=body.control_person, note=body.note,
                  documents=[{"id": d.id, "doc_type": d.doc_type, "sha256": d.sha256} for d in evidence] or None)
     run_case(db, case, user)
@@ -194,6 +318,28 @@ def review_suggestion(case_id: int, suggestion_id: int, body: SuggestionReview,
     return case_detail(db, case, user)
 
 
+class QaReview(BaseModel):
+    verdict: str                                 # agree | disagree
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/ai-qa")
+def ai_qa_queue(user: User = Depends(require_capability("ai_review")), db: Session = Depends(get_db)):
+    """The QA sample waiting for this person: values someone else on their team reviewed."""
+    return {"items": ai_suggestions.qa_queue(db, user), "every": ai_suggestions.QA_EVERY}
+
+
+@router.post("/ai-qa/{suggestion_id}")
+def ai_qa_review(suggestion_id: int, body: QaReview, user: User = Depends(require_capability("ai_review")),
+                 db: Session = Depends(get_db)):
+    s = db.get(AiSuggestion, suggestion_id)
+    if s is None:
+        raise HTTPException(404, "No such suggestion")
+    ai_suggestions.qa_review(db, s, user, body.verdict, body.note)
+    db.commit()
+    return {"items": ai_suggestions.qa_queue(db, user), "every": ai_suggestions.QA_EVERY}
+
+
 class TakeAction(BaseModel):
     data: dict = Field(default_factory=dict)
 
@@ -225,6 +371,25 @@ class Propose(BaseModel):
     note: str | None = None
 
 
+def _hold_refusal(db: Session, case: Case, value: str, note: str | None) -> str | None:
+    """FINRA Rule 2165 covers a specified adult: 65 or older, or 18 or older with an impairment (custody MM-014)."""
+    from custody import policy
+    if not (note or "").strip() or len(note.strip()) < 15:
+        return "Say what makes you believe the client is being exploited (the internal review starts from it)"
+    if value == "placed_impaired":
+        return None
+    account = db.get(Account, case.account_id)
+    today, age = settings.today(), policy.param("MM-014", "age")
+    for h in (account.application or {}).get("holders", []) if account else []:
+        dob = h.get("date_of_birth")
+        if dob:
+            born = date.fromisoformat(dob)
+            if today.year - born.year - ((today.month, today.day) < (born.month, born.day)) >= age:
+                return None
+    return f"No account holder is {age} or older on the record; if the holder is 18 or older with an impairment, " \
+           "choose that reason"
+
+
 @router.post("/cases/{case_id}/decisions")
 def propose(case_id: int, body: Propose, user: User = Depends(require_internal), db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
@@ -244,6 +409,10 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
                             + f" can propose a {spec['label'].lower()}")
     if case.status not in spec["statuses"]:
         raise HTTPException(409, f"The case isn't waiting for a {spec['label'].lower()}")
+    if body.decision_type == "exploitation_hold":
+        why = _hold_refusal(db, case, body.value, body.note)
+        if why:
+            raise HTTPException(422, why)
     if db.scalar(select(PendingDecision).where(PendingDecision.case_id == case.id,
                                                PendingDecision.decision_type == body.decision_type,
                                                PendingDecision.status == "pending")):
@@ -270,8 +439,10 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_capa
         case = db.get(Case, d.case_id)
         item["can_approve"] = approval_refusal(user, d.decision_type, case) is None and user.id != d.proposed_by
         item["case_title"] = case.title
+        related = related_documents(db, case)
         item["documents"] = [{"id": doc.id, "type_label": DOC_TYPES[doc.doc_type]["label"], "filename": doc.filename,
-                              "status": doc.status} for doc in case_documents(db, case)]
+                              "status": doc.status} for doc in case_documents(db, case)] + \
+            [{**doc, "type_label": f"{doc['type_label']} ({related['title']})"} for doc in (related or {}).get("documents", [])]
         if not item["can_approve"] and user.role == "ops_analyst" and not may_propose(user, d.decision_type):
             continue
         out.append(item)
@@ -392,11 +563,18 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
     elif approve:
         decisions = dict(case.decisions or {})
         decisions[d.decision_type] = True if d.decision_type == "compliance_signoff" else d.value
+        if d.decision_type in ("exploitation_hold", "hold_review"):     # dated: the hold's clock runs from them
+            decisions["hold_events"] = list(decisions.get("hold_events") or []) + [
+                {"type": d.decision_type, "value": d.value, "on": settings.today().isoformat(),
+                 "reference": d.reference}]
         if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud", "release", "risk_review",
                                "product", "estate_docs", "legal_hold", "merger_classification", "negative_consent"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)
+        if d.decision_type == "exploitation_hold" and case.status == "ON_HOLD":
+            from ..mail import hold_notices
+            hold_notices(db, case)
     db.commit()
     return case_detail(db, case, user)
 

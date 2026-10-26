@@ -58,7 +58,9 @@ def start(db: Session, user: User, first_time: bool) -> Case:
     app = AccountApplication(
         f"APP-W{n:03d}", f"ACC-W{n:03d}", AccountGroup.PURE_RIA, "individual",
         [Person(NAMES[n % len(NAMES)], "account_holder", date_of_birth="1984-05-20", identity_verified=True,
-                address="210 S Main St, Logan, UT 84321", tax_id=f"900-00-{4000 + n}", occupation="Engineer")],
+                address="210 S Main St, Logan, UT 84321", tax_id=f"900-00-{4000 + n}", occupation="Engineer",
+                phone="801-555-0171", email="walkthrough.client@example.com")],
+        trusted_contact_declined=True,
         lpoa_signed=False, fee_authorization=True, client_signature=True, tax_form="W-9",
         account_purpose="Retirement investing", source_of_funds="Salary", source_of_wealth="Salary and savings",
         expected_initial_funding=90_000)

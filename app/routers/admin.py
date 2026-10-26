@@ -242,6 +242,22 @@ def deactivate(user_id: int, actor: User = Depends(admins), db: Session = Depend
     return user_dict(db, target)
 
 
+@router.post("/users/{user_id}/reset-mfa")
+def reset_mfa(user_id: int, actor: User = Depends(admins), db: Session = Depends(get_db)):
+    """A lost authenticator: the next password sign-in enrolls a new one. The person's own administrator does it, never
+    the person."""
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "No such user")
+    _scope(db, actor, target=target)
+    if target.id == actor.id:
+        raise HTTPException(403, "Another administrator resets your second factor")
+    target.mfa_secret, target.mfa_enabled_at, target.mfa_last_step = None, None, None
+    audit.record(db, actor, "mfa_reset", "user", target.id)
+    db.commit()
+    return user_dict(db, target)
+
+
 @router.get("/grants")
 def grants(status: str = "pending", actor: User = Depends(require_roles("platform_admin")),
            db: Session = Depends(get_db)):

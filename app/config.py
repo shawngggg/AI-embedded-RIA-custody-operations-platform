@@ -1,7 +1,7 @@
 """Settings from the environment. Defaults run a local demo with SQLite."""
 import os
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,6 +24,9 @@ class Settings:
     federation_rule_id: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_FEDERATION_RULE_ID", ""))
     anthropic_org_id: str = field(default_factory=lambda: os.environ.get("ANTHROPIC_ORGANIZATION_ID", ""))
     as_of: str = field(default_factory=lambda: os.environ.get("AS_OF", ""))   # fixed evaluation date (tests)
+    clock: str = field(default_factory=lambda: os.environ.get("CLOCK", ""))   # fixed Eastern time, HH:MM (tests, seed)
+    # The nightly batch's shared secret (Secret Manager): Cloud Scheduler sends it as X-Nightly-Token
+    nightly_token: str = field(default_factory=lambda: os.environ.get("NIGHTLY_TOKEN", ""))
     session_hours: int = field(default_factory=lambda: int(os.environ.get("SESSION_HOURS", "8")))
     cookie_secure: bool = field(default_factory=lambda: _bool("COOKIE_SECURE", False))
     static_dir: Path = field(default_factory=lambda: Path(os.environ.get("STATIC_DIR", str(ROOT / "web" / "dist"))))
@@ -40,6 +43,13 @@ class Settings:
 
     def today(self) -> date:
         return date.fromisoformat(self.as_of) if self.as_of else date.today()
+
+    def clock_et(self) -> time:
+        """The time of day in New York, for the rail cutoffs (custody MM-013)."""
+        if self.clock:
+            return time.fromisoformat(self.clock)
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/New_York")).time().replace(microsecond=0)
 
 
 settings = Settings()

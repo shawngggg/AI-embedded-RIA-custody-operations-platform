@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from .config import settings
 from .db import SessionLocal
 from .routers import (admin, audit_log, auth, cases, dashboard, documents, intake, portal, restrictions, reviews,
-                      risk_events, work, messages, outbox, ai_eval, walkthrough, preview, money)
+                      risk_events, work, messages, outbox, ai_eval, walkthrough, preview, money, screening,
+                      nightly, privacy, statements)
 from .seed import SEED_FINGERPRINT, ensure_seeded
 
 
@@ -32,7 +33,8 @@ app = FastAPI(title="RIA Custody Operations Platform: MVP", version="0.1.0", lif
 
 for r in (auth.router, cases.router, restrictions.router, reviews.router, dashboard.router, audit_log.router,
           admin.router, portal.router, intake.router, documents.router, risk_events.router, work.router, messages.router, outbox.router, ai_eval.router,
-          walkthrough.router, preview.router, money.router):
+          walkthrough.router, preview.router, money.router, screening.router, nightly.router,
+          privacy.router, statements.router):
     app.include_router(r)
 
 

@@ -24,6 +24,8 @@ export default function Dashboard() {
         <div className="tile"><div className="label">Past SLA</div><div className="value">{breached}</div><div className={`sub ${breached ? "alert" : ""}`}>across all queues</div></div>
         <div className="tile"><div className="label">AI suggestions accepted unchanged</div><div className="value">{pct(ai.live.share_accepted)}</div>
           <div className="sub">{ai.live.reviewed ? `${ai.live.accepted} of ${ai.live.reviewed} live values reviewed` : "no live values reviewed yet"}</div></div>
+        {ai.qa && <div className="tile"><div className="label">AI review QA: second reviewer agrees</div><div className="value">{pct(ai.qa.agreement)}</div>
+          <div className={`sub ${ai.qa.disagreed ? "alert" : ""}`}>{ai.qa.checked ? `${ai.qa.agreed} of ${ai.qa.checked} sampled reviews (1 in ${ai.qa.every})` : `1 in ${ai.qa.every} reviews sampled; none checked yet`}</div></div>}
         <div className="tile"><div className="label">Reviewer walkthrough (median)</div><div className="value">{w.median_seconds === null ? "–" : clock(w.median_seconds)}</div>
           <div className={`sub ${w.first_time_runs && !w.met ? "alert" : ""}`}>{w.first_time_runs ? `${w.under_target} of ${w.first_time_runs} first-time runs under 5:00` : "no first-time runs yet"}</div></div>
       </div>

@@ -33,6 +33,7 @@ CLEARS_TO = {"sec_file_number": None, "crd_number": None, "adv_last_annual_amend
 # is edited to what the package says, never rejected
 CHOICES = {"registration": ["SEC", "state", "none"], "entity_type": ["LLC", "corporation", "partnership"]}
 MIN_REASON = 10
+QA_EVERY = 5            # platform policy: 1 in 5 reviewed values gets a second person's check (by suggestion id)
 # The CIP team reviews what identifies the firm and the people behind it (name, address, TIN, owners and control
 # persons, and the formation and ownership documents); onboarding reviews the rest
 CIP_FIELDS = {"legal_name", "principal_address", "ein", "people", "formation_documents", "ownership_chart",
@@ -240,6 +241,7 @@ def review(db: Session, case: Case, s: AiSuggestion, user: User, action: str, va
     s.status = {"accept": "accepted", "edit": "edited", "reject": "rejected"}[action]
     s.final, s.reason = final, reason or None
     s.reviewed_by, s.reviewed_by_name, s.reviewed_at = user.id, user.display_name, utcnow()
+    s.qa_selected = s.id % QA_EVERY == 0      # the QA sample, chosen by id so nobody picks which reviews are checked
     case.application = app
     if action != "accept":
         case.manual_steps += 1          # a correction to the AI's work is a manual step
@@ -247,6 +249,50 @@ def review(db: Session, case: Case, s: AiSuggestion, user: User, action: str, va
                  field=s.field, outcome=s.status, mode=s.mode, suggested=show(s.field, s.suggested),
                  final=show(s.field, final), reason=reason or None)
     run_case(db, case, user)
+
+
+def may_qa(user: User, s: AiSuggestion) -> bool:
+    """A second person from the team that reviews the field, or the operations supervisor; never the first reviewer."""
+    return s.qa_selected and s.status != "pending" and s.qa_verdict is None and s.reviewed_by != user.id \
+        and (user.role == "ops_supervisor" or (user.role == "ops_analyst" and user.team == team_for(s.field)))
+
+
+def qa_queue(db: Session, user: User) -> list[dict]:
+    rows = db.scalars(select(AiSuggestion).where(AiSuggestion.qa_selected.is_(True), AiSuggestion.qa_verdict.is_(None),
+                                                 AiSuggestion.case_id.is_not(None)).order_by(AiSuggestion.id)).all()
+    return [{**to_dict(s), "case_id": s.case_id, "case": s.case_label, "reviewed_by": s.reviewed_by_name,
+             "outcome": s.status, "final": show(s.field, s.final), "reason": s.reason} for s in rows if may_qa(user, s)]
+
+
+def qa_review(db: Session, s: AiSuggestion, user: User, verdict: str, note: str | None) -> None:
+    """The second person's check. A disagreement is an operational risk event for the team, to fix the case and
+    look at why the first review missed it."""
+    from .risk_register import log_event
+    if not may_qa(user, s):
+        audit.refuse(db, user, "ai_qa_review", "A second person from the reviewing team, or the supervisor, checks it",
+                     case_id=s.case_id, suggestion=s.id)
+    if verdict not in ("agree", "disagree"):
+        raise HTTPException(422, "Agree or disagree")
+    note = (note or "").strip()
+    if verdict == "disagree" and len(note) < MIN_REASON:
+        raise HTTPException(422, "Say what the package shows (a sentence is enough)")
+    s.qa_verdict, s.qa_note, s.qa_by_name, s.qa_at = verdict, note or None, user.display_name, utcnow()
+    audit.record(db, user, "ai_qa_reviewed", "case", s.case_id, case_id=s.case_id, suggestion=s.id, field=s.field,
+                 verdict=verdict, first_reviewer=s.reviewed_by_name, note=note or None)
+    if verdict == "disagree":
+        log_event(db, user, category="AI review QA: second reviewer disagreed", risk_type="operational",
+                  source="manual", area=team_for(s.field), detected_by=user.display_name,
+                  summary=f"{s.case_label}: {label(s.field)} was {s.status} by {s.reviewed_by_name}; the second "
+                          f"reviewer disagrees: {note}", case=db.get(Case, s.case_id) if s.case_id else None,
+                  dedupe_key=f"ai-qa:{s.id}")
+
+
+def _qa(rows: list[AiSuggestion]) -> dict:
+    sampled = [r for r in rows if r.qa_selected]
+    done = [r for r in sampled if r.qa_verdict]
+    agreed = sum(r.qa_verdict == "agree" for r in done)
+    return {"sampled": len(sampled), "checked": len(done), "agreed": agreed, "disagreed": len(done) - agreed,
+            "agreement": round(agreed / len(done), 3) if done else None, "every": QA_EVERY}
 
 
 def _tally(rows: list[AiSuggestion]) -> dict:
@@ -266,7 +312,7 @@ def summary(db: Session, changes: bool = False) -> dict:
     for r in live:
         by_field[r.field].append(r)
         by_prompt[(r.prompt_version, r.model)].append(r)
-    out = {"live": _tally(live), "illustrative": _tally([r for r in rows if r.mode != "live"]),
+    out = {"live": _tally(live), "illustrative": _tally([r for r in rows if r.mode != "live"]), "qa": _qa(rows),
            "by_field": [{"field": f, "label": label(f), **_tally(rs)} for f, rs in sorted(by_field.items())],
            "by_prompt": [{"prompt_version": v, "model": m, **_tally(rs)} for (v, m), rs in by_prompt.items()]}
     if changes:

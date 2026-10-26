@@ -75,10 +75,17 @@ def _fix(db, case, user, data):
 
 
 def _callback(db, case, user, data):
+    from .servicing import phones_on_file
     ok = data.get("confirmed") == "yes"
-    if not (data.get("phone") or "").strip():
-        raise HTTPException(422, "Record the number you called: one already on file, not one on the request")
-    _event(case, user, "callback", confirmed=ok, phone=data["phone"], note=data.get("note") or "")
+    acct = db.get(Account, case.account_id)
+    on_file = [n for n, _ in phones_on_file(acct)] if acct else []
+    number = (data.get("phone") or "").strip()
+    if not on_file and ok:
+        raise HTTPException(422, "No phone number is on file for this account, so a callback can't confirm it. "
+                                 "Ask for a client-signed request, or add the number by an account change first")
+    if on_file and number not in on_file:
+        raise HTTPException(422, "Dial a number already on file, never one on the request (MM-006)")
+    _event(case, user, "callback", confirmed=ok, phone=number or "none on file", note=data.get("note") or "")
     return "Callback recorded: confirmed." if ok else "Callback recorded: not confirmed. The request is rejected."
 
 
@@ -110,7 +117,7 @@ def _rail(db, case, user, data):
     sub = last_event((case.extra or {}).get("events", []), "submitted", n=n)
     if not sub:
         raise HTTPException(409, "Nothing has gone to the rail yet")
-    submitted = date.fromisoformat(sub["on"])
+    submitted = money.sends_on(sub)              # after a cutoff, the day it actually goes out (MM-013)
     choice = data.get("outcome", "confirm")
     script = {"reject": data.get("code") or "nof"} if choice == "reject" else \
         {"return": data.get("code") or "R01"} if choice == "return" else {}
@@ -285,6 +292,15 @@ def _yesno(name, label):
     return {"name": name, "label": label, "type": "select", "options": [["yes", "Yes"], ["no", "No"]], "default": "yes"}
 
 
+def _phone_field(db, case):
+    """The numbers on file for the account (servicing.phones_on_file): the analyst picks the one dialed."""
+    from .servicing import phones_on_file
+    acct = db.get(Account, case.account_id)
+    numbers = phones_on_file(acct) if acct else []
+    options = [[n, f"{n} ({whose})"] for n, whose in numbers] or [["", "No number on file"]]
+    return {"name": "phone", "label": "Number dialed (from the account record)", "type": "select", "options": options}
+
+
 def _firm_options(db, case):
     return [[f.legal_name, f.legal_name] for f in db.scalars(select(Firm).where(Firm.status == "ACTIVE")).all()]
 
@@ -356,8 +372,7 @@ ACTIONS = [
                            "default": "apply"}, {"name": "note", "label": "Note", "type": "textarea"}],
            _fix, "The pre-screen found a likely reject. AI suggests the fix; an analyst applies it."),
     Action("callback", "Record the callback", "transfer", ("PENDING_CALLBACK",), _team("asset_transfer"),
-           lambda db, c: [_yesno("confirmed", "The client confirmed the request"),
-                          {"name": "phone", "label": "Number called (one already on file)", "type": "text"},
+           lambda db, c: [_yesno("confirmed", "The client confirmed the request"), _phone_field(db, c),
                           {"name": "note", "label": "Note", "type": "textarea"}],
            _callback, "Call the client on a number already on file, never one on the request (MM-006)."),
     Action("correction", "Approve the correction and resubmit", "transfer", ("PENDING_CORRECTION",),

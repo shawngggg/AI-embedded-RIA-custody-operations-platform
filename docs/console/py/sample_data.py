@@ -120,7 +120,14 @@ FIRM_LABELS = {
 # ---------------------------------------------------------------------------
 
 
+def synthetic_phone(name: str) -> str:
+    """A number in the fictional 555-0100 to 555-0199 range, the same every time for the same name."""
+    return f"801-555-{100 + sum(map(ord, name)) % 100:04d}"
+
+
 def _holder(name, **kw):
+    kw.setdefault("phone", synthetic_phone(name))
+    kw.setdefault("email", ".".join(name.lower().split()[::max(1, len(name.split()) - 1)]) + "@example.com")
     return Person(name, "account_holder", **kw)
 
 
@@ -161,7 +168,8 @@ ACCOUNTS = {
     "whitfield_holdings": AccountApplication(
         "APP-2004", "ACC-2004", AccountGroup.PURE_RIA, "llc",
         [Person("Dana Whitfield", "control_person", 50, date_of_birth="1974-02-09", identity_verified=True,
-                address="45 Federal Heights Dr, Salt Lake City, UT 84103", tax_id="900-00-2004"),
+                address="45 Federal Heights Dr, Salt Lake City, UT 84103", tax_id="900-00-2004",
+                phone="801-555-0142", email="dana@whitfieldfamily.example.com"),
          Person("Owen Whitfield", "owner", 50, date_of_birth="1976-07-30", identity_verified=True,
                 address="45 Federal Heights Dr, Salt Lake City, UT 84103", tax_id="900-00-2005")],
         entity_name="Whitfield Family Holdings LLC", entity_ein="87-5550101", entity_type="operating_company",

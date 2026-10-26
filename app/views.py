@@ -14,6 +14,7 @@ from .acceptance import acceptance_state, holds_principal
 from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_docs, reopen_refusal
 from .access import capabilities, may_propose
 from .orm import OPS_TEAMS, PORTAL_ROLES, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
+from .crypto import mask_tax_ids, sees_tax_ids
 from .queues import DECISIONS, QUEUES
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
@@ -36,12 +37,38 @@ CORRECTIONS = {
     "ACC-004": [("tax_form", "Tax form received (W-9, W-8BEN, or W-8BEN-E)", "text")],
     "ACC-006": [("entity_formation_documents", "Formation documents or trust instrument received", "bool")],
     "ACC-007": [("entity_ein", "Entity EIN", "text")],
+    "ACC-008": [("holder_phones", "Phone number for each account holder", "per_person")],
+    "ACC-009": [("ira_type", "IRA type", "choice")],
+    "ACC-010": [("ira_adoption_agreement", "IRA adoption agreement received", "bool")],
+    "ACC-011": [("beneficiaries", "Beneficiaries and their shares", "beneficiaries")],
+    "ACC-012": [("joint_tenancy", "Joint tenancy", "choice")],
+    "ACC-013": [("holder_shares", "Each holder's share (tenants in common)", "per_person")],
+    "ACC-014": [("employer_consent", "Employer's written consent received (FINRA Rule 3210)", "bool")],
     "CDD-001": [("account_purpose", "Account purpose and expected activity", "text")],
     "CDD-BO": [("beneficial_ownership_certification", "Beneficial ownership certification received", "bool")],
     "CHG-002": [("client_signature", "Client-signed change form received", "bool")],
     "CHG-003": [("medallion_guarantee", "Medallion signature guarantee received", "bool")],
     "CHG-004": [("new_bank", "Bank name, ABA routing number, and last 4 of the account", "bank")],
 }
+
+# A choice field's options, and the person attribute a per-person field sets
+CHOICES = {
+    "ira_type": [("traditional", "Traditional IRA"), ("roth", "Roth IRA"), ("sep", "SEP IRA"),
+                 ("inherited", "Inherited IRA")],
+    "joint_tenancy": [("jtwros", "Joint tenants with right of survivorship"), ("tenants_in_common", "Tenants in common"),
+                      ("community_property", "Community property"), ("tenants_by_entirety", "Tenants by the entirety")],
+}
+PER_PERSON = {"holder_phones": "phone", "holder_shares": "ownership_pct"}
+NATURAL_ROLES = ("account_holder", "trustee", "authorized_signer", "control_person")
+
+
+def _people_for(case: Case, field: str) -> list[dict]:
+    holders = (case.application or {}).get("holders", [])
+    if field == "holder_phones":
+        return [{"name": h["name"], "value": h.get("phone") or ""} for h in holders
+                if h.get("role", "account_holder") in NATURAL_ROLES]
+    return [{"name": h["name"], "value": h.get("ownership_pct") or 0} for h in holders
+            if h.get("role", "account_holder") == "account_holder"]
 
 
 def user_dict(db: Session, u: User) -> dict:
@@ -51,7 +78,7 @@ def user_dict(db: Session, u: User) -> dict:
             "note": u.demo_note, "firm": {"id": firm.id, "crd": firm.crd, "name": firm.legal_name} if firm else None,
             "client_account_id": u.client_account_id,
             "registrations": [{"code": r, "label": REGISTRATIONS.get(r, r)} for r in (u.registrations or [])],
-            "individual_crd": u.individual_crd,
+            "individual_crd": u.individual_crd, "mfa": bool(u.mfa_enabled_at), "has_password": bool(u.password_hash),
             "can_accept_accounts": u.role in ("ria_service", "ria_service_lead") and holds_principal(u),
             "team": u.team, "team_label": OPS_TEAMS.get(u.team) if u.team else None,
             "capabilities": capabilities(u),
@@ -112,7 +139,25 @@ def case_summary(db: Session, c: Case) -> dict:
             "queue_label": QUEUES[c.queue]["label"] if c.queue else None,
             "firm": firm.legal_name if firm else None, "account_id": c.account_id, "target_id": c.target_id,
             "created_at": iso(c.created_at), "updated_at": iso(c.updated_at),
-            "queue_entered_at": iso(c.queue_entered_at), "sla": sla_state(c), "path": (c.result or {}).get("path")}
+            "queue_entered_at": iso(c.queue_entered_at), "sla": sla_state(c), "path": (c.result or {}).get("path"),
+            "assigned_to": _owner(db, c), "assigned_at": iso(c.assigned_at)}
+
+
+def _owner(db: Session, c: Case) -> dict | None:
+    u = db.get(User, c.assigned_to) if c.assigned_to else None
+    return {"id": u.id, "name": u.display_name} if u else None
+
+
+ASSIGNERS = {"ops_supervisor", "ria_service_lead"}     # team leads hand out work in the queues they run
+
+
+def ownership(c: Case, user: User) -> dict:
+    """What this person may do about who's working the case."""
+    from .queues import works_queue
+    works = bool(c.queue) and works_queue(user, c.queue)
+    return {"can_claim": works and c.assigned_to != user.id,
+            "can_release": bool(c.assigned_to) and (c.assigned_to == user.id or (works and user.role in ASSIGNERS)),
+            "can_assign": works and user.role in ASSIGNERS}
 
 
 def restriction_dict(r: Restriction) -> dict:
@@ -137,6 +182,19 @@ def decision_dict(db: Session, d: PendingDecision) -> dict:
             "approver_roles": spec["approver"]}
 
 
+def related_documents(db: Session, case: Case) -> dict | None:
+    """Documents on another case that a decision here rests on: an SLOA wire's release rests on the client's signed
+    SLOA, which lives on the account change that set it up."""
+    sloa_id = (case.application or {}).get("sloa_id") if case.kind == "transfer" else None
+    if not sloa_id or not sloa_id.startswith("SLOA-") or not sloa_id[5:].isdigit():
+        return None
+    source = db.get(Case, int(sloa_id[5:]))
+    if source is None or source.account_id != case.account_id:
+        return None
+    return {"title": f"The client's SLOA ({sloa_id}, case #{source.id})", "case_id": source.id,
+            "documents": [doc_dict(d) for d in case_documents(db, source)]}
+
+
 def corrections_for(db: Session, case: Case) -> list[dict]:
     waiting = case.status in CORRECTABLE or (case.status == "RETURNED" and case.kind == "change")
     if not waiting or not case.result:
@@ -152,6 +210,8 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
             types = field_docs(case.kind, field)
             out.append({"field": field, "label": label, "type": "document" if types else kind,
                         "rule_id": f["rule_id"], "reason": f["reason"], "current": case.application.get(field),
+                        "options": [{"value": v, "label": l} for v, l in CHOICES.get(field, [])],
+                        "people": _people_for(case, field) if field in PER_PERSON else [],
                         "doc_types": [{"value": t, "label": DOC_TYPES[t]["label"]} for t in types],
                         "documents": [doc_dict(d) for d in docs
                                       if d.doc_type in types and d.status in ("received", "in_good_order")]})
@@ -183,14 +243,15 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
     if user.role in PORTAL_ROLES:
         from . import portal_view
         return portal_view.detail(db, c, user)
-    data = case_summary(db, c)
+    data = {**case_summary(db, c), "ownership": ownership(c, user)}
     restrictions = db.scalars(select(Restriction).where(Restriction.target_id == c.target_id)
                               .order_by(Restriction.placed_at.desc())).all()
     pending = db.scalars(select(PendingDecision).where(PendingDecision.case_id == c.id)
                          .order_by(PendingDecision.proposed_at.desc())).all()
     account = db.get(Account, c.account_id) if c.account_id else None
     data.update({
-        "application": c.application, "decisions": c.decisions, "result": c.result, "extra": c.extra,
+        "application": c.application if sees_tax_ids(user) else mask_tax_ids(c.application),
+        "decisions": c.decisions, "result": c.result, "extra": c.extra,
         "restrictions": [restriction_dict(r) for r in restrictions],
         "decision_log": [decision_dict(db, d) for d in pending],
         "available_decisions": [] if user.role in ("ria_admin", "ria_user", "client") else available_decisions(c, user),
@@ -201,6 +262,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "manual_steps": c.manual_steps, "nigo_count": c.nigo_count, "closed_at": iso(c.closed_at),
         "acceptance": None if user.role in ("ria_admin", "ria_user", "client") else acceptance_state(db, c, user),
         "documents": [{**doc_dict(d), "reopen_refusal": reopen_refusal(c, d, user)} for d in case_documents(db, c)],
+        "related_documents": related_documents(db, c) if user.role not in PORTAL_ROLES else None,
         "rescission": rescission_state(db, c, user),
         "rework": (c.extra or {}).get("rework"),
         "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],

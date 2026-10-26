@@ -59,6 +59,7 @@ export type CaseSummary = {
   firm: string | null; account_id: string | null; target_id: string; created_at: string; updated_at: string;
   queue_entered_at: string | null; path: string | null;
   sla: { due: string | null; breached: boolean; hours_left: number | null };
+  assigned_to?: { id: number; name: string } | null; assigned_at?: string | null;
 };
 
 export type Restriction = {
@@ -79,9 +80,12 @@ export type DocRef = { id: number; type_label: string; filename: string; status:
 export type Correction = {
   field: string; label: string; type: string; rule_id: string; reason: string; current: any;
   doc_types: { value: string; label: string }[]; documents: Doc[];
+  options?: { value: string; label: string }[]; people?: { name: string; value: string | number }[];
 };
 
 export type CaseDetail = CaseSummary & {
+  ownership?: { can_claim: boolean; can_release: boolean; can_assign: boolean };
+  related_documents?: { title: string; case_id: number; documents: Doc[] } | null;
   application: any; decisions: any; result: any; extra: any; restrictions: Restriction[];
   decision_log: Decision[]; corrections: Correction[]; manual_steps: number; nigo_count: number;
   available_decisions: { decision_type: string; label: string; values: { value: string; label: string }[];
@@ -116,6 +120,7 @@ export type AiSuggestion = {
 export type Tally = { suggestions: number; reviewed: number; pending: number; accepted: number; edited: number;
   rejected: number; share_accepted: number | null; cases: number };
 export type SuggestionSummary = { live: Tally; illustrative: Tally; by_field: (Tally & { field: string; label: string })[];
+  qa?: { sampled: number; checked: number; agreed: number; disagreed: number; agreement: number | null; every: number };
   by_prompt: (Tally & { prompt_version: string | null; model: string | null })[];
   recent_changes?: { id: number; case_id: number | null; case: string; mode: string; field: string; label: string;
     status: string; suggested: string; final: string | null; reason: string | null; by: string; at: string }[] };

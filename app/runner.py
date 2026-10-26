@@ -21,12 +21,13 @@ from firm_rules import to_ria_firm
 from pipeline import OPS, Decisions, OnboardingResult, onboard_firm, open_account
 from restrictions import CATALOG
 from risk import REVIEW_MONTHS, add_months
-from sample_data import FLAGGED_LIST, IAPD_LOOKUP
+from sample_data import IAPD_LOOKUP
 
 from . import audit
 from .config import settings
 from .orm import Account, AiSuggestion, Case, CaseTransition, Firm, Restriction, Review, User, utcnow
 from .queues import QUEUES, is_closed, queue_for
+from .screening import current_list
 from .serialize import account_from, change_from, firm_from
 
 
@@ -85,13 +86,15 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
     from .servicing import R2_KINDS, run as run_r2
     if case.kind in R2_KINDS:            # release 2 workflows (custody/): transfers, products, lifecycle, ...
         return run_r2(db, case, actor)
+    if case.status == "WITHDRAWN":       # closed by NIGO aging (app/nigo.py): a new request starts over
+        return None
     as_of = settings.today()
     decisions = decisions_of(case)
     identity_issue = issue_for_engine(case)
     if case.kind == "firm":
         app = firm_from(case.application)
         extraction = StoredExtraction(case.extra["extraction"]) if case.extra.get("extraction") else None
-        res = onboard_firm(app, as_of, flagged=FLAGGED_LIST, decisions=decisions,
+        res = onboard_firm(app, as_of, flagged=current_list(db), decisions=decisions,
                            registration_lookup=simulated_iapd(app), extraction=extraction,
                            unreviewed=unreviewed_suggestions(db, case), identity_issue=identity_issue)
     elif case.kind == "account":
@@ -101,15 +104,29 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         res = open_account(app, firm_from(firm.application), as_of,
                            existing=existing_accounts(db, account_row, account_row.client_key),
                            ria_active=firm.status == "ACTIVE", ria_risk_tier=firm.risk_tier or "LOW",
-                           flagged=FLAGGED_LIST, decisions=decisions, identity_issue=identity_issue)
+                           flagged=current_list(db), decisions=decisions, identity_issue=identity_issue)
+    elif case.kind == "screening":            # ongoing screening (app/screening.py)
+        from rescreening import process_rescreen
+        from restrictions import RestrictionRegistry
+        res = process_rescreen(case.application, current_list(db), as_of, decisions, RestrictionRegistry())
     elif case.kind == "change":
         data = dict(case.application)
         if case.decisions.get("verification") == "verified":
             data["new_parties"] = [{**p, "identity_verified": True} for p in data.get("new_parties", [])]
-        res = process_change(change_from(data), as_of, flagged=FLAGGED_LIST, decisions=decisions,
+        firm = db.get(Firm, case.firm_id) if case.firm_id else None
+        if firm is not None:                     # an SLOA payee mustn't be the adviser or at its address
+            data.setdefault("firm_name", firm.legal_name)
+            data.setdefault("firm_address", (firm.application or {}).get("principal_address"))
+        res = process_change(change_from(data), as_of, flagged=current_list(db), decisions=decisions,
                              confirmation=case.decisions.get("confirmation"), identity_issue=identity_issue)
     else:
         raise ValueError(f"Unknown case kind {case.kind}")
+    reminders = (case.extra or {}).get("reminders")
+    if reminders and res.status in ("PENDING_ITEMS", "RETURNED"):
+        from .nigo import SOURCE, WITHDRAW_DAYS
+        res.add(OPS, "Reminders to the requester (NIGO aging)", f"{len(reminders)} sent",
+                [f"Day {r['day']}: {r['on']}" for r in reminders]
+                + [f"Withdrawn after {WITHDRAW_DAYS} days without the items ({SOURCE.lower()})"])
     rework = (case.extra or {}).get("rework")
     if rework and res.status in ("PENDING_ACCEPTANCE", "PENDING_ITEMS"):
         if rework.get("kind") == "send_back":     # the principal sent it back before accepting (app/acceptance.py)
@@ -179,11 +196,28 @@ def _apply_change(db: Session, case: Case) -> None:
     if kind is ChangeType.BENEFICIARY:
         app["beneficiaries"] = details.get("beneficiaries") or details.get("beneficiary")
     if kind in (ChangeType.CONTACT_INFO, ChangeType.TRUSTED_CONTACT, ChangeType.REGISTRATION,
-                ChangeType.POWER_OF_ATTORNEY, ChangeType.STANDING_LOA):
+                ChangeType.POWER_OF_ATTORNEY):
         app.setdefault("maintenance", {}).update(details)
+    new_sloa = None
+    if kind is ChangeType.STANDING_LOA:
+        sloas = [dict(x) for x in app.get("sloas") or []]
+        today = settings.today()
+        if details.get("end_sloa"):              # the client ends it (condition 4)
+            sloas = [{**x, "status": "ended", "ended_on": today.isoformat()} if x.get("id") == details["end_sloa"]
+                     else x for x in sloas]
+        else:
+            new_sloa = {"id": f"SLOA-{case.id}", "status": "active", "effective_on": today.isoformat(),
+                        "annual_due": (today + timedelta(days=365)).isoformat(), "case_id": case.id,
+                        **{k: details.get(k) for k in ("payee", "payee_kind", "payee_address", "institution", "aba",
+                                                       "account_last4", "schedule")}}
+            sloas.append(new_sloa)
+        app["sloas"] = sloas
     app["holders"] = holders
     account.application = app
     account.change_history = list(account.change_history or []) + [[kind.value, settings.today().isoformat()]]
+    if new_sloa:
+        from .mail import sloa_initial_notice
+        sloa_initial_notice(db, account, new_sloa, case)
     if kind in (ChangeType.BENEFICIAL_OWNER, ChangeType.REGISTRATION):
         review = db.scalar(select(Review).where(Review.subject_id == account.id))
         if review is not None:
@@ -200,6 +234,10 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
     case.updated_at = now
     queue = queue_for(case.kind, res.status)
     if queue != case.queue:
+        if case.assigned_to:                 # a new queue is another team's work: back to that queue, unassigned
+            audit.record(db, actor, "case_released", "case", case.id, case_id=case.id, queue=case.queue,
+                         reason=f"moved to {queue or 'no queue'}")
+            case.assigned_to, case.assigned_at = None, None
         case.queue = queue
         case.queue_entered_at = now if queue else None
         case.sla_due = now + timedelta(hours=QUEUES[queue]["sla_hours"]) if queue else None

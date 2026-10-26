@@ -17,7 +17,8 @@ type Overview = { as_of: string; by_status: Record<string, number>; completed_to
     overdue: boolean; items: number }[];
   requesters: Record<string, string>; types: Record<string, string> };
 export type AccountRow = { id: string; name: string; status: string; group: string; registration: string; firm: string;
-  cash: number; cash_pending: number; cash_restricted: number; value: number };
+  cash: number; cash_pending: number; cash_restricted: number; value: number;
+  sloas?: { id: string; payee: string; institution: string; account_last4: string }[] };
 export type AccountDetail = { id: string; name: string; group: string; registration: string; status: string; firm: string;
   value: number; positions: { asset: string; name: string; ticker: string | null; quantity: number;
     buckets: Record<string, number>; price: number; value: number }[];
@@ -160,6 +161,8 @@ export function AccountLedger({ portal }: { portal?: boolean }) {
   const detail = useLoad(() => id ? api<AccountDetail>(`/api/money/accounts/${id}`) : Promise.resolve(null as any), [id]);
   const d = detail.data as AccountDetail | null;
   const cash = useMemo(() => d?.positions.find((p) => p.asset === "USD"), [d]);
+  const stmts = useLoad(() => id ? api<{ id: number; period_start: string; period_end: string; sha256: string }[]>(`/api/statements?account_id=${id}`)
+    : Promise.resolve([]), [id]);
   return (
     <>
       <label style={{ maxWidth: 420, display: "block" }}>Account
@@ -191,6 +194,10 @@ export function AccountLedger({ portal }: { portal?: boolean }) {
         </table></div>
         <h3>{portal ? "Activity" : "Ledger entries"}</h3>
         {portal ? <Activity entries={d.entries} /> : <Entries entries={d.entries as LedgerEntry[]} compact />}
+        <h3>Quarterly statements</h3>
+        {(stmts.data ?? []).length === 0 ? <div className="empty">No statements yet.</div> : <ul className="small">{(stmts.data ?? []).map((st) => (
+          <li key={st.id}><a href={`/api/statements/${st.id}/file`} target="_blank" rel="noreferrer">{st.period_start} to {st.period_end}</a>
+            {!portal && <span className="muted mono"> · SHA-256 {st.sha256.slice(0, 12)}…</span>}</li>))}</ul>}
       </>}
     </>
   );

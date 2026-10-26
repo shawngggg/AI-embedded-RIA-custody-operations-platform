@@ -46,12 +46,13 @@ export default function Queues() {
       {!hasQueues ? null : cases.loading && !cases.data ? <Loading /> : cases.data && cases.data.length ? (
         <div className="scroll">
           <table>
-            <thead><tr><th>Case</th><th>Firm</th><th>Status</th><th>In queue since</th><th>SLA</th></tr></thead>
+            <thead><tr><th>Case</th><th>Firm</th><th>Status</th><th>Owner</th><th>In queue since</th><th>SLA</th></tr></thead>
             <tbody>
               {cases.data.map((c) => (
                 <tr key={c.id} className="link" onClick={() => navigate(`/cases/${c.id}`)}>
                   <td><a href={`/cases/${c.id}`} onClick={(e) => { e.preventDefault(); navigate(`/cases/${c.id}`); }}>#{c.id} {c.title}</a></td>
-                  <td>{c.firm}</td><td><Status status={c.status} /></td><td>{when(c.queue_entered_at)}</td>
+                  <td>{c.firm}</td><td><Status status={c.status} /></td>
+                  <td className="small">{c.assigned_to ? c.assigned_to.name : <span className="muted">Unassigned</span>}</td><td>{when(c.queue_entered_at)}</td>
                   <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
                 </tr>
               ))}

@@ -45,6 +45,9 @@ DOC_TYPES = {
     "change_form": {"label": "Client-signed change form", "signed": True},
     "medallion": {"label": "Medallion signature guarantee", "signed": True},
     "application_package": {"label": "RIA application package", "signed": False},
+    "ira_adoption_agreement": {"label": "IRA adoption agreement", "signed": True},
+    "employer_consent": {"label": "Employer's written consent (FINRA Rule 3210)", "signed": True},
+    "sloa": {"label": "Standing letter of authorization (third-party payments)", "signed": True},
     # Release 2: transfers, products, and the account lifecycle
     "transfer_form": {"label": "Client-signed transfer or disbursement form", "signed": True},
     "cost_basis_statement": {"label": "Cost-basis transfer statement", "signed": False},
@@ -65,12 +68,13 @@ FIELD_DOCS = {
     "account": {"client_signature": ["account_application"], "lpoa_signed": ["lpoa"],
                 "fee_authorization": ["fee_authorization"], "tax_form": ["w9", "w8ben", "w8bene"],
                 "entity_formation_documents": ["formation_documents"],
-                "beneficial_ownership_certification": ["bo_certification"]},
+                "beneficial_ownership_certification": ["bo_certification"],
+                "ira_adoption_agreement": ["ira_adoption_agreement"], "employer_consent": ["employer_consent"]},
     "firm": {"formation_documents": ["formation_documents"], "ownership_chart": ["ownership_chart"],
              "beneficial_ownership_certification": ["bo_certification"],
              "custodial_agreement_signed": ["custodial_agreement"], "reliance_contract": ["reliance_contract"],
              "verify_people": ["identity_documents"]},
-    "change": {"client_signature": ["change_form"], "medallion_guarantee": ["medallion"]},
+    "change": {"client_signature": ["change_form", "sloa"], "medallion_guarantee": ["medallion"]},
 }
 
 
@@ -223,6 +227,38 @@ def make_pdf(title: str, lines: list[str]) -> bytes:
     return bytes(out)
 
 
+def make_pdf_pages(title: str, lines: list[str], per_page: int = 44) -> bytes:
+    """A multi-page PDF with a text layer (statements): the title on page one, then the lines, 44 to a page in 9-point
+    type, each page numbered."""
+    chunks = [lines[i:i + per_page] for i in range(0, max(len(lines), 1), per_page)] or [[]]
+    n = len(chunks)
+    font_obj = 3 + 2 * n                       # 1 catalog, 2 pages, then a page and its contents for each page
+    objects = [b"<< /Type /Catalog /Pages 2 0 R >>",
+               b"<< /Type /Pages /Kids [" + b" ".join(f"{3 + 2 * i} 0 R".encode() for i in range(n))
+               + f"] /Count {n} >>".encode()]
+    for i, chunk in enumerate(chunks):
+        body = ["BT", "/F1 14 Tf", "54 750 Td", f"({_pdf_escape(title if i == 0 else title + ' (continued)')}) Tj",
+                "/F1 9 Tf"]
+        for line in chunk:
+            body += ["0 -15 Td", f"({_pdf_escape(line)}) Tj"]
+        body += ["ET", "BT", "/F1 8 Tf", "54 30 Td", f"(Page {i + 1} of {n}) Tj", "ET"]
+        stream = "\n".join(body).encode("latin-1", "replace")
+        objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {font_obj} "
+                       f"0 R >> >> /Contents {4 + 2 * i} 0 R >>".encode())
+        objects.append(b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream")
+    objects.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, obj in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
 def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[str, bytes]:
     """A synthetic document for this case that passes the pre-checks."""
     app = case.application or {}
@@ -251,6 +287,23 @@ def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[s
         lines += [f"Legal entity customer: {who}", "Certification of beneficial owners and a control person."]
     elif doc_type == "identity_documents":
         lines += [f"Identity documents for: {', '.join(names) or who}"]
+    elif doc_type == "ira_adoption_agreement":
+        kind = {"roth": "Roth IRA", "sep": "SEP IRA", "inherited": "inherited IRA"}.get(app.get("ira_type"), "traditional IRA")
+        lines += [f"Depositor: {who}", f"Account: {case.account_id or ''}",
+                  f"adopts the custodian's {kind} custodial agreement (IRS model terms: Form "
+                  f"{'5305-RA' if app.get('ira_type') == 'roth' else '5305-A'})."]
+    elif doc_type == "sloa":
+        d = app.get("details") or {}
+        lines += [f"Account owner: {who}", f"Account: {case.account_id}",
+                  f"I instruct the custodian to pay: {d.get('payee') or '(payee)'}",
+                  f"At: {d.get('payee_address') or ''} {d.get('institution') or ''} "
+                  f"{'account ending ' + d['account_last4'] if d.get('account_last4') else ''}".strip(),
+                  f"Schedule: {d.get('schedule') or 'from time to time'}",
+                  f"and authorize {adviser} to direct these payments. The adviser can't change the payee.",
+                  "I can change or end this instruction at any time."]
+    elif doc_type == "employer_consent":
+        lines += [f"Employee: {who}", "Our firm consents to this account under FINRA Rule 3210.",
+                  "Please send duplicate statements to our compliance department."]
     else:
         lines += [f"For: {who}"]
     if DOC_TYPES[doc_type].get("signed"):

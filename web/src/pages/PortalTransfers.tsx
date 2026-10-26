@@ -52,7 +52,7 @@ function NewRequest({ client, onDone }: { client: boolean; onDone: () => void })
   const accounts = useLoad(() => api<AccountRow[]>("/api/money/accounts"), []);
   const securities = useLoad(() => api<Security[]>("/api/money/securities"), []);
   const [f, setF] = useState({ type: "ach_deposit", account_id: "", amount: "", destination: "", owner_name: "",
-    institution: "", account_last4: "", prior_firm: "" });
+    institution: "", account_last4: "", prior_firm: "", sloa_id: "" });
   const [rows, setRows] = useState<{ security_id: string; quantity: string }[]>([{ security_id: "", quantity: "" }]);
   const [msg, setMsg] = useState<{ error?: string }>({});
   const [busy, setBusy] = useState(false);
@@ -62,7 +62,8 @@ function NewRequest({ client, onDone }: { client: boolean; onDone: () => void })
     const body: any = { type: f.type, account_id: f.account_id, idempotency_key: `${f.type}-${f.account_id}-${Date.now()}` };
     if (f.type !== "acats_in") body.amount = Number(f.amount);
     if (f.type === "journal") body.destination = f.destination;
-    if (f.type === "wire_out") body.counterparty = { owner_name: f.owner_name, institution: f.institution, account_last4: f.account_last4 };
+    if (f.type === "wire_out" && f.sloa_id) body.sloa_id = f.sloa_id;
+    else if (f.type === "wire_out") body.counterparty = { owner_name: f.owner_name, institution: f.institution, account_last4: f.account_last4 };
     if (f.type === "acats_in") {
       body.positions = rows.filter((r) => r.security_id && Number(r.quantity) > 0).map((r) => ({ security_id: r.security_id, quantity: Number(r.quantity) }));
       body.counterparty = { institution: f.prior_firm };
@@ -78,7 +79,7 @@ function NewRequest({ client, onDone }: { client: boolean; onDone: () => void })
           {(client ? CLIENT_TYPES : RIA_TYPES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select></label>
       <label>Account
-        <select value={f.account_id} onChange={(e) => set("account_id", e.target.value)}>
+        <select value={f.account_id} onChange={(e) => setF({ ...f, account_id: e.target.value, sloa_id: "" })}>
           <option value="">Pick an account</option>
           {open.map((a) => <option key={a.id} value={a.id}>{a.id} {a.name} ({usd(a.cash)} available)</option>)}
         </select></label>
@@ -88,10 +89,20 @@ function NewRequest({ client, onDone }: { client: boolean; onDone: () => void })
           <option value="">Pick an account</option>
           {open.filter((a) => a.id !== f.account_id).map((a) => <option key={a.id} value={a.id}>{a.id} {a.name}</option>)}
         </select></label>}
-      {f.type === "wire_out" && <>
+      {f.type === "wire_out" && !client && <label>Pay to
+        <select value={f.sloa_id} onChange={(e) => set("sloa_id", e.target.value)}>
+          <option value="">The client's own bank account</option>
+          {(open.find((a) => a.id === f.account_id)?.sloas ?? []).map((s) => (
+            <option key={s.id} value={s.id}>{s.id}: {s.payee} ({s.institution} ...{s.account_last4})</option>))}
+        </select></label>}
+      {f.type === "wire_out" && f.sloa_id && <p className="small muted">A payment to a third party goes only to a payee on the client's
+        standing letter of authorization, exactly as the client named it. The client gets a notice after the transfer.</p>}
+      {f.type === "wire_out" && !f.sloa_id && <>
         <label>Payee<input value={f.owner_name} onChange={(e) => set("owner_name", e.target.value)} /></label>
         <label>Receiving bank<input value={f.institution} onChange={(e) => set("institution", e.target.value)} /></label>
         <label>Account (last 4)<input maxLength={4} value={f.account_last4} onChange={(e) => set("account_last4", e.target.value)} /></label>
+        {!client && <p className="small muted">The payee must be an owner of the account. To pay anyone else, the client sets up a
+          standing letter of authorization through an account change, or sends a signed request.</p>}
       </>}
       {f.type === "acats_in" && <>
         <label>Delivering firm<input value={f.prior_firm} onChange={(e) => set("prior_firm", e.target.value)} /></label>

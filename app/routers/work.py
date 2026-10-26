@@ -36,6 +36,8 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
     if user.role == "ops_analyst":       # an AI review needs an analyst only while their team has values left
         from ..ai_suggestions import pending_teams
         cases = [c for c in cases if c.queue != "ai_review" or user.team in pending_teams(db, c)]
+    for_me = sorted((c for c in cases if c.assigned_to in (None, user.id)),
+                    key=lambda c: (c.assigned_to != user.id, _sla_key(c)))
     now = datetime.now(timezone.utc)
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")
                          .order_by(PendingDecision.proposed_at)).all()
@@ -52,8 +54,10 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
         "team_label": "Every operations" if user.role == "ops_supervisor" else OPS_TEAMS.get(user.team) if user.team else None,
         "queues": [{"key": k, "label": QUEUES[k]["label"], "count": sum(c.queue == k for c in cases),
                     "breached": sum(c.queue == k and sla_state(c, now)["breached"] for c in cases)} for k in mine],
-        "needs_you": [case_summary(db, c) for c in cases[:12]],
-        "needs_you_total": len(cases),
+        # Yours first, then the unassigned; a case a colleague claimed is theirs (it still counts in the queue)
+        "needs_you": [case_summary(db, c) for c in for_me[:12]],
+        "needs_you_total": len(for_me),
+        "assigned_to_me": sum(c.assigned_to == user.id for c in for_me),
         "breached": sum(sla_state(c, now)["breached"] for c in cases),
         "to_approve": [_titled(db, d) for d in to_approve] if can["approvals"] else [],
         "my_proposals": [_titled(db, d) for d in my_proposals],

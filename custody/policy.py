@@ -9,6 +9,7 @@ from __future__ import annotations
 
 BASELINE = "2026-01-01"
 R2 = "2026-10-01"            # release 2 policies: in force from the start of the quarter the release ships in
+REVIEW = "2026-10-25"        # from the industry-practice review
 
 ACATS = "FINRA Rule 11870 (customer account transfers): validate within 1 business day, complete within 3 after"
 
@@ -51,14 +52,65 @@ RULES = [
        hold_days=2),
     _r("MM-008", "Rail timing: ACH settles the next business day; Fedwire the same day; journals at once; ACATS "
        "validates within 1 business day and completes within 3 after; an LOI re-registration can take up to 40 "
-       "business days, with a follow-up after 20",
-       ACATS + "; Federal Reserve Fedwire and FedACH; LOI timing is a platform assumption",
-       ach_days=1, acats_validate=1, acats_complete=3, loi_days=40, loi_follow_up=20),
+       "business days, with a follow-up after 20. ACH, Fedwire, and LOI count Federal Reserve business days; ACATS "
+       "counts NSCC's (open on Columbus Day and Veterans Day)",
+       ACATS + "; Federal Reserve Fedwire and FedACH, and the Federal Reserve holiday schedule; NSCC Important Notice "
+       "A#9660 (2026 holiday schedule); LOI timing is a platform assumption",
+       effective=REVIEW, version="2", ach_days=1, acats_validate=1, acats_complete=3, loi_days=40, loi_follow_up=20,
+       calendars={"ACH": "fed", "Fedwire": "fed", "Journal": "fed", "LOI": "fed", "ACATS": "nscc"}),
     _r("MM-009", "A cash distribution from a traditional IRA withholds 10% for federal tax unless the client elects "
        "otherwise", "IRC 3405(b) (nonperiodic distributions; Form W-4R)", rate=0.10),
     _r("MM-010", "Positions move only after the transferability review; a position the platform can't hold waits for "
        "product acceptance, and a declined product stays at the delivering firm or is liquidated there",
        "Transferability review map 07; product acceptance map 24"),
+    _r("MM-011", "An RIA may send a client's money to a third party only under the client's standing letter of "
+       "authorization (SLOA): signed by the client, naming the payee and either the payee's address or account, "
+       "verified by the custodian, with the payee details exactly as the client gave them (the RIA can't change "
+       "them), and a payee who isn't the adviser or at the adviser's address. The custodian confirms a new SLOA in "
+       "writing, notifies the client after each transfer, and reconfirms each SLOA every year; the client can end it",
+       "SEC Division of Investment Management, Investment Adviser Association no-action letter (Feb. 21, 2017): the "
+       "seven conditions under which an SLOA isn't custody under Advisers Act Rule 206(4)-2",
+       effective=REVIEW, annual_days=365),
+    _r("MM-012", "Fraud monitoring on money going out: a first payment over $10,000 to a destination not on file and "
+       "never paid before; an ACH withdrawal over $5,000 to a bank link verified in the last 10 days; 3 or more "
+       "outgoing requests within 5 business days; or outgoing money in 30 days over 90% of the account's value. Each "
+       "goes to a risk review",
+       "Nacha Operating Rules, fraud monitoring by ODFIs and originators (phase 1 March 20, 2026; phase 2 in June "
+       "2026): risk-based processes to identify entries that are unauthorized or authorized under false pretenses. "
+       "The signals and thresholds are platform policy",
+       effective=REVIEW, first_payment_over=10_000, new_link_days=10, new_link_over=5_000, velocity_count=3,
+       velocity_bdays=5, drain_days=30, drain_share=0.90),
+    _r("MM-014", "Temporary hold on a disbursement when financial exploitation of a specified adult (65 or older, or 18 "
+       "or older with a mental or physical impairment) is reasonably believed: placed under maker-checker by "
+       "compliance or a supervisor; the parties authorized on the account and the trusted contact are told within 2 "
+       "business days (not anyone believed to be involved); an internal review follows at once. The hold lasts up to "
+       "15 business days, 10 more after the review, and 30 more once it's reported to a state regulator, adult "
+       "protective services, or a court: 55 at most",
+       "FINRA Rule 2165 (financial exploitation of specified adults), as amended effective March 17, 2022 (which also "
+       "allows holds on securities transactions; the platform holds disbursements of cash); FINRA Rule "
+       "4512(a)(1)(F) (trusted contact)", effective=REVIEW, age=65, initial=15, extension=10, referral=30,
+       notify_bdays=2),
+    _r("MM-013", "Rail cutoffs (Eastern time): a wire released after 5:00 pm or an ACH after 3:00 pm, or any release "
+       "on a day the rail is closed, goes out the next business day. The pending entries post at release, so the "
+       "money can't be spent twice. Journals book at once: they never leave the custodian",
+       "Platform policy, set ahead of the networks' own deadlines: Fedwire takes third-party transfers until "
+       "6:45 pm ET and the last same-day ACH window closes at 4:45 pm ET (Federal Reserve, Dec. 23, 2019, effective "
+       "March 2021)", effective=REVIEW, cutoffs={"Fedwire": "17:00", "ACH": "15:00"}),
+    # Customer protection (SEC Rule 15c3-3)
+    _r("CP-001", "The reserve formula runs every business day as of the close: customer credits less customer debits "
+       "(reduced by 2% for a daily computation), deposited in the special reserve bank account for the exclusive "
+       "benefit of customers; a deficit is deposited no later than one hour after banks open on the second business "
+       "day after the computation date",
+       "SEC Rule 15c3-3(e) and Exhibit A; the 2024 amendments require a daily computation from $500 million in "
+       "average total credits (compliance date June 30, 2026) and allow the 2% reduction for daily computers. The "
+       "daily computation below that threshold is the platform's choice", effective=REVIEW, debit_reduction=0.02,
+       deposit_bdays=2, deposit_by="10:00"),
+    _r("CP-002", "Every business day, the stock record for customers' fully paid securities at good control locations "
+       "(DTC, the fund transfer agents, the sponsors of non-traded products) is compared with what the street confirms "
+       "there; a shortfall is a deficit to bring back into control, logged as a financial risk event",
+       "SEC Rule 15c3-3(b) and (d) (possession or control of fully paid and excess margin securities; the rule sets "
+       "how fast a deficit must be cleared by its cause); treating transfer agents and sponsors as control locations "
+       "is a platform assumption", effective=REVIEW),
     # Cash settlement (map 12)
     _r("STL-001", "Unapplied incoming cash is matched to an account from the wire memo or ACH addenda; a match at 0.90 "
        "confidence or above applies itself, anything lower waits in suspense for an analyst",

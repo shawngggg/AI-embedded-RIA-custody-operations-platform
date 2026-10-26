@@ -39,8 +39,10 @@ Process maps: https://shawngggg.github.io/AI-embedded-RIA-custody-operations-pla
 - `app/`: FastAPI, SQLAlchemy, Alembic (`migrations/`). `app/access.py` is the capability model; menus and the API
   use the same answers. `app/portal_view.py` is everything RIA users and clients see of a case.
   `app/ai_suggestions.py` stores each value the AI read and what the reviewer did (the acceptance metric).
-- `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle; `app/recon.py` reconciles;
-  `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 17 transfer scenarios, receipts, breaks);
+- `app/ledger.py` stores postings; `app/settlement.py` runs the daily cycle (with `app/protection.py`, Rule 15c3-3:
+  the reserve formula and possession or control); `app/recon.py` reconciles; `app/nightly.py` is the evening batch
+  (Cloud Scheduler with `NIGHTLY_TOKEN`, or the supervisor by hand);
+  `app/seed_r2.py` seeds the books (opening balances, incoming ACATS, 18 transfer scenarios, receipts, breaks);
   `app/routers/money.py` is the transfers, settlement, recon, and ledger API.
 - `synthetic/`: synthetic data. `cases.py` adds seeded cases across every queue; `book.py` builds the release 3 book
   (trading and billing) on the ledger's positions, served read-only by `app/routers/preview.py` (the seed also uses its
@@ -68,6 +70,9 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
 ## Access model (what each person sees)
 
 - Menus and API by role and team (`capabilities()`); a refused request is logged (`audit.refuse`).
+- A case is claimed by someone who works its queue, or assigned and released by a team lead (`views.ownership`); it
+  goes back unassigned when its queue changes. NIGO aging (`app/nigo.py`) reminds at 7 and 14 days and withdraws at
+  30 (`WITHDRAWN`, closed; `run_case` leaves a withdrawn case alone).
 - Operations teams: onboarding (intake), CIP, client service (account maintenance), asset transfer (Money movement:
   requests by mail or from a receiving firm, callbacks, fixes, release under maker-checker; ops.transfers makes,
   ops.money checks, the supervisor checks above $50,000), settlement (ops.settlement: the cycle, receipts, recon; trade
@@ -85,14 +90,25 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
   values only; reviewed values survive a demo reset.
 - Every screening alert goes to compliance: sanctions hits to the sanctions team, PEP and adverse-media alerts and
   EDD to AML compliance (a PEP alert the rating doesn't send to EDD waits for AML compliance to clear it or require EDD).
+  Ongoing screening (`app/screening.py`, `onboarding/rescreening.py`) rescreens everyone when the flagged list changes
+  and nightly; screening cases are internal only. Everything screens against `screening.current_list(db)`, never
+  `FLAGGED_LIST` directly.
 - A failed identity check (`app/identity_check.py`): insufficient information or the wrong document goes back to the
   RIA to resubmit; a suspected fraudulent identity is held (IDFR) for AML compliance. Never show a fraud suspicion to
   the portal: no note, document review note, notice, or status beyond "In review".
-- Money leaves only under maker-checker and the controls gate (MM-005, MM-006). The portal sees transfers in its own
+- Money leaves only under maker-checker and the controls gate (MM-005, MM-006). An RIA pays a third party only under
+  the client's SLOA (MM-011); fraud signals (MM-012) read the `screen_basis` recorded at intake; a Rule 2165 hold
+  (MM-014) is dated by its approved decisions (`hold_events`), and the portal sees only "Temporary hold". The portal sees transfers in its own
   words (`portal_view.KIND_STATUS`) and balances at the client layer only: never the master, the GL, a risk review, or
   a sanctions hold.
 - The release 3 pages (trading, billing) open with a read-only preview of the synthetic book: operations sees its
   area; an RIA its own firm; a client their own account. The portal never gets a restriction code or a fail.
+- Data protection: `ProtectedJSON` (`app/crypto.py`) seals `tax_id` and `date_of_birth` in applications, case results,
+  and account and firm records; `views.case_detail` masks tax IDs for people outside `crypto.sees_tax_ids`. A password
+  sign-in is two steps (`app/totp.py`; a challenge token is never a session). The audit log is insert-only on Postgres
+  (`app/audit_guard.py`, reinstalled by every `copy_database`) and its export is hash-chained (`app/audit_chain.py`).
+  Reg S-P incidents (`app/privacy.py`), the AI review QA sample (`ai_suggestions.QA_EVERY`), and quarterly statements
+  (`app/statements.py`) are the rest of the review's group 6.
 - The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
   Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
 

@@ -52,10 +52,20 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
     except jwt.PyJWTError:
         raise HTTPException(401, "Session expired; sign in again")
+    if payload.get("purpose"):                  # a sign-in challenge (app/totp.py), not a session
+        raise HTTPException(401, "Sign in first")
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.active:
         raise HTTPException(401, "Account not active")
     return user
+
+
+def optional_user(request: Request, db: Session) -> User | None:
+    """The signed-in user, or None (for an endpoint a scheduler can also call with its own token)."""
+    try:
+        return current_user(request, db)
+    except HTTPException:
+        return None
 
 
 def require_roles(*roles: str):

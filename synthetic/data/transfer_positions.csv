@@ -1,146 +1,146 @@
 case,account,type,security_id,description,route,quantity_in_kind,quantity_to_liquidate,reason,rule
-65,ACC-1990,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,322.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,741.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,624.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,753.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-65,ACC-1990,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,63.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,148.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,125.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,95.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,68.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-65,ACC-1990,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,308.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,901.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,1671.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,1617.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,1799.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-67,ACC-2001,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,158.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,384.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,313.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,235.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,190.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-67,ACC-2001,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,859.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,2279.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,5002.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,4232.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,5379.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-69,ACC-2002,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,421.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,988.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,722.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,589.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,507.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-69,ACC-2002,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,2291.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,38.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990110AA6,Arches Biotech Inc. (synthetic),acats_in_kind,339.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,55.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990105AA6,Salt Flats Logistics Inc. (synthetic),acats_in_kind,100.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,50.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-71,ACC-2003,acats_in,SYN-PRV-01,Proprietary Core Bond Fund (delivering firm only),liquidate,0.0,1250.0,Proprietary product only the delivering firm can hold; liquidate before transfer,XFR-003
-73,ACC-2004,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,7466.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,14231.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,12369.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,15513.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-73,ACC-2004,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,1154.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,3035.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,2229.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,1823.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,1609.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-73,ACC-2004,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,7118.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,146.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,301.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,246.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,338.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-75,ACC-2010,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,25.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,71.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,56.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,41.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,33.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-75,ACC-2010,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,141.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,3396.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,6573.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,5520.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,6541.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-77,ACC-3010,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,607.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,1412.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,1260.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,802.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,753.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-77,ACC-3010,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,3162.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,395.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,689.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,618.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,854.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-79,ACC-3016,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,61.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,177.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,125.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,91.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,81.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-79,ACC-3016,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,341.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,820.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,1594.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,1322.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,1579.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-81,ACC-3021,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,144.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,361.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,302.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,195.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,163.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-81,ACC-3021,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,746.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,260.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,519.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,451.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,582.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-83,ACC-3022,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,41.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,124.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,81.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,69.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,54.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-83,ACC-3022,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,225.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,407.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,333.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,442.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-85,ACC-3023,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,33.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,92.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,64.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,43.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,39.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,163.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-85,ACC-3023,acats_in,SYN-PRV-01,Proprietary Core Bond Fund (delivering firm only),liquidate,0.0,1250.0,Proprietary product only the delivering firm can hold; liquidate before transfer,XFR-003
-87,ACC-3024,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,478.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,410.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,450.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-87,ACC-3024,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,34.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,104.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,75.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,49.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,49.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-87,ACC-3024,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,191.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,265.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,622.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,488.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,597.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
-89,ACC-3025,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,48.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,121.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,104.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,74.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,64.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-89,ACC-3025,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,263.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-90,ACC-3009,loi_in,SYN-REIT-01,Summit Non-Traded REIT Class I (synthetic),loi,26390.0,0.0,"Held at the sponsor, not DTC; re-register by letter of instruction",XFR-008
-91,ACC-3017,loi_in,SYN-REIT-01,Summit Non-Traded REIT Class I (synthetic),loi,35639.0,0.0,"Held at the sponsor, not DTC; re-register by letter of instruction",XFR-008
-92,ACC-3004,acats_out,990102AA3,Great Basin Energy Corp. (synthetic),acats_in_kind,229.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,90.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990108AA0,Deseret Materials Inc. (synthetic),acats_in_kind,259.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,382.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,717.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,981.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,547.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-92,ACC-3004,acats_out,990301AA1,Evergreen Core Bond Fund Institutional (synthetic),acats_in_kind,5817.0,0.128,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind; the 0.128 fractional share is sold and paid as cash in lieu,XFR-007
-92,ACC-3004,acats_out,990401AB7,US Treasury note 4.25% 2030 (synthetic),acats_in_kind,46000.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-106,ACC-3002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,120.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-106,ACC-3002,acats_in,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-107,ACC-3003,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-107,ACC-3003,acats_in,990204AA7,Summit Short Treasury ETF (synthetic),acats_in_kind,300.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-108,ACC-3013,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,60.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
-108,ACC-3013,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,150.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,322.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,741.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,624.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,753.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+66,ACC-1990,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,63.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,148.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,125.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,95.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,68.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+66,ACC-1990,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,308.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,901.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,1671.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,1617.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,1799.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+68,ACC-2001,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,158.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,384.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,313.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,235.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,190.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+68,ACC-2001,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,859.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,2279.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,5002.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,4232.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,5379.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+70,ACC-2002,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,421.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,988.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,722.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,589.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,507.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+70,ACC-2002,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,2291.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,38.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990110AA6,Arches Biotech Inc. (synthetic),acats_in_kind,339.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,55.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990105AA6,Salt Flats Logistics Inc. (synthetic),acats_in_kind,100.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,50.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+72,ACC-2003,acats_in,SYN-PRV-01,Proprietary Core Bond Fund (delivering firm only),liquidate,0.0,1250.0,Proprietary product only the delivering firm can hold; liquidate before transfer,XFR-003
+74,ACC-2004,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,7466.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,14231.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,12369.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,15513.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+74,ACC-2004,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,1154.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,3035.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,2229.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,1823.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,1609.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+74,ACC-2004,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,7118.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,146.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,301.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,246.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,338.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+76,ACC-2010,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,25.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,71.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,56.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,41.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,33.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+76,ACC-2010,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,141.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,3396.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,6573.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,5520.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,6541.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+78,ACC-3010,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,607.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,1412.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,1260.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,802.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,753.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+78,ACC-3010,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,3162.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,395.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,689.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,618.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,854.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+80,ACC-3016,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,61.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,177.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,125.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,91.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,81.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+80,ACC-3016,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,341.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,820.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,1594.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,1322.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,1579.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+82,ACC-3021,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,144.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,361.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,302.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,195.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,163.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+82,ACC-3021,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,746.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,260.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,519.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,451.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,582.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+84,ACC-3022,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,41.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,124.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,81.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,69.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,54.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+84,ACC-3022,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,225.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,407.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,333.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,442.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+86,ACC-3023,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,33.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,92.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,64.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,43.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,39.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,163.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+86,ACC-3023,acats_in,SYN-PRV-01,Proprietary Core Bond Fund (delivering firm only),liquidate,0.0,1250.0,Proprietary product only the delivering firm can hold; liquidate before transfer,XFR-003
+88,ACC-3024,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,478.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,410.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,450.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+88,ACC-3024,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,34.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,104.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,75.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,49.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,49.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+88,ACC-3024,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,191.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,265.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,622.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990206AA2,Canyon Small Cap Value ETF (synthetic),acats_in_kind,488.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990302AA9,Ridgeline Growth Fund Institutional (synthetic),acats_in_kind,597.0,0.0,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind,XFR-007
+90,ACC-3025,acats_in,990104AA9,Wasatch Semiconductor Corp. (synthetic),acats_in_kind,48.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990106AA4,Kolob Software Inc. (synthetic),acats_in_kind,121.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990109AA8,Teton Payments Inc. (synthetic),acats_in_kind,104.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990101AA5,Bonneville Robotics Inc. (synthetic),acats_in_kind,74.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,64.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+90,ACC-3025,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,263.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+91,ACC-3009,loi_in,SYN-REIT-01,Summit Non-Traded REIT Class I (synthetic),loi,26390.0,0.0,"Held at the sponsor, not DTC; re-register by letter of instruction",XFR-008
+92,ACC-3017,loi_in,SYN-REIT-01,Summit Non-Traded REIT Class I (synthetic),loi,35639.0,0.0,"Held at the sponsor, not DTC; re-register by letter of instruction",XFR-008
+93,ACC-3004,acats_out,990102AA3,Great Basin Energy Corp. (synthetic),acats_in_kind,229.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,90.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990108AA0,Deseret Materials Inc. (synthetic),acats_in_kind,259.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,382.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,717.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,981.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,547.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+93,ACC-3004,acats_out,990301AA1,Evergreen Core Bond Fund Institutional (synthetic),acats_in_kind,5817.0,0.128,Mutual fund eligible for ACATS-Fund/SERV; re-registers in kind; the 0.128 fractional share is sold and paid as cash in lieu,XFR-007
+93,ACC-3004,acats_out,990401AB7,US Treasury note 4.25% 2030 (synthetic),acats_in_kind,46000.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+109,ACC-3002,acats_in,990201AA3,Summit Total US Market ETF (synthetic),acats_in_kind,120.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+109,ACC-3002,acats_in,990205AA4,Canyon Dividend Growth ETF (synthetic),acats_in_kind,80.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+110,ACC-3003,acats_in,990202AA1,Summit International Equity ETF (synthetic),acats_in_kind,200.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+110,ACC-3003,acats_in,990204AA7,Summit Short Treasury ETF (synthetic),acats_in_kind,300.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+111,ACC-3013,acats_in,990103AA1,Uinta Health Systems Inc. (synthetic),acats_in_kind,60.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006
+111,ACC-3013,acats_in,990203AA9,Summit Aggregate Bond ETF (synthetic),acats_in_kind,150.0,0.0,DTC-eligible; transfers in kind through ACATS,XFR-006

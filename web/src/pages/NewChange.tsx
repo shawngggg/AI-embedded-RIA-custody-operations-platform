@@ -19,7 +19,10 @@ const DETAIL_FIELDS: Record<string, [string, string, string?][]> = {
   beneficiary: [["beneficiaries", "Beneficiaries and shares", "Ana Delgado 50%, Luis Delgado 50%"]],
   registration: [["new_title", "New registration (title)", "Jane Doe TTEE, Doe Family Trust"]],
   power_of_attorney: [["agent_name", "Agent named in the power of attorney"], ["scope", "Scope", "Durable, full"]],
-  standing_loa: [["payee", "Payee"], ["purpose", "Purpose", "Monthly transfer to the client's own bank"]],
+  standing_loa: [["payee", "Payee (as the client names them)"], ["payee_address", "Payee's address"],
+    ["institution", "Payee's bank"], ["account_last4", "Payee's account, last 4"],
+    ["schedule", "Schedule", "From time to time, or e.g. each semester"],
+    ["end_sloa", "Or, to end an instruction instead: its id", "SLOA-123"]],
   bank_instruction: [],
   beneficial_owner: [],
 };
@@ -60,7 +63,7 @@ export default function NewChange() {
       account_id: accountId, change_type: changeType,
       details: Object.fromEntries(Object.entries(details).filter(([, v]) => v.trim())),
       client_signature: client && signature,
-      documents: toUploads([["change_form", client ? null : changeForm],
+      documents: toUploads([[changeType === "standing_loa" ? "sloa" : "change_form", client ? null : changeForm],
         ["medallion", changeType === "registration" ? medallion : null]]),
       new_parties: changeType === "beneficial_owner" && party.name.trim()
         ? [{ ...party, role: "owner", date_of_birth: party.date_of_birth || null, address: party.address || null,
@@ -121,6 +124,11 @@ export default function NewChange() {
             </div>
           ))}
 
+          {changeType === "standing_loa" && <p className="small muted">The client names the payee and either the payee's address or
+            bank account, and signs. Operations checks the signature before it applies, and the client gets a written
+            confirmation. Your firm can then send payments to this payee only, exactly as named, and the client hears
+            about each one. A payee that's your firm or at your firm's address isn't covered.</p>}
+
           {changeType === "bank_instruction" && (
             <>
               <div className="row">
@@ -170,7 +178,8 @@ export default function NewChange() {
               I sign this change request electronically
               {type?.owner_level && <span className="pill t-refer" style={{ marginLeft: 6 }}>Required for this change</span>}</label>
           ) : (
-            <IntakeDocRow label="Client-signed change form" value={changeForm} onChange={setChangeForm} required={type?.owner_level} />
+            <IntakeDocRow label={changeType === "standing_loa" ? "Client-signed standing letter of authorization (SLOA)" : "Client-signed change form"}
+              value={changeForm} onChange={setChangeForm} required={type?.owner_level} />
           )}
           {changeType === "registration" && (
             <IntakeDocRow label="Medallion signature guarantee" value={medallion} onChange={setMedallion} required />

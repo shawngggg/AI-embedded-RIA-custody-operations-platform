@@ -1,6 +1,6 @@
 order,trade_date,firm,firm_crd,entered_by,side,ticker,security,quantity,filled,avg_price,accounts,status,venue,settle_date,settles_through,account,amount,limit
 BLK-1022-011,2026-10-22,Granite Peak Advisors LLC,310001,RIA (block order),Sell,KLBS,Kolob Software Inc. (synthetic),670,670,97.09,5,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
-BLK-1022-012,2026-10-22,Granite Peak Advisors LLC,310001,RIA (block order),Buy,SAGB,Summit Aggregate Bond ETF (synthetic),1809,1809,97.79,8,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
+BLK-1022-012,2026-10-22,Granite Peak Advisors LLC,310001,RIA (block order),Buy,SAGB,Summit Aggregate Bond ETF (synthetic),1835,1835,97.79,8,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
 BLK-1022-031,2026-10-22,Bonneville Planning LLC,310003,RIA (block order),Sell,CDVG,Canyon Dividend Growth ETF (synthetic),480,480,84.17,3,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
 BLK-1022-032,2026-10-22,Bonneville Planning LLC,310003,RIA (block order),Sell,SAGB,Summit Aggregate Bond ETF (synthetic),742,742,97.92,5,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
 BLK-1022-311,2026-10-22,Timpanogos Wealth Partners LLC,310031,RIA (block order),Buy,CSCV,Canyon Small Cap Value ETF (synthetic),4393,4393,41.9,7,Filled and allocated,In-house execution,2026-10-23,NSCC and DTC,,,
@@ -9,7 +9,7 @@ MF-1022-3001,2026-10-22,Granite Peak Advisors LLC,310001,RIA,Buy,RDGIX,Ridgeline
 MF-1022-3021,2026-10-22,Bonneville Planning LLC,310003,RIA,Buy,RDMIX,Ridgeline Municipal Income Fund (synthetic),659.134,659.134,10.62,1,Priced at NAV,Fund/SERV,2026-10-23,Fund/SERV,ACC-3021,7000.0,
 MF-1022-3018,2026-10-22,Bonneville Planning LLC,310003,RIA,Buy,RDGIX,Ridgeline Growth Fund Institutional (synthetic),964.381,964.381,41.27,1,Priced at NAV,Fund/SERV,2026-10-23,Fund/SERV,ACC-3018,39800.0,
 BLK-1023-011,2026-10-23,Granite Peak Advisors LLC,310001,RIA (block order),Sell,KLBS,Kolob Software Inc. (synthetic),604,604,97.11,3,Filled and allocated,In-house execution,2026-10-26,NSCC and DTC,,,
-BLK-1023-012,2026-10-23,Granite Peak Advisors LLC,310001,RIA (block order),Buy,SIEQ,Summit International Equity ETF (synthetic),2623,1571,61.25,7,Partially filled: the rest is working,In-house execution,2026-10-26,NSCC and DTC,,,
+BLK-1023-012,2026-10-23,Granite Peak Advisors LLC,310001,RIA (block order),Buy,SIEQ,Summit International Equity ETF (synthetic),2701,1618,61.25,7,Partially filled: the rest is working,In-house execution,2026-10-26,NSCC and DTC,,,
 BLK-1023-031,2026-10-23,Bonneville Planning LLC,310003,RIA (block order),Sell,UNTH,Uinta Health Systems Inc. (synthetic),710,710,211.23,5,Filled and allocated,In-house execution,2026-10-26,NSCC and DTC,,,
 BLK-1023-032,2026-10-23,Bonneville Planning LLC,310003,RIA (block order),Buy,CSCV,Canyon Small Cap Value ETF (synthetic),3002,3002,41.6,6,Filled and allocated,In-house execution,2026-10-26,NSCC and DTC,,,
 BLK-1023-311,2026-10-23,Timpanogos Wealth Partners LLC,310031,RIA (block order),Buy,SAGB,Summit Aggregate Bond ETF (synthetic),2167,2167,98.23,7,Filled and allocated,In-house execution,2026-10-26,NSCC and DTC,,,

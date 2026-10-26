@@ -11,6 +11,8 @@ PyJWT==2.14.0
 python-multipart==0.0.32
 pypdf==5.9.0
 httpx==0.28.1
+cryptography==50.0.1    # field encryption at rest (app/crypto.py)
+tzdata==2025.2          # Eastern time for the rail cutoffs, on images without system time zones
 
 # Live AI extraction (extraction.py). Without an API key the app uses the illustrative sample instead.
 anthropic==1.13.0

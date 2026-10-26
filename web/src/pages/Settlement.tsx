@@ -19,7 +19,18 @@ type SettlementView = { as_of: string; can_act: boolean; checks: Check[];
   masters: { master: string; firm: string; accounts: number; cash: number; pending_cash: number; restricted_cash: number;
     securities_value: number }[];
   receipts: Receipt[]; today_flows: { channel: string; net: number; direction: string }[];
-  in_transit: { case: number; type: string; account: string; expected: string | null; overdue: boolean }[] };
+  in_transit: { case: number; type: string; account: string; expected: string | null; overdue: boolean }[];
+  protection: Protection };
+type Line = { line: string; amount: number; accounts?: number };
+type Protection = {
+  reserve: { as_of: string; credits: Line[]; debits: Line[]; total_credits: number; gross_debits: number; debit_reduction: number;
+    total_debits: number; required: number; on_deposit: number; excess: number; deficit: number; deposit_due: string | null;
+    empty_lines: string[]; frequency: string };
+  possession: { securities: number; in_control: number;
+    deficits: { security: string; name: string; customers: number; in_control: number; deficit: number }[] } };
+type Nightly = { scheduled: boolean; can_run: boolean; runs: { at: string; on: string; by: string;
+  settlement: { reserve_deficit: number; control_deficits: number }; recon: { breaks: number; certified: boolean };
+  screening: { parties: number; alerts: number }; nigo: { reminded: number; withdrawn: number } }[] };
 type Break = { id: number; location: string; asset: string; security: string; ticker: string | null; difference: number;
   value: number; pattern: string; pattern_label: string; note: string; account_id: string | null; case_id: number | null;
   opened_on: string; age_days: number; status: string; route: string | null; proposal: { text: string; evidence: string[] } | null;
@@ -34,7 +45,7 @@ const ROUTE: Record<string, string> = { auto_fix: "Fixed automatically", ai_sugg
   human_only: "Worked by hand" };
 
 export default function Settlement() {
-  const [tab, setTab] = useState<"cycle" | "recon" | "ledger">("cycle");
+  const [tab, setTab] = useState<"cycle" | "protection" | "recon" | "ledger">("cycle");
   return (
     <>
       <h1>Settlement and reconciliation</h1>
@@ -42,14 +53,106 @@ export default function Settlement() {
         general ledger) and checks they agree. Reconciliation then matches the books to DTC, the transfer agents, the sponsors, and the
         settlement bank. Both run on synthetic data, with simulators standing in for the bank and the street.</p>
       <div className="tabs" role="tablist">
-        {([["cycle", "Cash settlement"], ["recon", "Reconciliation"], ["ledger", "General ledger"]] as [typeof tab, string][])
+        {([["cycle", "Cash settlement"], ["protection", "Customer protection"], ["recon", "Reconciliation"],
+          ["ledger", "General ledger"]] as [typeof tab, string][])
           .map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === "cycle" && <Cycle />}
+      {tab === "cycle" && <><EndOfDay /><Cycle /></>}
+      {tab === "protection" && <CustomerProtection />}
       {tab === "recon" && <Recon />}
       {tab === "ledger" && <Ledger />}
       <p className="small muted" style={{ marginTop: 18 }}>The process: <a href={`${VIEWER}#cs`} target="_blank" rel="noreferrer">cash
         settlement</a> and <a href={`${VIEWER}#pr`} target="_blank" rel="noreferrer">position reconciliation</a> maps.</p>
+    </>
+  );
+}
+
+/** The nightly batch: the scheduler runs it; the operations supervisor can run it by hand. */
+function EndOfDay() {
+  const v = useLoad(() => api<Nightly>("/api/nightly"), []);
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  const [busy, setBusy] = useState(false);
+  if (!v.data) return null;
+  const last = v.data.runs[0];
+  return (
+    <div className="panel">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={{ margin: 0 }}>End of day</h3>
+        {v.data.can_run && <button className="secondary" disabled={busy} onClick={() => {
+          setBusy(true);
+          api("/api/nightly/run", { body: {} }).then(() => { setMsg({ ok: "End of day run: cycle, reconciliation, screening, NIGO aging." }); v.reload(); })
+            .catch((e: Error) => setMsg({ error: e.message })).finally(() => setBusy(false));
+        }}>Run end of day now</button>}
+      </div>
+      <p className="small muted">Every night: the settlement cycle (with the Rule 15c3-3 checks), reconciliation, ongoing sanctions screening,
+        and NIGO aging. {v.data.scheduled ? "Cloud Scheduler runs it." : "No scheduler is connected yet, so it runs by hand."}</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      {last ? <p className="small">Last run {day(last.on)} by {last.by}: reserve {last.settlement.reserve_deficit ? `short ${usd(last.settlement.reserve_deficit)}` : "covered"},
+        {" "}{last.settlement.control_deficits} possession-or-control deficit{last.settlement.control_deficits === 1 ? "" : "s"},
+        {" "}{last.recon.breaks} open break{last.recon.breaks === 1 ? "" : "s"}{last.recon.certified ? " (certified)" : ""},
+        {" "}{last.screening.alerts} screening alert{last.screening.alerts === 1 ? "" : "s"} from {last.screening.parties} parties,
+        {" "}{last.nigo.reminded} reminder{last.nigo.reminded === 1 ? "" : "s"} and {last.nigo.withdrawn} withdrawn.</p>
+        : <p className="small muted">No end-of-day run yet.</p>}
+    </div>
+  );
+}
+
+/** Rule 15c3-3: the reserve formula and the possession-or-control check, from the books. */
+function CustomerProtection() {
+  const v = useLoad(() => api<SettlementView>("/api/settlement"), []);
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  const [dep, setDep] = useState({ amount: "", note: "" });
+  if (!v.data) return v.error ? <p className="error">{v.error}</p> : <Loading />;
+  const { reserve: r, possession: p } = v.data.protection;
+  const deposit = () => api<SettlementView>("/api/settlement/reserve/deposit", { body: { amount: Number(dep.amount), note: dep.note } })
+    .then((x) => { v.setData(x); setMsg({ ok: `Deposited ${usd(Number(dep.amount))} to the reserve account.` }); setDep({ amount: "", note: "" }); })
+    .catch((e: Error) => setMsg({ error: e.message }));
+  return (
+    <>
+      <p className="muted">The reserve formula nets what the custodian owes customers in cash against what they owe it; the difference
+        sits in the special reserve bank account for the exclusive benefit of customers. {r.frequency}. A deficit is deposited no later
+        than one hour after banks open on the second business day (CP-001).</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      <div className="grid tiles" style={{ marginBottom: 12 }}>
+        <div className="tile"><div className="label">Required reserve</div><div className="value">{usd(r.required)}</div><div className="sub">As of {day(r.as_of)}</div></div>
+        <div className="tile"><div className="label">On deposit</div><div className="value">{usd(r.on_deposit)}</div><div className="sub">GL 1030</div></div>
+        <div className="tile"><div className="label">{r.deficit ? "Deficit" : "Excess"}</div><div className="value">{usd(r.deficit || r.excess)}</div>
+          <div className={`sub ${r.deficit ? "alert" : ""}`}>{r.deficit ? `Deposit by ${r.deposit_due}` : "Covered"}</div></div>
+      </div>
+      <div className="panel">
+        <h3>The computation</h3>
+        <div className="scroll"><table>
+          <thead><tr><th>Line</th><th className="num">Amount</th></tr></thead>
+          <tbody>
+            {r.credits.map((c) => <tr key={c.line}><td>Credit: {c.line}{c.accounts !== undefined ? ` (${c.accounts} accounts)` : ""}</td><td className="num">{usd(c.amount)}</td></tr>)}
+            <tr><td><strong>Total credits</strong></td><td className="num"><strong>{usd(r.total_credits)}</strong></td></tr>
+            {r.debits.map((d) => <tr key={d.line}><td>Debit: {d.line}{d.accounts !== undefined ? ` (${d.accounts} accounts)` : ""}</td><td className="num">{usd(d.amount)}</td></tr>)}
+            <tr><td>Less the 2% reduction of debits</td><td className="num">{usd(-r.debit_reduction)}</td></tr>
+            <tr><td><strong>Total debits</strong></td><td className="num"><strong>{usd(r.total_debits)}</strong></td></tr>
+            <tr><td><strong>Required: credits less debits</strong></td><td className="num"><strong>{usd(r.required)}</strong></td></tr>
+          </tbody>
+        </table></div>
+        <p className="small muted">Empty on this book: {r.empty_lines.join("; ")}.</p>
+        {v.data.can_act && (
+          <div className="row" style={{ alignItems: "end" }}>
+            <div className="field" style={{ flex: "0 1 180px" }}><label htmlFor="rd">Deposit (USD)</label>
+              <input id="rd" type="number" min={0} step={1000} value={dep.amount} onChange={(e) => setDep({ ...dep, amount: e.target.value })} /></div>
+            <div className="field"><label htmlFor="rn">Why</label>
+              <input id="rn" type="text" placeholder="Covers the deficit in today's computation" value={dep.note} onChange={(e) => setDep({ ...dep, note: e.target.value })} /></div>
+            <button disabled={!Number(dep.amount) || dep.note.trim().length < 10} onClick={deposit}>Deposit to the reserve account</button>
+          </div>)}
+      </div>
+      <div className="panel">
+        <h3>Possession or control</h3>
+        <p className="small muted">The stock record for customers' fully paid securities at DTC, the fund transfer agents, and the sponsors,
+          against what the street confirms there (CP-002). {p.in_control} of {p.securities} securities are fully in control.</p>
+        {p.deficits.length === 0 ? <div className="empty">No deficits.</div> : <div className="scroll"><table>
+          <thead><tr><th>Security</th><th className="num">Books</th><th className="num">Street confirms</th><th className="num">Deficit</th></tr></thead>
+          <tbody>{p.deficits.map((d) => <tr key={d.security}><td>{d.name}<div className="small muted mono">{d.security}</div></td>
+            <td className="num">{qty(d.customers)}</td><td className="num">{qty(d.in_control)}</td><td className="num error">{qty(d.deficit)}</td></tr>)}</tbody>
+        </table></div>}
+        <p className="small muted">A deficit is a financial risk event for the settlement area; reconciliation traces it (see Reconciliation).</p>
+      </div>
     </>
   );
 }

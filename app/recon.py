@@ -31,7 +31,8 @@ from .config import settings
 from .orm import Account, Case, ReconRun, Security, StreetItem, User, utcnow
 from .risk_register import log_event
 
-LOCATION_NAME = {**{v: k for k, v in LOCATION_GL.items()}, "1010": "Settlement bank"}
+LOCATION_NAME = {**{v: k for k, v in LOCATION_GL.items()}, "1010": "Settlement bank",
+                 "1030": "Special reserve bank account (15c3-3)"}
 AUTO = "Reconciliation engine (REC-002 auto-fix)"
 
 

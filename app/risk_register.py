@@ -23,7 +23,9 @@ from .queues import QUEUES
 RISK_TYPES = {"operational": "Operational", "regulatory": "Regulatory", "financial": "Financial"}
 SOURCES = {"rescission": "Rescission", "document": "Document reopened", "sanctions": "Sanctions true match",
            "sla": "SLA breach", "access": "Access control", "manual": "Reported by a team member",
-           "recon": "Reconciliation break (aged or large)"}
+           "recon": "Reconciliation break (aged or large)",
+           "protection": "Customer protection (Rule 15c3-3): reserve or possession-or-control deficit",
+           "privacy": "Possible data incident (Regulation S-P)"}
 # The function a risk pertains to: every operations team, the second-line and service teams, and access
 AREAS = {**OPS_TEAMS, "aml": "AML compliance (EDD and compliance review)", "sanctions": "Sanctions",
          "periodic_review": "Periodic review", "ria_service": "RIA service (principal acceptance)",

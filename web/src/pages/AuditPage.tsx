@@ -9,7 +9,7 @@ export default function AuditPage() {
   return (
     <>
       <h1>Audit trail</h1>
-      <p className="muted">Append-only: every sign-in, case run, AI read, decision, refusal, code, and grant. <a href="/api/audit/export">Download the full log as JSON</a>.</p>
+      <p className="muted">Append-only: every sign-in, case run, AI read, decision, refusal, code, and grant. On Postgres the database refuses any change to it. <a href="/api/audit/export">Download the full log</a> as hash-chained JSON; <code>tools/verify_audit_export.py</code> checks a download, and each export proves the earlier ones still hold.</p>
       <div className="field" style={{ maxWidth: 320 }}>
         <label htmlFor="act">Show</label>
         <select id="act" value={action} onChange={(e) => setAction(e.target.value)}>

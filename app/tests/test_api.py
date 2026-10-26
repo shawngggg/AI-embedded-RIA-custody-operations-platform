@@ -55,7 +55,7 @@ def test_queues_have_seeded_work(as_user):
     assert aml["edd_review"] == 3 and aml["compliance_review"] == 4 and aml["reviews"] >= 2   # + a transfer risk review
     ops = counts("ops.supervisor")                         # the supervisor oversees every operations queue
     assert ops["items_requested"] == 9 and ops["confirmation"] == 1
-    assert ops["money_release"] == 1 and ops["callbacks"] == 1 and ops["transfer_exceptions"] == 3
+    assert ops["money_release"] == 2 and ops["callbacks"] == 1 and ops["transfer_exceptions"] == 3   # + an SLOA wire
     assert ops["in_transit"] >= 3
     assert ops["verification"] == 1 and ops["maintenance_items"] == 1      # CIP and client service have work too
     assert counts("rs.principal") == {"principal_acceptance": 5}
@@ -584,7 +584,9 @@ def test_other_firms_cannot_change_an_account(as_user):
 
 NEW_APP = {"group": "pure_ria", "registration_type": "individual",
            "holders": [{"name": "Nina Park", "role": "account_holder", "date_of_birth": "1987-04-02",
-                        "address": "300 S State St, Salt Lake City, UT 84111", "tax_id": "900-00-3001"}],
+                        "address": "300 S State St, Salt Lake City, UT 84111", "tax_id": "900-00-3001",
+                        "phone": "801-555-0131", "email": "nina.park@example.com"}],
+           "trusted_contact": {"name": "Leo Park", "relationship": "brother", "phone": "801-555-0132"},
            "account_purpose": "Long-term investing", "source_of_funds": "Salary", "source_of_wealth": "Salary"}
 
 
@@ -630,6 +632,36 @@ def test_a_regulatory_gap_waits_for_items(as_user):
     assert submitted["status"] == "PENDING_ITEMS" and "result" not in submitted
     detail = as_user("ops.analyst").get(f"/api/cases/{submitted['id']}").json()
     assert "CDD-001" in [d["rule_id"] for d in detail["result"]["findings"]["decisions"]]
+
+
+def test_an_ira_comes_back_for_its_record_and_the_ria_completes_it(as_user):
+    holder = {**NEW_APP["holders"][0], "name": "Iris Moreau", "phone": None}
+    app = {**NEW_APP, "registration_type": "ira", "holders": [holder],
+           "beneficiaries": [{"name": "Paul Moreau", "kind": "primary", "share": 90}]}
+    ria = as_user("granite.advisor")
+    submitted = ria.post("/api/portal/accounts", json={"application": app, "documents": ACCOUNT_DOCS}).json()
+    assert submitted["status"] == "PENDING_ITEMS"
+    items = {c["field"]: c for c in submitted["corrections"]}
+    assert set(items) == {"holder_phones", "ira_type", "ira_adoption_agreement", "beneficiaries"}
+    assert items["holder_phones"]["type"] == "per_person" and items["holder_phones"]["people"][0]["name"] == "Iris Moreau"
+    assert items["ira_type"]["options"][0]["value"] == "traditional"
+    assert items["ira_adoption_agreement"]["type"] == "document"
+    cid = submitted["id"]
+    bad = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {"ira_type": "gold"}})
+    assert bad.status_code == 422
+    blank = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {"holder_phones": {"Iris Moreau": " "}}})
+    assert blank.status_code == 422
+    after = ria.post(f"/api/cases/{cid}/corrections", json={"fields": {
+        "holder_phones": {"Iris Moreau": "801-555-0133"}, "ira_type": "roth",
+        "beneficiaries": [{"name": "Paul Moreau", "kind": "primary", "share": 100}]}}).json()
+    assert {c["field"] for c in after["corrections"]} == {"ira_adoption_agreement"}     # only the document is left
+    agreement = upload_sample(ria, cid, "ira_adoption_agreement")
+    detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"ira_adoption_agreement": True}, "documents": {"ira_adoption_agreement": agreement["id"]}}).json()
+    assert detail["status"] == "PENDING_ACCEPTANCE"
+    assert detail["application"]["holders"][0]["phone"] == "801-555-0133"
+    record = next(s for s in detail["result"]["steps"] if s["step"].startswith("Account record"))
+    assert any("Roth IRA" in n for n in record["detail"]) and any("Leo Park" in n for n in record["detail"])
 
 
 
@@ -681,7 +713,36 @@ def test_decision_role_grants_need_a_second_administrator(as_user):
     assert admin.post(f"/api/admin/grants/{out['grant']['id']}/approve").status_code == 403
     as_user("admin.second").post(f"/api/admin/grants/{out['grant']['id']}/approve")
     login = as_user("admin.second").post("/api/auth/login", json={"username": "n.sato", "password": "correct-horse-1"})
-    assert login.status_code == 200 and login.json()["role"] == "sanctions"
+    assert login.status_code == 200 and login.json()["mfa_setup_required"]          # a password alone never signs in
+    from app import totp
+    signed = as_user("admin.second").post("/api/auth/mfa/enroll", json={
+        "challenge": login.json()["challenge"], "code": totp.code_at(login.json()["secret"], totp.now_step())})
+    assert signed.status_code == 200 and signed.json()["role"] == "sanctions"
+
+
+def test_a_password_sign_in_needs_the_second_factor_every_time(as_user, client):
+    from app import totp
+    admin = as_user("admin.platform")
+    g = admin.post("/api/admin/users", json={"username": "n.okoro", "display_name": "Nia Okoro", "role": "ops_analyst",
+                                             "team": "onboarding", "password": "correct-horse-2"}).json()
+    if g.get("grant") and g["grant"]["status"] == "pending":
+        as_user("admin.second").post(f"/api/admin/grants/{g['grant']['id']}/approve")
+    client.cookies.clear()
+    first = client.post("/api/auth/login", json={"username": "n.okoro", "password": "correct-horse-2"}).json()
+    assert "challenge" in first and client.get("/api/auth/me").status_code == 401   # no session yet
+    challenge_as_session = client.get("/api/auth/me", headers={"Authorization": f"Bearer {first['challenge']}"})
+    assert challenge_as_session.status_code == 401                                   # a challenge isn't a session
+    code = totp.code_at(first["secret"], totp.now_step())
+    assert client.post("/api/auth/mfa/enroll", json={"challenge": first["challenge"], "code": "000000"}).status_code == 401
+    assert client.post("/api/auth/mfa/enroll", json={"challenge": first["challenge"], "code": code}).status_code == 200
+    client.cookies.clear()
+    again = client.post("/api/auth/login", json={"username": "n.okoro", "password": "correct-horse-2"}).json()
+    assert again == {"mfa_required": True, "challenge": again["challenge"]}         # no secret the second time
+    assert client.post("/api/auth/mfa", json={"challenge": again["challenge"], "code": code}).status_code == 401  # used
+    nxt = totp.code_at(first["secret"], totp.now_step() + 1)
+    assert client.post("/api/auth/mfa", json={"challenge": again["challenge"], "code": nxt}).status_code == 200
+    events = {e["action"] for e in as_user("ops.supervisor").get("/api/audit?limit=50").json()}
+    assert {"mfa_enrolled", "password_verified"} <= events
 
 
 def test_ria_admin_manages_only_their_firms_users(as_user):
@@ -772,6 +833,21 @@ def test_audit_log_records_runs_and_exports(as_user):
     assert ops.get("/api/audit/export").status_code == 403         # the whole log is for oversight roles
     export = as_user("ops.supervisor").get("/api/audit/export")
     assert export.status_code == 200 and "attachment" in export.headers["content-disposition"]
+    first = export.json()
+    from app.audit_chain import verify
+    assert first["format"] == "sha256-chain-v1" and verify(first["events"]) is None and first["checkpoints"] == []
+    second = as_user("ops.supervisor").get("/api/audit/export").json()
+    assert [c["head_id"] for c in second["checkpoints"]] == [first["head"]["id"]] and second["verified"]
+    tampered = [dict(e) for e in second["events"]]
+    tampered[3] = {**tampered[3], "actor": "Someone else"}
+    assert verify(tampered) == tampered[3]["id"]                    # the verifier finds the changed event
+    from app.db import SessionLocal, engine
+    if engine.dialect.name == "postgresql":                           # the database itself refuses the change
+        import pytest
+        from sqlalchemy import text
+        from sqlalchemy.exc import DBAPIError
+        with SessionLocal() as db, pytest.raises(DBAPIError, match="insert-only"):
+            db.execute(text("UPDATE audit_events SET actor_name = 'Someone else'"))
 
 
 def test_demo_reset(as_user):
@@ -1012,17 +1088,17 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
     "ops.billing": {"work", "cases", "messages", "risk_events", "restricted_accounts", "planned_billing"},
     "ops.supervisor": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "intake", "ai_review",
                        "identity_check",
-                       "restricted_accounts", "audit", "dashboard", "outbox"} | PLANNED_ALL,
+                       "restricted_accounts", "audit", "dashboard", "outbox", "screening", "privacy"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
-                  "audit"},
+                  "audit", "screening", "privacy"},
     "sanctions.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts",
-                        "audit"},
+                        "audit", "screening"},
     "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},
     "rs.lead": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
                 "dashboard", "outbox", "transfers", "planned_trading"},
     "rs.principal": {"work", "cases", "queues", "messages", "risk_events", "restricted_accounts", "transfers",
                      "planned_trading"},
-    "admin.platform": {"work", "messages", "risk_events", "audit", "outbox", "admin"},
+    "admin.platform": {"work", "messages", "risk_events", "audit", "outbox", "admin", "privacy"},
     "granite.admin": {"portal"}, "granite.advisor": {"portal"}, "client.farid": {"portal"},
 }
 
@@ -1057,7 +1133,8 @@ INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "qu
                       "available_decisions", "queue_entered_at"}
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
                    "CONFIRMING", "IN_REVIEW", "SUBMITTED",
-                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT"}         # release 2 transfers, in the portal's words
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD",   # release 2 transfers, in the portal's words
+                   "WITHDRAWN"}                                           # closed by NIGO aging
 
 
 def test_rias_and_clients_see_nothing_of_custody_operations(as_user):
@@ -1228,7 +1305,9 @@ def test_startup_reseeds_the_demo_when_the_seed_data_changed(client):
         assert not ensure_seeded(db)                       # same seed data: nothing to do
     with SessionLocal() as db:
         db.add(User(username="stale.user", display_name="Stale", role="ops_analyst", is_demo=False))
-        db.query(AuditEvent).filter(AuditEvent.action == "demo_seeded").update({"target_id": "older-seed"})
+        # The log is append-only (on Postgres the database refuses an update): record an older seed after it instead
+        db.add(AuditEvent(actor_name="system", actor_role="system", action="demo_seeded", target_type="demo",
+                          target_id="older-seed", detail={}))
         db.commit()
     with SessionLocal() as db:
         assert ensure_seeded(db)                           # a deploy brought different seed data
@@ -1561,3 +1640,158 @@ def test_a_client_sees_only_their_own_account(as_user):
     assert {p["account"] for p in t["positions"]} <= {"ACC-2003"}
     assert {o["account"] for o in t["orders"]} <= {"ACC-2003"}
     assert c.get("/api/preview/billing").status_code == 403
+
+
+# --- Ongoing screening (industry-practice review, Oct. 25, 2026) ----------------------------------------------------
+
+def test_a_list_update_rescreens_everyone_and_holds_a_new_match(as_user):
+    view = as_user("sanctions.maker").get("/api/screening").json()
+    assert len(view["entries"]) == 6 and view["population"] > 40 and view["alerts"] == [] and view["can_act"]
+    assert as_user("aml.maker").get("/api/screening").json()["can_act"] is False
+    assert as_user("aml.maker").post("/api/screening/entries", json={"kind": "individual",
+                                                                     "name": "Samuel Adeyemi"}).status_code == 403
+    assert as_user("ops.analyst").get("/api/screening").status_code == 403
+
+    added = as_user("sanctions.maker").post("/api/screening/entries", json={
+        "kind": "individual", "name": "Samuel Adeyemi", "aliases": ["S. Adeyemi"],
+        "program": "Synthetic program D"}).json()
+    alert = next(a for a in added["run"]["alerts"] if a["target"] == "ACC-3006")
+    cid = alert["case"]
+    case = as_user("sanctions.maker").get(f"/api/cases/{cid}").json()
+    assert case["status"] == "PENDING_SANCTIONS" and case["queue"] == "sanctions_review"
+    assert [r["code"] for r in case["restrictions"] if r["active"]] == ["SANC"]
+    assert as_user("granite.advisor").get(f"/api/cases/{cid}").status_code == 404        # internal only
+    held = as_user("granite.advisor").post("/api/money/transfers", json={
+        "type": "ach_withdrawal", "account_id": "ACC-3006", "amount": 100}).json()["case"]
+    assert held["status"] == "DECLINED"                     # the hold stops money while the team decides
+
+    d = as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-RS-1",
+        "note": "Different date of birth and address"}).json()
+    done = as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve").json()
+    assert done["status"] == "CLEARED" and not [r for r in done["restrictions"] if r["active"]]
+    again = as_user("sanctions.maker").post("/api/screening/run").json()["run"]
+    assert "ACC-3006" not in [a["target"] for a in again["alerts"]]                 # cleared: not raised again
+    runs = as_user("ops.supervisor").get("/api/screening").json()["runs"]
+    assert [r["trigger"] for r in runs[:2]] == ["nightly", "list_change"]
+
+
+# --- Case ownership and NIGO aging (industry-practice review, Oct. 25, 2026) -----------------------------------------
+
+def test_a_case_is_claimed_assigned_and_released_by_the_right_people(as_user):
+    cid = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    assert as_user("ops.cip").post(f"/api/cases/{cid}/claim").status_code == 403       # not CIP's queue
+    mine = as_user("ops.analyst").post(f"/api/cases/{cid}/claim").json()
+    assert mine["assigned_to"]["name"] == "Jamie Ortiz" and mine["ownership"]["can_release"]
+    assert [c["id"] for c in as_user("ops.analyst").get("/api/cases?mine=true").json()] == [cid]
+    assert as_user("ops.analyst").post(f"/api/cases/{cid}/assign", json={"user_id": 1}).status_code == 403
+    people = as_user("ops.supervisor").get(f"/api/cases/{cid}/assignees").json()
+    other = next(p for p in people if p["name"] != "Jamie Ortiz")
+    moved = as_user("ops.supervisor").post(f"/api/cases/{cid}/assign", json={"user_id": other["id"]}).json()
+    assert moved["assigned_to"]["id"] == other["id"]
+    cip = next(u for u in as_user("admin.platform").get("/api/admin/users").json() if u["username"] == "ops.cip")
+    assert as_user("ops.supervisor").post(f"/api/cases/{cid}/assign",
+                                          json={"user_id": cip["id"]}).status_code == 422   # doesn't work the queue
+    released = as_user("ops.supervisor").post(f"/api/cases/{cid}/assign", json={"user_id": None}).json()
+    assert released["assigned_to"] is None
+    events = {e["action"] for e in as_user("ops.supervisor").get(f"/api/cases/{cid}/audit").json()}
+    assert {"case_claimed", "case_assigned", "case_released"} <= events
+
+
+def test_moving_to_another_queue_hands_the_case_back(as_user):
+    cid = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    as_user("ops.analyst").post(f"/api/cases/{cid}/claim")
+    lpoa = upload_sample(as_user("bonneville.advisor"), cid, "lpoa")
+    w9 = upload_sample(as_user("ops.analyst"), cid, "w9")
+    detail = as_user("ops.analyst").post(f"/api/cases/{cid}/corrections", json={
+        "fields": {"lpoa_signed": True, "tax_form": "W-9"},
+        "documents": {"lpoa_signed": lpoa["id"], "tax_form": w9["id"]}}).json()
+    assert detail["queue"] == "principal_acceptance" and detail["assigned_to"] is None
+
+
+def test_nigo_requests_get_reminders_and_close_at_30_days(as_user):
+    ops = as_user("ops.supervisor")
+    calloway = case_id(ops, "Calloway Family Trust")
+    detail = ops.get(f"/api/cases/{calloway}").json()
+    assert detail["status"] == "PENDING_ITEMS" and [r["day"] for r in detail["extra"]["reminders"]] == [7]
+    assert any(s["step"].startswith("Reminders to the requester") for s in detail["result"]["steps"])
+    old = case_id(ops, "Wyatt Ostrander")
+    gone = ops.get(f"/api/cases/{old}").json()
+    assert gone["status"] == "WITHDRAWN" and gone["queue"] is None and gone["closed_at"]
+    box = {(e["template"], e["case_id"]) for e in ops.get("/api/outbox").json()["emails"]}
+    assert ("items_reminder", calloway) in box and ("withdrawn", old) in box
+    assert ops.post("/api/nigo/run").json() == {"on": ops.post("/api/nigo/run").json()["on"], "reminded": [],
+                                                "withdrawn": []}          # nothing new due today
+    assert as_user("ops.analyst").post("/api/nigo/run").status_code == 403
+    from datetime import timedelta
+    from app import nigo
+    from app.config import settings
+    from app.db import SessionLocal
+    with SessionLocal() as db:
+        later = nigo.run(db, None, today=settings.today() + timedelta(days=22))
+        db.commit()
+    assert calloway in [w["case"] for w in later["withdrawn"]]
+    upload = as_user("ops.analyst").post(f"/api/cases/{calloway}/corrections", json={"fields": {"client_signature": True}})
+    assert upload.status_code == 409                                        # a withdrawn case takes no items
+
+
+# --- Data protection (industry-practice review, Oct. 25, 2026) --------------------------------------------------------
+
+def test_tax_ids_and_dates_of_birth_are_encrypted_at_rest_and_masked_on_screen(as_user):
+    from sqlalchemy import text
+    from app.db import SessionLocal
+    cid = case_id(as_user("ops.analyst"), "Rosa Delgado")
+    with SessionLocal() as db:
+        raw = db.execute(text("SELECT application FROM cases WHERE id = :i"), {"i": cid}).scalar_one()
+    raw = raw if isinstance(raw, str) else __import__("json").dumps(raw)
+    assert "enc:v1:" in raw and "1983-09-14" not in raw                          # sealed in the database
+    full = as_user("ops.cip").get(f"/api/cases/{cid}").json()["application"]["holders"][0]
+    assert full["date_of_birth"] == "1983-09-14" and full["tax_id"].count("•") == 0
+    masked = as_user("ops.transfers").get(f"/api/cases/{cid}").json()["application"]["holders"][0]
+    assert masked["tax_id"].startswith("•••-••-") and masked["tax_id"][-4:] == full["tax_id"][-4:]
+
+
+def test_a_reg_sp_incident_is_contained_decided_and_noticed_within_30_days(as_user):
+    from datetime import date, timedelta
+    assert as_user("ops.analyst").get("/api/privacy").status_code == 403
+    sup = as_user("ops.supervisor")
+    aware = (date.today() - timedelta(days=3)).isoformat()
+    i = sup.post("/api/privacy", json={
+        "summary": "A misdirected email sent two clients' statements to the wrong RIA user.", "aware_on": aware,
+        "accounts": ["ACC-3005", "ACC-3006"], "information": "Names, account numbers, and balances"}).json()
+    assert i["ref"] == "PI-001" and i["status"] == "assessing" and i["days_left"] == 27
+    assert sup.post(f"/api/privacy/{i['id']}/determine", json={"decision": "notify",
+                    "reason": "Account numbers went to the wrong person"}).status_code == 409    # contain it first
+    sup.post(f"/api/privacy/{i['id']}/contain", json={"note": "The recipient confirmed deletion in writing"})
+    aml = as_user("aml.maker")
+    aml.post(f"/api/privacy/{i['id']}/determine", json={"decision": "notify",
+                                                        "reason": "Account numbers and balances reached an outsider"})
+    done = as_user("ops.supervisor").post(f"/api/privacy/{i['id']}/notify").json()
+    assert done["status"] == "closed" and done["notices_sent"] >= 2
+    box = as_user("ops.supervisor").get("/api/outbox").json()["emails"]
+    assert sum(e["template"] == "privacy_notice" for e in box) == done["notices_sent"]
+    events = as_user("admin.platform").get("/api/risk-events").json()["events"]
+    assert any(e["source"] == "privacy" and e["risk_type"] == "regulatory" for e in events)
+
+
+def test_a_sample_of_ai_reviews_gets_a_second_persons_check(as_user):
+    _upload_sample(as_user("ops.analyst"))                      # onboarding and CIP review every value the AI read
+    queue = as_user("ops.supervisor").get("/api/ai-qa").json()
+    assert queue["every"] == 5 and queue["items"], "the seeded reviews include a QA sample"
+    first, *rest = queue["items"]
+    assert first["reviewed_by"] != "Priya Raman"
+    mine = as_user("ops.analyst").get("/api/ai-qa").json()["items"]
+    assert all(i["reviewed_by"] != "Jamie Ortiz" for i in mine)        # nobody checks their own review
+    assert as_user("ops.supervisor").post(f"/api/ai-qa/{first['id']}", json={"verdict": "disagree"}).status_code == 422
+    after = as_user("ops.supervisor").post(f"/api/ai-qa/{first['id']}", json={
+        "verdict": "disagree", "note": "The package shows a different suite number"}).json()
+    assert first["id"] not in [i["id"] for i in after["items"]]
+    for i in rest:
+        as_user("ops.supervisor").post(f"/api/ai-qa/{i['id']}", json={"verdict": "agree"})
+    events = as_user("ops.supervisor").get("/api/risk-events").json()["events"]
+    assert any(e["category"].startswith("AI review QA") for e in events)
+    from app.db import SessionLocal
+    from app import ai_suggestions
+    with SessionLocal() as db:
+        s = ai_suggestions.summary(db)["qa"]
+    assert s["checked"] == len(queue["items"]) and s["disagreed"] == 1 and s["agreement"] < 1

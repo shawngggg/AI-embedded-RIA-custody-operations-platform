@@ -18,7 +18,7 @@ from .orm import PORTAL_ROLES, Account, Case, CaseTransition, Firm, Restriction,
 STATUS = {
     "PENDING_ITEMS": "PENDING_ITEMS", "RETURNED": "RETURNED", "OPEN": "OPEN", "OPEN_RESTRICTED": "OPEN_RESTRICTED",
     "APPLIED": "APPLIED", "REDIRECTED": "REDIRECTED", "DECLINED": "DECLINED", "BLOCKED": "DECLINED",
-    "REJECTED": "DECLINED", "ACTIVE": "ACTIVE", "PENDING_CONFIRMATION": "CONFIRMING",
+    "REJECTED": "DECLINED", "ACTIVE": "ACTIVE", "PENDING_CONFIRMATION": "CONFIRMING", "WITHDRAWN": "WITHDRAWN",
 }
 NOTES = {
     "PENDING_ITEMS": "We need the items below before we can continue.",
@@ -32,6 +32,8 @@ NOTES = {
     "CONFIRMING": "We'll contact you and the client to confirm this change before it's applied.",
     "IN_REVIEW": "We're reviewing this request. We'll let you know if we need anything.",
     "ACTIVE": "Active.",
+    "WITHDRAWN": "We closed this request because the items we asked for didn't arrive within 30 days. Submit a new "
+                 "one when you have them.",
     # Release 2
     "COMPLETED": "Done.",
     "BANK_RETURNED": "The bank returned it, so the money is back where it started. The reason is below.",
@@ -43,12 +45,14 @@ NOTES = {
     "CLOSING": "Transferred. We watch for late credits, like a dividend, before the account closes.",
     "CLOSED": "The account is closed.",
     "HOLD_LIFTED": "We couldn't verify the notice, so the hold is lifted.",
+    "ON_HOLD": "We've placed a temporary hold on this disbursement under FINRA Rule 2165 while we review it. It lasts "
+               "up to 15 business days unless we lift it sooner; we'll write when it changes.",
 }
 # Release 2 statuses in the portal's words, by kind; anything not listed reads "In review"
 KIND_STATUS = {
     "transfer": {"COMPLETED": "COMPLETED", "REJECTED": "DECLINED", "BLOCKED": "DECLINED", "RETURNED": "BANK_RETURNED",
                  "PENDING_CALLBACK": "CONFIRMING", "AWAITING_SETTLEMENT": "IN_TRANSIT",
-                 "AWAITING_REREGISTRATION": "IN_TRANSIT", "OVERDUE": "IN_TRANSIT"},
+                 "AWAITING_REREGISTRATION": "IN_TRANSIT", "OVERDUE": "IN_TRANSIT", "ON_HOLD": "ON_HOLD"},
     "entitlement": {"ACTIVE": "ACTIVE", "DECLINED": "DECLINED", "REVOKED": "REVOKED", "EXPIRED": "EXPIRED",
                     "PENDING_LINK_VERIFICATION": "WAITING_FOR_CLIENT"},
     "product": {"AVAILABLE": "AVAILABLE", "DECLINED": "DECLINED", "PENDING_DOCUMENTS": "PENDING_ITEMS"},
@@ -69,6 +73,7 @@ PORTAL_SUMMARY = {
     "advisor_move": ("Account", "From", "To", "Advisor", "Effective"),
 }
 ACCOUNT_STATUS = {"OPEN": "OPEN", "PENDING": "PENDING", "RETURNED": "RETURNED", "DECLINED": "DECLINED",
+                  "WITHDRAWN": "WITHDRAWN",
                   "BLOCKED": "DECLINED", "CLOSED": "CLOSED"}
 # Restriction codes in the portal's words; the rest read as a review by the custodian, whatever the code
 CODE_REASON = {

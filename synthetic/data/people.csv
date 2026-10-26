@@ -56,12 +56,13 @@ case,kind,account,entity,name,role,ownership_pct,date_of_birth,residence,nationa
 46,account,ACC-3026,,Clara Whitcombe,account_holder,0.0,1985-07-04,United States,United States,900-00-5030,Marketing director,True,,False,PENDING_ITEMS
 47,account,ACC-3027,,Desmond Kirby,account_holder,0.0,1986-08-05,United States,United States,900-00-5031,Firefighter,True,,False,PENDING_ITEMS
 48,account,ACC-3028,Calloway Family Trust,Ruth Calloway,trustee,0.0,1987-09-06,United States,United States,900-00-5032,Retired judge,True,,False,PENDING_ITEMS
-49,account,ACC-3029,,Lionel Fairfax,account_holder,0.0,1988-10-07,United States,United States,900-00-5033,Sales manager,False,,False,PENDING_ITEMS
-50,account,ACC-3030,,Ingrid Solberg,account_holder,0.0,1989-11-08,United States,United States,900-00-5034,Consultant,False,,False,PENDING_FRAUD_REVIEW
-51,account,ACC-3031,,Gordon Achterberg,account_holder,0.0,1955-12-09,United States,United States,900-00-5035,City council member,True,domestic,False,PENDING_ALERT_REVIEW
-52,account,ACC-3032,,Bartholomew Crane,account_holder,0.0,1956-01-10,United States,United States,900-00-5036,Investment promoter,True,,True,PENDING_EDD
-53,account,ACC-3033,,Teodor M. Halloran,account_holder,0.0,1971-11-30,United States,United States,900-00-5037,Shipping executive,True,,False,PENDING_SANCTIONS
-54,account,ACC-3034,,Miriam Talbot,account_holder,0.0,1958-03-12,United States,United States,900-00-5038,Librarian,True,,False,PENDING_ACCEPTANCE
-55,account,ACC-3035,,Patrick Sorensen,account_holder,0.0,1959-04-13,United States,United States,900-00-5039,Surveyor,True,,False,PENDING_ACCEPTANCE
-56,account,ACC-3036,,Celeste Rhee,account_holder,0.0,1960-05-14,United States,United States,900-00-5040,Data scientist,True,,False,PENDING_ACCEPTANCE
-60,change,ACC-3020,,Paul Durant,owner,0,1998-04-11,,,900-00-5099,,,,,PENDING_VERIFICATION
+49,account,ACC-3037,,Wyatt Ostrander,account_holder,0.0,1988-10-07,United States,United States,900-00-5033,General contractor,True,,False,WITHDRAWN
+50,account,ACC-3029,,Lionel Fairfax,account_holder,0.0,1989-11-08,United States,United States,900-00-5034,Sales manager,False,,False,PENDING_ITEMS
+51,account,ACC-3030,,Ingrid Solberg,account_holder,0.0,1955-12-09,United States,United States,900-00-5035,Consultant,False,,False,PENDING_FRAUD_REVIEW
+52,account,ACC-3031,,Gordon Achterberg,account_holder,0.0,1956-01-10,United States,United States,900-00-5036,City council member,True,domestic,False,PENDING_ALERT_REVIEW
+53,account,ACC-3032,,Bartholomew Crane,account_holder,0.0,1957-02-11,United States,United States,900-00-5037,Investment promoter,True,,True,PENDING_EDD
+54,account,ACC-3033,,Teodor M. Halloran,account_holder,0.0,1971-11-30,United States,United States,900-00-5038,Shipping executive,True,,False,PENDING_SANCTIONS
+55,account,ACC-3034,,Miriam Talbot,account_holder,0.0,1959-04-13,United States,United States,900-00-5039,Librarian,True,,False,PENDING_ACCEPTANCE
+56,account,ACC-3035,,Patrick Sorensen,account_holder,0.0,1960-05-14,United States,United States,900-00-5040,Surveyor,True,,False,PENDING_ACCEPTANCE
+57,account,ACC-3036,,Celeste Rhee,account_holder,0.0,1961-06-15,United States,United States,900-00-5041,Data scientist,True,,False,PENDING_ACCEPTANCE
+61,change,ACC-3020,,Paul Durant,owner,0,1998-04-11,,,900-00-5099,,,,,PENDING_VERIFICATION

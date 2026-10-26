@@ -14,7 +14,8 @@ uses the built-in sample package and its illustrative, hand-written model respon
 | Cloud Run | Request-based billing, minimum 0 instances, maximum 1 | The free tier covers 2 million requests, 180,000 vCPU-seconds, and 360,000 GiB-seconds a month ([pricing](https://cloud.google.com/run/pricing)). An idle service costs nothing. |
 | Neon | Free | 100 compute-hours and 1 GB of storage per project a month. The database suspends after 5 idle minutes ([limits](https://neon.com/faqs/free-plan-limits-and-quotas)). |
 | Artifact Registry | Cleanup policy keeps the latest image only | One image is well within the free storage. |
-| Secret Manager | Three secrets | The free tier covers 6 active secret versions and 10,000 reads a month ([pricing](https://cloud.google.com/secret-manager/pricing)). Each cold start reads the three secrets once. |
+| Secret Manager | Up to five secrets | The free tier covers 6 active secret versions and 10,000 reads a month ([pricing](https://cloud.google.com/secret-manager/pricing)). Each cold start reads the secrets once. |
+| Cloud Scheduler | One job (the nightly batch, step 8) | The first three jobs per billing account are free ([pricing](https://cloud.google.com/scheduler/pricing)). Each weekday run wakes Cloud Run and Neon for a minute or two. |
 | Anthropic (optional) | Pay as you go, with `AI_DAILY_CAP=50` | Claude Haiku 5.5 costs about $0.001 per package read, so at most about $1–2 a month. Also set a spend limit in the Anthropic Console. |
 
 Free tiers change. Check the linked pages before you deploy. A budget alert (step 6) emails you if
@@ -52,9 +53,11 @@ printf '%s' 'postgresql://USER:PASSWORD@ep-xxxx.us-east-2.aws.neon.tech/neondb?s
 python3 -c "import secrets; print(secrets.token_urlsafe(48), end='')" \
   | gcloud secrets create ria-secret-key --data-file=-
 printf '%s' 'sk-ant-...' | gcloud secrets create ria-anthropic-key --data-file=-   # optional
+python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode(), end='')" \
+  | gcloud secrets create ria-field-key --data-file=-     # seals tax IDs, dates of birth, and MFA secrets
 
 PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
-for s in ria-database-url ria-secret-key ria-anthropic-key; do
+for s in ria-database-url ria-secret-key ria-anthropic-key ria-field-key; do
   gcloud secrets add-iam-policy-binding $s \
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     --role=roles/secretmanager.secretAccessor
@@ -71,7 +74,7 @@ gcloud run deploy ria-custody --source . --region us-central1 \
   --min-instances 0 --max-instances 1 \
   --cpu 1 --memory 512Mi --concurrency 40 --timeout 60 \
   --set-env-vars COOKIE_SECURE=true,DEMO_MODE=true,AI_DAILY_CAP=50 \
-  --set-secrets DATABASE_URL=ria-database-url:latest,SECRET_KEY=ria-secret-key:latest,ANTHROPIC_API_KEY=ria-anthropic-key:latest
+  --set-secrets DATABASE_URL=ria-database-url:latest,SECRET_KEY=ria-secret-key:latest,ANTHROPIC_API_KEY=ria-anthropic-key:latest,FIELD_KEY=ria-field-key:latest
 ```
 
 Leave out `ANTHROPIC_API_KEY=...` if you skipped that secret.
@@ -216,6 +219,36 @@ curl -s $URL/api/health
 Open the URL and sign in as a demo user. The first request after an idle period takes a few seconds,
 because Cloud Run starts the container and Neon resumes the database.
 
+## 8. The nightly batch (Cloud Scheduler)
+
+Every business day at 6:30 pm Eastern the batch runs the settlement cycle (with the Rule 15c3-3 reserve computation and
+possession-or-control check), reconciliation, ongoing sanctions screening, and NIGO aging (`app/nightly.py`). Cloud
+Scheduler calls `POST /api/nightly/run` with a shared token in the `X-Nightly-Token` header. The token is generated
+in Cloud Shell straight into Secret Manager, so nobody types or sees it. Until this is set up, the operations
+supervisor runs the same batch with **Settlement and recon → Run end of day now**.
+
+```bash
+gcloud services enable cloudscheduler.googleapis.com
+python3 -c "import secrets; print(secrets.token_urlsafe(32), end='')" \
+  | gcloud secrets create ria-nightly-token --data-file=-
+gcloud secrets add-iam-policy-binding ria-nightly-token \
+  --member="serviceAccount:ria-custody-run@$(gcloud config get-value project).iam.gserviceaccount.com" \
+  --role=roles/secretmanager.secretAccessor
+gcloud run services update ria-custody --region us-central1 --update-secrets NIGHTLY_TOKEN=ria-nightly-token:latest
+
+URL=$(gcloud run services describe ria-custody --region us-central1 --format='value(status.url)')
+gcloud scheduler jobs create http ria-nightly --location us-central1 \
+  --schedule "30 18 * * 1-5" --time-zone America/New_York \
+  --uri "$URL/api/nightly/run" --http-method POST --attempt-deadline 300s \
+  --headers "X-Nightly-Token=$(gcloud secrets versions access latest --secret ria-nightly-token)"
+gcloud scheduler jobs run ria-nightly --location us-central1     # try it once now
+```
+
+If the service runs as the default compute identity rather than `ria-custody-run` (step 3 without the federation
+setup), bind that identity to the secret instead. The scheduler skips weekends; on a market or Federal Reserve holiday
+the batch still runs, and the calendars inside it treat the day as closed. A wrong or missing token is refused (403)
+and logged.
+
 ## Settings
 
 | Variable | Default | Meaning |
@@ -237,6 +270,9 @@ because Cloud Run starts the container and Neon resumes the database.
 | `MAIL_SENDER` | none | The mailbox notices are sent from |
 | `MAIL_ALLOWED_DOMAINS` | none | Comma-separated domains a live provider may send to; empty means any |
 | `PORTAL_URL` | the demo's portal URL | Base of the portal links in notices |
+| `FIELD_KEY` | derived from `SECRET_KEY` | 32 random bytes, base64 (Secret Manager): the AES-256-GCM key that seals tax IDs, dates of birth, and MFA secrets at rest |
+| `NIGHTLY_TOKEN` | none | The nightly batch's shared token (Secret Manager); without it only the supervisor's hand run works |
+| `CLOCK` | the real Eastern time | A fixed `HH:MM` for the rail cutoffs (tests and the seed pin it) |
 
 ## Updating
 
@@ -249,7 +285,7 @@ startup, so nobody has to remember to. A platform administrator can also reset i
 Reset the demo**. Either way, the AI evaluation runs, the reviewed AI suggestions, and the timed walkthrough runs are
 kept: they're governance evidence, not demo data. The seed draws on `synthetic/`, so the image copies it.
 
-Since release 2 the seed also builds the books: each open account's opening balance or incoming ACATS, 17 transfer
+Since release 2 the seed also builds the books: each open account's opening balance or incoming ACATS, 18 transfer
 scenarios, receipts, and reconciliation breaks, about 5,600 small statements. Each one would be a round trip to Neon,
 so on Postgres the app builds the seed in a local SQLite file inside the container and copies it across table by
 table, 1,000 rows a statement: about 140 round trips, a few seconds. That keeps a deploy's startup well inside Cloud
@@ -259,6 +295,25 @@ own.
 
 The release 2 migration (`cf373bde83dc`) adds the ledger, the security master, bank links, grants, receipts, and the
 settlement and reconciliation runs. It runs on startup like every other migration; nothing needs doing by hand.
+
+Adding `FIELD_KEY` to a running service changes the key, so values sealed under the old one read as "(sealed with
+another key)" until the data is rewritten: set it, then reset the demo (**Users and rules → Reset the demo**). For an
+existing deployment:
+
+```bash
+python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode(), end='')" \
+  | gcloud secrets create ria-field-key --data-file=-
+gcloud secrets add-iam-policy-binding ria-field-key \
+  --member="serviceAccount:ria-custody-run@$(gcloud config get-value project).iam.gserviceaccount.com" \
+  --role=roles/secretmanager.secretAccessor
+gcloud run services update ria-custody --region us-central1 --update-secrets FIELD_KEY=ria-field-key:latest
+```
+
+The industry-practice review (Oct. 25, 2026) adds seven migrations, all run on startup: `d94e95d449a0` (flagged list
+updates), `dfde31c129be` (case ownership), `8b7e19c73c8e` (the audit log's insert-only trigger), `f77a834c31c5`
+(the second factor for password sign-in), `1ce0379d44cb` (Regulation S-P incidents), `1a17182d3c4c` (the AI review QA
+sample), and `9cad2ee67d74` (quarterly statements). Every reseed rebuilds the tables and reinstalls the audit trigger. The image now installs `tzdata`, so the
+rail cutoffs read Eastern time on Cloud Run's slim image.
 
 ## Automatic deploys from GitHub
 

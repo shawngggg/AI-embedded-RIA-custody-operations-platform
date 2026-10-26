@@ -15,6 +15,8 @@ import Admin from "./pages/Admin";
 import PortalHome from "./pages/PortalHome";
 import PortalAccounts from "./pages/PortalAccounts";
 import NewAccount from "./pages/NewAccount";
+import Screening from "./pages/Screening";
+import Privacy from "./pages/Privacy";
 import NewChange from "./pages/NewChange";
 import RiskEvents from "./pages/RiskEvents";
 import Work from "./pages/Work";
@@ -81,6 +83,8 @@ export default function App() {
               {(can.restricted_accounts || can.risk_events || can.audit) && <div className="sep" role="separator" />}
               {can.restricted_accounts && <NavLink to="/restricted">Restricted accounts</NavLink>}
               {can.risk_events && <NavLink to="/risk-events">Risk events</NavLink>}
+              {can.screening && <NavLink to="/screening">Ongoing screening</NavLink>}
+              {can.privacy && <NavLink to="/privacy">Data incidents</NavLink>}
               {can.audit && <NavLink to="/audit">Audit trail</NavLink>}
               {can.dashboard && <NavLink to="/dashboard">Dashboard</NavLink>}
               {can.outbox && <NavLink to="/outbox">Email outbox</NavLink>}
@@ -132,6 +136,8 @@ export default function App() {
                 {can.restricted_accounts && <Route path="/restricted" element={<Restrictions />} />}
                 {can.audit && <Route path="/audit" element={<AuditPage />} />}
                 {can.risk_events && <Route path="/risk-events" element={<RiskEvents />} />}
+                {can.screening && <Route path="/screening" element={<Screening />} />}
+                {can.privacy && <Route path="/privacy" element={<Privacy />} />}
                 {can.messages && <Route path="/messages" element={<Messages />} />}
                 {can.dashboard && <Route path="/dashboard" element={<Dashboard />} />}
                 {can.outbox && <Route path="/outbox" element={<Outbox />} />}

@@ -38,6 +38,9 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
     .catch((e) => setMsg({ error: e.message }));
   const deactivate = (u: User) => api(`/api/admin/users/${u.id}/deactivate`, { body: {} })
     .then(() => { setMsg({ ok: `${u.display_name} deactivated` }); reload(); }).catch((e) => setMsg({ error: e.message }));
+  const resetMfa = (u: User) => api(`/api/admin/users/${u.id}/reset-mfa`, { body: {} })
+    .then(() => { setMsg({ ok: `${u.display_name}'s second factor reset: the next sign-in enrolls a new authenticator` }); reload(); })
+    .catch((e) => setMsg({ error: e.message }));
   const reset = () => api("/api/admin/reset", { body: {} }).then(() => { setMsg({ ok: "Demo data reset. Sign in again." }); setTimeout(() => location.assign("/"), 800); })
     .catch((e) => setMsg({ error: e.message }));
   const f = (k: keyof typeof form, label: string, type = "text") => (
@@ -78,7 +81,8 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
                       </select>)}</td>
                   <td className="small">{u.firm?.name ?? u.client_account_id ?? ""}</td>
                   <td>{u.active ? <span className="pill t-clear">Active</span> : <span className="pill t-quiet">Inactive</span>}{u.is_demo ? <span className="muted small"> demo</span> : null}</td>
-                  <td>{u.active && u.id !== user.id && <button className="small secondary" onClick={() => deactivate(u)}>Deactivate</button>}</td></tr>
+                  <td>{u.active && u.id !== user.id && <button className="small secondary" onClick={() => deactivate(u)}>Deactivate</button>}
+                    {(u as any).mfa && u.id !== user.id && <button className="small secondary" onClick={() => resetMfa(u)}>Reset second factor</button>}</td></tr>
               ))}</tbody>
             </table></div>
           )}
