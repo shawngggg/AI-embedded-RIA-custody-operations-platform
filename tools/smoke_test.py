@@ -20,7 +20,8 @@ import urllib.request
 
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
                    "CONFIRMING", "IN_REVIEW", "SUBMITTED",
-                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT"}         # release 2 transfers, in the portal's words
+                   "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD",   # release 2 transfers, in the portal's words
+                   "WITHDRAWN"}                                           # closed by NIGO aging (keep in step with app/tests)
 INTERNAL_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "sla", "path", "application"}
 results: list[tuple[str, bool, str]] = []
 
