@@ -1036,8 +1036,10 @@ def test_notices_go_through_the_outbox(as_user):
     cid = case_id(as_user("ops.analyst"), "Lena Park")
     accept(as_user("rs.principal"), cid)
     opened = [e for e in as_user("ops.analyst").get("/api/outbox").json()["emails"] if e["case_id"] == cid]
-    assert {e["template"] for e in opened} == {"account_opened"}
-    assert {e["to"] for e in opened} == {"dana.whitfield@granitepeak.example", "marcus.lee@granitepeak.example"}
+    assert {e["template"] for e in opened} == {"account_opened", "account_opened_client"}
+    assert {e["to"] for e in opened if e["template"] == "account_opened"} == {"dana.whitfield@granitepeak.example",
+                                                                               "marcus.lee@granitepeak.example"}
+    assert {e["to"] for e in opened if e["template"] == "account_opened_client"} == {"lena.park@example.com"}
     assert as_user("aml.maker").get("/api/outbox").status_code == 403
 
 

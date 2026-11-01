@@ -369,6 +369,8 @@ class OutboundEmail(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Files sent with the notice, by reference: [{kind: "statement", id, filename, sha256, content_type}]
+    attachments: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
 
 class AiSuggestion(Base):

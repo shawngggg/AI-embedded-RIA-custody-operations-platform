@@ -26,6 +26,10 @@ from .calendar import add_bdays, bday, following_bday, is_bday, next_bday
 from .flow import AI, AML, LEDGER, OPS, RULES, FlowResult, events_of, last_event, on_date
 from .ledger import CASH, LOCATION_GL, client_move, gl_move, rebucket, units
 
+# A refusal the requester can fix (authority, SLOA, cash, a bank link, a failed callback) is told to the portal in
+# these words, under this summary key. Anything compliance owns (risk review, sanctions, a Rule 2165 hold) never is.
+NOT_ACCEPTED = "Not accepted because"
+
 TYPES = {
     "ach_deposit": {"label": "ACH deposit", "direction": "in", "rail": "ACH", "cash": True},
     "ach_withdrawal": {"label": "ACH withdrawal", "direction": "out", "rail": "ACH", "cash": True},
@@ -309,6 +313,7 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
             [why] if why else [], ["MM-001"])
     if why:
         res.status, res.requested_items = "REJECTED", [why]
+        res.summary[NOT_ACCEPTED] = why
         return res
     if who == "ria" and is_third_party(req, ctx):
         s = sloa_for(req, ctx)
@@ -329,15 +334,18 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
 
     if kind == "acats_out" and float(req.get("cash") or 0) > ctx.cash_available + 1e-9:
         res.status, res.requested_items = "REJECTED", [f"Only ${ctx.cash_available:,.2f} cash is available to send"]
+        res.summary[NOT_ACCEPTED] = res.requested_items[0]
         return res
     if spec["cash"] and spec["direction"] != "in" and not (kind == "journal" and req.get("positions")):
         if amt <= 0:
             res.status, res.requested_items = "REJECTED", ["The amount must be more than zero"]
+            res.summary[NOT_ACCEPTED] = res.requested_items[0]
             return res
         if amt > ctx.cash_available + 1e-9:
             res.add(RULES, "Available cash", "Not enough settled cash",
                     [f"${ctx.cash_available:,.2f} settled and unrestricted; ${amt:,.2f} requested"], ["MM-003"])
             res.status, res.requested_items = "REJECTED", [f"Only ${ctx.cash_available:,.2f} is available to send"]
+            res.summary[NOT_ACCEPTED] = res.requested_items[0]
             return res
     if kind in ("acats_out", "journal") and req.get("positions"):
         short = [p for p in req.get("positions") or [] if ctx.holdings.get(p["security_id"], 0) + 1e-9
@@ -345,6 +353,7 @@ def process_transfer(req: dict, ctx: TransferContext, decisions: dict | None = N
         if short:
             res.status = "REJECTED"
             res.requested_items = [f"The account doesn't hold {p['quantity']} of {p.get('description')}" for p in short]
+            res.summary[NOT_ACCEPTED] = "; ".join(res.requested_items)
             return res
 
     # First-line check against the sanctions team's flagged list (shared subprocess)
@@ -525,7 +534,8 @@ def controls_gate(req: dict, ctx: TransferContext, decisions: dict, events: list
             link = ctx.bank_links.get(req.get("bank_link_id"))
             if not link or link.get("status") != "verified":
                 return {"status": "REJECTED", "outcome": "Bank link not verified", "detail": [],
-                        "items": ["An ACH pull needs a verified bank link in the client's name"]}
+                        "items": ["An ACH pull needs a verified bank link in the client's name"],
+                        "summary": {NOT_ACCEPTED: "An ACH pull needs a verified bank link in the client's name"}}
             detail.append(f"Pull from a verified link: {link.get('bank')} ...{link.get('last4')}")
         return {"status": None, "outcome": "Incoming: no release needed", "detail": detail}
     if who == "system":
@@ -553,7 +563,8 @@ def controls_gate(req: dict, ctx: TransferContext, decisions: dict, events: list
                     "summary": {"Control": f"Callback ({why})"}}
         if not cb.get("confirmed"):
             return {"status": "REJECTED", "outcome": "Callback failed", "detail": [cb.get("note") or ""],
-                    "items": ["The client didn't confirm the request on the callback"]}
+                    "items": ["The client didn't confirm the request on the callback"],
+                    "summary": {NOT_ACCEPTED: "The client didn't confirm the request when we called the number on file"}}
         detail.append(f"Callback confirmed by {cb.get('by')} on {cb.get('on')}")
     if straight:
         detail.append(f"Within the grant and under ${policy.param('MM-005', 'straight_through'):,}: straight through")

@@ -19,7 +19,8 @@ def email_dict(db: Session, e: OutboundEmail, full: bool = False) -> dict:
     out = {"id": e.id, "to": e.to_address, "to_name": e.to_name, "subject": e.subject, "template": e.template,
            "case_id": e.case_id, "case_title": case.title if case else None, "status": e.status,
            "status_label": STATUS.get(e.status, e.status), "provider": e.provider, "error": e.error,
-           "created_at": iso(e.created_at), "sent_at": iso(e.sent_at)}
+           "created_at": iso(e.created_at), "sent_at": iso(e.sent_at),
+           "attachments": [{"filename": x.get("filename"), "sha256": x.get("sha256")} for x in e.attachments or []]}
     if full:
         out["body"] = e.body
     return out

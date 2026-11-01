@@ -365,7 +365,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     if blocked:
         res.add(RULES, "Verify registration and licensing", "Fails", [d.reason for d in blocked],
                 [d.rule_id for d in blocked])
-        res.add(OPS, "Relationship declined", "Decline notice sent to the RIA")
+        res.add(OPS, "Relationship declined", "Declined: the RIA service team tells the firm",
+                ["The firm has no portal users until the relationship opens, so no email goes out"])
         res.status = "DECLINED"
         return res
     if review and not decisions.compliance_signoff:
@@ -468,12 +469,13 @@ def _account_record_step(res: OnboardingResult, app: AccountApplication) -> None
         tc = app.trusted_contact or {}
         if tc.get("name"):
             notes.append(f"Trusted contact: {tc['name']}" + (f" ({tc['relationship']})" if tc.get("relationship") else "")
-                         + "; disclosure sent with the account notice")
+                         + "; the disclosure goes to the client with the account-opened notice")
         elif app.trusted_contact_declined:
-            notes.append("Trusted contact: the client declined; disclosure sent, and asked again at each update")
+            notes.append("Trusted contact: the client declined; the account-opened notice carries the disclosure, "
+                         "and each change confirmation asks again")
         else:
-            notes.append("Trusted contact: not provided; the request goes to the RIA (reasonable efforts, "
-                         "FINRA Rule 4512)")
+            notes.append("Trusted contact: not provided; the account-opened notice asks the client for one, and each "
+                         "change confirmation asks again (reasonable efforts, FINRA Rule 4512)")
     if app.registration_type == "joint" and app.joint_tenancy:
         notes.append(f"Tenancy: {TENANCY.get(app.joint_tenancy, app.joint_tenancy)}")
     if app.registration_type == "ira" and app.ira_type:
@@ -587,7 +589,8 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                 cdd.append("Beneficial owners on file from the entity's first account, confirmed as current "
                            "(FinCEN exceptive relief, Feb. 13, 2026); confirmation recorded")
         res.add(RULES, "Path B: CDD on purpose, expected activity, beneficial owners of entities", "Complete", cdd)
-        res.add(LEDGER, "Path B: enroll in account-level AML monitoring and trading surveillance", "Enrolled")
+        res.add(LEDGER, "Path B: account-level AML monitoring and trading surveillance",
+                "Not built: release 4", ["Transaction monitoring arrives with financial crimes and SAR (release 4)"])
 
     _pep_media_step(res, app.holders)
     subjects = [Subject(f"holder:{i}", Kind.INDIVIDUAL, p.name, p.role, p.date_of_birth,

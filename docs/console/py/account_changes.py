@@ -346,7 +346,9 @@ def process_change(r: ChangeRequest, as_of: date, *, flagged=None, registry=None
         notices = ["The client: initial notice confirming the standing instruction (SLOA relief, condition 7)",
                    "The RIA"]
     elif r.change_type is ChangeType.ADDRESS:
-        notices = ["The client at the old address", "The client at the new address", "The RIA"]
+        notices = ["The client, at the email on file: the old and the new address", "The RIA"]
+    elif r.change_type is ChangeType.CONTACT_INFO:
+        notices = ["The client, at the old and the new email", "The RIA"]
     elif r.account_group is AccountGroup.SELF_DIRECTED:
         notices = ["The client", "The RIA (view-only)"]
     else:

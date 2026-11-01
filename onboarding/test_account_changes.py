@@ -30,7 +30,7 @@ def test_ria_user_changes_a_pure_ria_account():
     res = process_change(req(), TODAY, flagged=FLAGGED_LIST)
     assert res.status == "APPLIED"
     notices = next(s for s in res.steps if s.name == "Send confirmation notices").detail
-    assert notices == ["The client at the old address", "The client at the new address", "The RIA"]
+    assert notices == ["The client, at the email on file: the old and the new address", "The RIA"]
 
 
 def test_ria_user_from_another_firm_is_redirected():

@@ -67,9 +67,16 @@ def account_view(db: Session, a: Account) -> dict:
 
 
 def holder_emails(a: Account) -> list[tuple[str, str]]:
-    """(email, name) for each account holder on file: where client notices go."""
-    return [(h["email"].strip(), h.get("name") or a.display_name) for h in (a.application or {}).get("holders", [])
-            if (h.get("email") or "").strip()]
+    """(email, name) for each account holder on file: where client notices go. An email change (an account change of
+    contact information) replaces the first holder's email."""
+    app = a.application or {}
+    changed = ((app.get("maintenance") or {}).get("email") or "").strip()
+    out = []
+    for i, h in enumerate(app.get("holders", [])):
+        email = changed if i == 0 and changed else (h.get("email") or "").strip()
+        if email:
+            out.append((email, h.get("name") or a.display_name))
+    return out
 
 
 def phones_on_file(a: Account) -> list[tuple[str, str]]:

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from account_changes import ChangeType
 from models import AccountGroup
 
-from .. import audit
+from .. import audit, custodian
 from ..db import get_db
 from .. import portal_view
 from ..orm import PORTAL_ROLES, Account, Firm, User
@@ -81,7 +81,7 @@ def home(user: User = Depends(current_user), db: Session = Depends(get_db)):
         "requests_open": sum(c.status not in CLOSED_STATES for c in cases),
         "attention": attention,
         "contact": {"team": "RIA service team", "name": lead.display_name if lead else None,
-                    "email": "riaservice@custodian.example", "hours": "Business days, 7 a.m. to 7 p.m. Eastern"},
+                    "email": custodian.RIA_SERVICE_EMAIL, "hours": custodian.RIA_SERVICE_HOURS},
     }
 
 
