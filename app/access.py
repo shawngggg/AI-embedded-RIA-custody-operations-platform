@@ -53,7 +53,7 @@ def approval_refusal(u: User, decision_type: str, case, value: str | None = None
         if amount > limit and u.role != "ops_supervisor":
             return f"${amount:,.2f} is over an analyst's ${limit:,} dollar authority: the operations supervisor checks it"
     return None
-REVIEWERS = {"periodic_review", "aml_compliance", "ops_supervisor"}
+REVIEWERS = {"periodic_review", "aml_compliance", "bsa_officer", "ops_supervisor"}
 OVERSIGHT = {"ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "ria_service_lead", "platform_admin"}
 TEAM_LEADS = {"ops_supervisor", "ria_service_lead"}     # the operations dashboard is for the people who run queues
 # Operations teams whose work sends notices to RIAs and clients in release 1 (onboarding, identity verification,

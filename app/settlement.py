@@ -8,7 +8,12 @@ The daily cash settlement cycle (map 12), run by the settlement team or the oper
    match applies itself, the rest wait for an analyst; money nobody can match goes back after 10 business days
    (STL-002), with an analyst confirming the return.
 4. Check the three-layer invariant over every balance (LED-001).
-5. Net the day's cash movement at the settlement bank by channel: the funding the bank sends or receives.
+5. Net the cash movement at the settlement bank by channel since the last instruction, and record the instruction as
+   sent (simulated: there is no bank connection). A re-run sends only what posted since; the reserve deposit, which
+   moves between the firm's own accounts, is shown apart from settlement funding (walkthrough note 14).
+
+The cycle runs on business days (a day the Fed or NSCC is open). Run on a closed day, it runs as of the last business
+day: the rails don't answer on a weekend, and the reserve is computed as of that day (walkthrough note 13).
 
 Incoming wires and ACH credits arrive here as bank receipts. Each posts at once to the settlement bank and the suspense
 account (2190), so the books always match the bank; applying it moves the money from suspense to the client.
@@ -16,13 +21,14 @@ account (2190), so the books always match the bank; applying it moves the money 
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from custody import money, settlement as rules
+from custody.calendar import is_bday
 from custody.ledger import CASH, Leg, client_move, gl_move, units
 
 from . import audit, ledger
@@ -30,6 +36,23 @@ from .config import settings
 from .orm import Account, BankReceipt, Case, LedgerEntry, LedgerLeg, SettlementRun, User, utcnow
 
 IN_TRANSIT = ("AWAITING_SETTLEMENT", "AWAITING_REREGISTRATION", "OVERDUE")
+RESERVE_KINDS = ("reserve_deposit", "reserve_withdrawal")   # between the firm's own accounts, not customer settlement
+
+
+def is_settlement_day(d: date) -> bool:
+    return is_bday(d, "fed") or is_bday(d, "nscc")
+
+
+def business_date(today: date | None = None) -> date:
+    """The cycle's business date: today on a business day, otherwise the last one (walkthrough note 13)."""
+    d = today or settings.today()
+    while not is_settlement_day(d):
+        d -= timedelta(days=1)
+    return d
+
+
+def previous_business_date(d: date) -> date:
+    return business_date(d - timedelta(days=1))
 CHANNEL = {"ach_deposit": "ACH", "ach_withdrawal": "ACH", "wire_out": "Fedwire", "acats_in": "NSCC (ACATS)",
            "acats_out": "NSCC (ACATS)", "loi_in": "Sponsor", "journal": "Journal"}
 
@@ -166,15 +189,29 @@ def receipt_dict(r: BankReceipt, today: date) -> dict:
 
 
 # --------------------------------------------------------------------------- 5. net funding
-def net_flows(db: Session, on: date) -> list[dict]:
-    """Cash in and out of the settlement bank (GL 1010) for entries effective on a day, by channel."""
-    rows = db.execute(select(LedgerEntry.kind, LedgerEntry.case_id, LedgerEntry.ref, LedgerLeg.units)
-                      .join(LedgerLeg, LedgerLeg.entry_id == LedgerEntry.id)
-                      .where(LedgerEntry.effective_date == on, LedgerLeg.layer == "gl", LedgerLeg.account == "1010",
-                             LedgerLeg.asset == CASH)).all()
+def _bank_legs(db: Session, through: date, since: date | None = None):
+    """Settlement-bank cash legs (GL 1010) effective after `since` (or on `through` alone) through `through`."""
+    q = (select(LedgerEntry.id, LedgerEntry.kind, LedgerEntry.case_id, LedgerEntry.ref, LedgerEntry.description,
+                LedgerLeg.units)
+         .join(LedgerLeg, LedgerLeg.entry_id == LedgerEntry.id)
+         .where(LedgerLeg.layer == "gl", LedgerLeg.account == "1010", LedgerLeg.asset == CASH,
+                LedgerEntry.effective_date <= through))
+    q = q.where(LedgerEntry.effective_date > since) if since else q.where(LedgerEntry.effective_date == through)
+    return db.execute(q.order_by(LedgerEntry.id)).all()
+
+
+def net_flows(db: Session, on: date, *, since: date | None = None, exclude: set[int] | None = None,
+              entries: list[int] | None = None) -> list[dict]:
+    """Settlement funding: cash in and out of the settlement bank (GL 1010) by channel, for entries effective on a
+    day (or after `since` through it), leaving out entries already instructed and the reserve bank moves. The ids of
+    the entries counted go into `entries` when a list is given."""
     kinds = {}
     items = []
-    for kind, case_id, ref, u in rows:
+    for entry_id, kind, case_id, ref, _memo, u in _bank_legs(db, on, since):
+        if kind in RESERVE_KINDS or (exclude and entry_id in exclude):
+            continue
+        if entries is not None and entry_id not in entries:
+            entries.append(entry_id)
         if kind.startswith("receipt"):
             r = db.get(BankReceipt, int(ref.split("-")[1]))
             channel = r.channel if r else "Bank"
@@ -187,6 +224,31 @@ def net_flows(db: Session, on: date) -> list[dict]:
             channel = CHANNEL.get(kinds[case_id], "Other")
         items.append({"channel": channel, "amount": round(u / 1_000_000, 2)})
     return rules.net_by_channel(items)
+
+
+def reserve_moves(db: Session, on: date, since: date | None = None) -> list[dict]:
+    """Moves between the settlement bank and the special reserve bank account: the firm's own money, apart from
+    customer settlement funding."""
+    return [{"ref": ref, "amount": round(-u / 1_000_000, 2), "kind": kind, "memo": memo}
+            for _id, kind, _case, ref, memo, u in _bank_legs(db, on, since) if kind in RESERVE_KINDS]
+
+
+def instructions(db: Session, on: date) -> list[dict]:
+    """The funding instructions already sent for a business date, oldest first."""
+    runs = db.scalars(select(SettlementRun).where(SettlementRun.business_date == on).order_by(SettlementRun.id)).all()
+    return [r.result["instruction"] for r in runs if (r.result or {}).get("instruction")]
+
+
+def _instructed_entries(db: Session, since: date) -> set[int]:
+    out: set[int] = set()
+    for r in db.scalars(select(SettlementRun).where(SettlementRun.business_date >= since)).all():
+        out.update(((r.result or {}).get("instruction") or {}).get("entries") or [])
+    return out
+
+
+def _reported_reserve_moves(db: Session, since: date) -> set[str]:
+    return {m["ref"] for r in db.scalars(select(SettlementRun).where(SettlementRun.business_date >= since)).all()
+            for m in (r.result or {}).get("reserve_moves") or []}
 
 
 # --------------------------------------------------------------------------- 6. SLOA reconfirmations
@@ -221,23 +283,53 @@ def _say(status: str) -> str:
     return status.replace("_", " ").lower()
 
 
+def _fmt(d: date) -> str:
+    return f"{d:%A, %b} {d.day}"
+
+
 def run_cycle(db: Session, actor: User | None) -> SettlementRun:
-    today = settings.today()
-    delivered = deliver_rail_answers(db, actor)
+    calendar_day = settings.today()
+    today = business_date(calendar_day)              # a closed day runs as of the last business day (note 13)
+    delivered = deliver_rail_answers(db, actor, through=today)
     released = release_ach_holds(db, actor)
     receipts = match_receipts(db, actor)
     reconfirmed = sloa_annual_notices(db)
     from .protection import check as protection_check
-    protect = protection_check(db, actor)
+    protect = protection_check(db, actor, today)
     reserve, control = protect["reserve"], protect["possession"]
     proof = ledger.proof(db)
-    flows = net_flows(db, today)
+    since = previous_business_date(today)
+    sent_before = instructions(db, today)
+    counted: list[int] = []
+    flows = net_flows(db, today, since=since, exclude=_instructed_entries(db, since), entries=counted)
     net = round(sum(f["net"] for f in flows), 2)
+    instruction = None
+    if counted:
+        instruction = {"ref": f"SI-{today.isoformat()}-{len(sent_before) + 1}", "status": "sent",
+                       "sent_at": utcnow().isoformat(), "simulated": True, "net": net, "flows": flows,
+                       "entries": counted, "by": actor.display_name if actor else "system"}
+    reported = _reported_reserve_moves(db, since)
+    moves = [m for m in reserve_moves(db, today, since) if m["ref"] not in reported]     # new since the last cycle
+    if instruction:
+        funding_outcome = (f"{'Receive' if net >= 0 else 'Pay'} ${abs(net):,.2f} net at the settlement bank: "
+                           f"instruction {instruction['ref']} sent")
+    elif sent_before:
+        funding_outcome = f"Nothing new since instruction {sent_before[-1]['ref']}: nothing sent"
+    else:
+        funding_outcome = "No cash moved through the settlement bank: nothing sent"
+    funding_detail = [f"{f['channel']}: {f['direction'].lower()} ${abs(f['net']):,.2f}" for f in flows]
+    funding_detail += [f"Already sent for {_fmt(today)}: {i['ref']}, {'receive' if i['net'] >= 0 else 'pay'} "
+                       f"${abs(i['net']):,.2f}" for i in sent_before]
+    if instruction:
+        funding_detail.append("Recorded as sent; this demo has no settlement bank connection")
+    closed = [] if calendar_day == today else [
+        f"{_fmt(calendar_day)} isn't a business day: the cycle runs as of {_fmt(today)}, and the rails don't answer "
+        "until the next business day"]
     steps = [
         {"step": "Receive settlement activity: transfers, receipts", "outcome":
          f"{len(delivered)} transfer{'s' if len(delivered) != 1 else ''} got an answer from the rail",
-         "detail": [f"#{d['case']} {d['title']}: {', '.join(d['answers'])} ({_say(d['from'])} to {_say(d['to'])})"
-                    for d in delivered], "rule_ids": ["MM-008"]},
+         "detail": closed + [f"#{d['case']} {d['title']}: {', '.join(d['answers'])} ({_say(d['from'])} to "
+                             f"{_say(d['to'])})" for d in delivered], "rule_ids": ["MM-008"]},
         {"step": "Release settled cash; hold returnable ACH funds as restricted", "outcome":
          f"{len(released)} ACH deposit{'s' if len(released) != 1 else ''} released",
          "detail": [f"#{r['case']} {r['account']}: ${r['amount']:,.2f}" for r in released], "rule_ids": ["MM-007"]},
@@ -259,9 +351,12 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
                     f"{control['in_control']} of {control['securities']} securities fully in control"]
                    + [f"{d['name']}: short {d['deficit']:,.4f}" for d in control["deficits"]],
          "rule_ids": ["CP-001", "CP-002"]},
-        {"step": "Send net funding and settlement instructions", "outcome":
-         f"{'Receive' if net >= 0 else 'Pay'} ${abs(net):,.2f} net at the settlement bank",
-         "detail": [f"{f['channel']}: {f['direction'].lower()} ${abs(f['net']):,.2f}" for f in flows], "rule_ids": []},
+        {"step": "Special reserve bank account: the firm's own money, apart from settlement funding", "outcome":
+         (f"${sum(m['amount'] for m in moves):,.2f} moved from the settlement bank to the reserve bank account"
+          if moves else "No reserve deposit or withdrawal"),
+         "detail": [f"{m['ref']}: ${m['amount']:,.2f}" for m in moves], "rule_ids": ["CP-001"]},
+        {"step": "Send net funding and settlement instructions (only what posted since the last one)",
+         "outcome": funding_outcome, "detail": funding_detail, "rule_ids": []},
         {"step": "Reconfirm standing letters of authorization with clients (annual notice)", "outcome":
          f"{len(reconfirmed)} due" if reconfirmed else "None due",
          "detail": [f"{r['account']} {r['sloa']}: {r['notices']} notice{'s' if r['notices'] != 1 else ''} sent"
@@ -270,11 +365,13 @@ def run_cycle(db: Session, actor: User | None) -> SettlementRun:
     run = SettlementRun(business_date=today, run_by=actor.display_name if actor else "system",
                         result={"steps": steps, "flows": flows, "net": net, "checks": proof["checks"],
                                 "protection": protect, "delivered": delivered, "released": released,
-                                "receipts": receipts})
+                                "receipts": receipts, "instruction": instruction, "reserve_moves": moves,
+                                "run_on": calendar_day.isoformat()})
     db.add(run)
     db.flush()
     audit.record(db, actor, "settlement_cycle_run", "settlement_run", run.id, business_date=today.isoformat(),
-                 balanced=all(c["ok"] for c in proof["checks"]), net=net)
+                 run_on=calendar_day.isoformat(), balanced=all(c["ok"] for c in proof["checks"]), net=net,
+                 instruction=instruction["ref"] if instruction else None)
     return run
 
 

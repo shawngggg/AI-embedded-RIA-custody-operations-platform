@@ -312,3 +312,109 @@ def test_22_settlement_sees_its_work_and_the_qa_sample_is_a_keyed_draw(as_user):
     assert 300 < len(picked) < 500                                                  # about 1 in 5
     assert {i % 5 for i in picked} == {0, 1, 2, 3, 4}                               # not every fifth id
     assert len(ai_suggestions.qa_key_fingerprint()) == 10
+
+
+# --- Group D: settlement, reviews, billing ------------------------------------------------------------------------
+
+def test_13_the_cycle_runs_as_of_the_last_business_day_on_a_closed_day(as_user, monkeypatch):
+    from datetime import date, timedelta
+    from app import settlement
+    from app.config import settings
+    today = date.fromisoformat(settings.as_of) if settings.as_of else date.today()
+    sunday = today + timedelta(days=(6 - today.weekday()))
+    monkeypatch.setattr(settings, "as_of", sunday.isoformat())
+    view = as_user("ops.settlement").post("/api/settlement/run").json()
+    run = view["last_run"]
+    assert view["closed_today"] and run["business_date"] == settlement.business_date(sunday).isoformat() < sunday.isoformat()
+    assert "isn't a business day" in run["steps"][0]["detail"][0]
+    assert view["protection"]["reserve"]["as_of"] == run["business_date"]       # the reserve as of that day too
+
+
+def _funding(run: dict) -> dict:
+    return next(s for s in run["steps"] if s["step"].startswith("Send net funding"))
+
+
+def test_14_a_rerun_sends_only_new_activity_and_the_reserve_stays_apart(as_user, monkeypatch):
+    from app import settlement
+    from app.config import settings
+    monkeypatch.setattr(settings, "as_of", settlement.business_date().isoformat())   # weekends too
+    s = as_user("ops.settlement")
+    s.post("/api/settlement/run")
+    again = s.post("/api/settlement/run").json()
+    assert again["last_run"]["instruction"] is None
+    assert _funding(again["last_run"])["outcome"].startswith(("Nothing new since instruction", "No cash moved"))
+    receipt = s.post("/api/settlement/receipts", json={"channel": "Fedwire", "amount": 50_000,
+                                                       "sender": "Bear River Savings Bank",
+                                                       "memo": "FBO ACC-3006 Samuel Adeyemi"}).json()
+    rid = next(x["id"] for x in receipt["receipts"] if x["amount"] == 50_000)
+    s.post(f"/api/settlement/receipts/{rid}/apply", json={"account_id": "ACC-3006", "note": "Memo names the account"})
+    third = s.post("/api/settlement/run").json()
+    ins = third["last_run"]["instruction"]
+    assert ins["status"] == "sent" and ins["net"] == 50_000 and ins["ref"].startswith("SI-")
+    assert ins["ref"] in [i["ref"] for i in third["instructions"]]
+    s.post("/api/settlement/reserve/deposit", json={"amount": 100_000, "note": "Cushion ahead of month end"})
+    fourth = s.post("/api/settlement/run").json()
+    assert fourth["last_run"]["instruction"] is None                               # not customer settlement funding
+    reserve = next(x for x in fourth["last_run"]["steps"] if x["step"].startswith("Special reserve bank account"))
+    assert "100,000.00" in reserve["outcome"] and fourth["reserve_moves"]
+    assert all(f["channel"] != "Other" or f["net"] != -100_000 for f in fourth["today_flows"])
+
+
+def test_16_the_nightly_batch_restricts_a_missed_refresh(as_user):
+    from datetime import timedelta
+    from app.config import settings
+    from app.db import SessionLocal
+    from app.orm import Review
+    reviews = {r["subject_id"]: r for r in as_user("review.analyst").get("/api/reviews").json()}
+    assert reviews["ACC-2004"]["status"] == "restricted"         # Whitfield: the seed's catch-up nightly run did it
+    with SessionLocal() as db:
+        r = db.query(Review).filter(Review.subject_id == "ACC-2002").one()
+        r.status, r.requested_on = "requested", settings.today() - timedelta(days=40)
+        r.response_due = settings.today() - timedelta(days=1)
+        db.commit()
+    out = as_user("ops.supervisor").post("/api/nightly/run").json()
+    assert out["reviews"]["restricted"] == ["ACC-2002"]
+    assert [c["code"] for c in as_user("review.analyst").get("/api/restrictions?target=ACC-2002").json()] == ["KYCR"]
+
+
+def test_17_a_review_leaves_its_basis_and_a_higher_risk_one_gets_a_checker(as_user):
+    rv = as_user("review.analyst")
+    kenji = next(r for r in rv.get("/api/reviews").json() if r["subject_id"] == "ACC-2002")
+    url = f"/api/reviews/{kenji['id']}/complete"
+    note = "Checked the account profile, activity, and screening: nothing new since opening"
+    assert rv.post(url, json={"outcome": "no_change", "new_tier": "LOW"}).status_code == 422          # no note
+    r = rv.post(url, json={"outcome": "no_change", "new_tier": "LOW", "note": note, "basis": "refresh_received"})
+    assert r.status_code == 422 and "No refresh was requested" in r.json()["detail"]
+    assert rv.post(url, json={"outcome": "no_change", "new_tier": "LOW", "note": note,
+                              "basis": "skipped", "skip_reason": "short"}).status_code == 422
+    proposed = rv.post(url, json={"outcome": "risk_increased", "new_tier": "MEDIUM", "note": note + "; but wires "
+                                  "to a new country", "basis": "skipped",
+                                  "skip_reason": "Profile confirmed with the RIA by phone on Nov. 2"}).json()
+    assert proposed["status"] == "awaiting_approval" and proposed["proposal"]["by"] == "Casey Nguyen"
+    approve = f"/api/reviews/{kenji['id']}/approve"
+    assert as_user("review.analyst").post(approve, json={"approve": True, "note": "Looks right"}).status_code == 403
+    work = as_user("aml.checker").get("/api/work").json()
+    assert work["reviews_to_approve"] == 1
+    done = as_user("aml.checker").post(approve, json={"approve": True,
+                                                      "note": "Read the note; the wires match the stated purpose"}).json()
+    assert done["status"] == "complete" and done["risk_tier"] == "MEDIUM"
+    last = done["history"][-1]
+    assert last["approved_by"] == "Morgan Lee" and last["note"].startswith("Checked") and last["skip_reason"]
+
+
+def test_20_the_fee_basis_ties_to_the_statement_value(as_user):
+    from app import book
+    from app.db import SessionLocal
+    from app.orm import Statement
+    as_user("ops.supervisor")
+    with SessionLocal() as db:
+        b = book.current(db)
+        closing = {s.account_id: (s.period_end, s.summary["closing_value"]) for s in db.query(Statement).all()}
+    granite = [f for f in b["fees"] if f["firm_crd"] == "310001" and not f["run"].endswith("-NEW")]
+    assert granite
+    for f in granite:
+        on, value = closing[f["account"]]
+        assert f["statement_value"] == round(value, 2) and f["billable_value"] == round(value, 2), f
+        assert f["basis_source"] == f"Statement value, {on:%b} {on.day}"
+    new = [f for f in b["fees"] if f["run"].endswith("-NEW")]
+    assert all(f["statement_value"] is None and "no statement yet" in f["basis_source"] for f in new)

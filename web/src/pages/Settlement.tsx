@@ -13,7 +13,9 @@ type Step = { step: string; outcome: string; detail: string[]; rule_ids: string[
 type Receipt = { id: number; received_on: string; channel: string; amount: number; sender: string; memo: string;
   status: string; account_id: string | null; candidates: { account: string; name: string; score: number; why: string[] }[];
   decided_by: string | null; note: string | null; age_days: number; return_due: boolean };
-type SettlementView = { as_of: string; can_act: boolean; checks: Check[];
+type Instruction = { ref: string; status: string; sent_at: string; net: number; by: string };
+type SettlementView = { as_of: string; calendar_day: string; closed_today: boolean; can_act: boolean; checks: Check[];
+  instructions: Instruction[]; reserve_moves: { ref: string; amount: number; memo: string }[];
   last_run: { business_date: string; run_at: string; run_by: string; steps: Step[]; net: number } | null;
   trial_balance: { account: string; name: string; type: string; cash: number; securities_value: number; positions: number }[];
   masters: { master: string; firm: string; accounts: number; cash: number; pending_cash: number; restricted_cash: number;
@@ -178,8 +180,9 @@ function Cycle() {
     <>
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <p className="muted" style={{ margin: 0 }}>Business day {day(d.as_of)}.
+          {d.closed_today ? ` Today, ${day(d.calendar_day)}, isn't a business day: the cycle runs as of ${day(d.as_of)}.` : ""}
           {d.last_run ? ` Last cycle: ${day(d.last_run.business_date)}, run by ${d.last_run.run_by}.` : " No cycle run yet."}</p>
-        {d.can_act && <button onClick={() => act("/api/settlement/run", {}, "Cycle run.")}>Run today's cycle</button>}
+        {d.can_act && <button onClick={() => act("/api/settlement/run", {}, "Cycle run.")}>Run the cycle for {day(d.as_of)}</button>}
       </div>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       <div className="panel"><h3>The three layers</h3><Checks checks={d.checks} /></div>
@@ -193,11 +196,18 @@ function Cycle() {
             {s.rule_ids.length > 0 && <span className="mono muted">{s.rule_ids.join(" · ")}</span>}</li>))}</ol>
       </div>}
       <div className="panel">
-        <h3>Today's net funding at the settlement bank</h3>
-        {d.today_flows.length === 0 ? <div className="empty">No cash moved through the bank today yet.</div> : <div className="scroll"><table>
+        <h3>Net funding at the settlement bank, {day(d.as_of)}</h3>
+        <p className="small muted">Customer settlement only: the reserve bank account moves the firm's own money and is shown below.
+          Each cycle sends one instruction for what posted since the last one.</p>
+        {d.today_flows.length === 0 ? <div className="empty">No cash moved through the bank on this business day yet.</div> : <div className="scroll"><table>
           <thead><tr><th>Channel</th><th>Direction</th><th className="num">Net</th></tr></thead>
           <tbody>{d.today_flows.map((f) => <tr key={f.channel}><td>{f.channel}</td><td>{f.direction}</td><td className="num">{usd(f.net, true)}</td></tr>)}</tbody>
         </table></div>}
+        {d.instructions.length > 0 && <><h4>Instructions sent</h4><ul className="small">{d.instructions.map((i) => (
+          <li key={i.ref}><span className="mono">{i.ref}</span>: {i.net >= 0 ? "receive" : "pay"} {usd(Math.abs(i.net))}, {i.status} by {i.by}
+            {" "}<span className="muted">(simulated: no bank connection)</span></li>))}</ul></>}
+        {d.reserve_moves.length > 0 && <><h4>Special reserve bank account</h4><ul className="small">{d.reserve_moves.map((m) => (
+          <li key={m.ref}><span className="mono">{m.ref}</span>: {usd(m.amount)} from the settlement bank to the reserve bank account</li>))}</ul></>}
       </div>
       <div className="panel">
         <h3>Unapplied cash in suspense ({unapplied.length})</h3>

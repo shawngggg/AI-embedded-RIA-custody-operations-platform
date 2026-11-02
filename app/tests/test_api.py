@@ -734,11 +734,14 @@ def test_case_codes_are_released_through_the_case(as_user):
 
 def test_missed_refresh_restricts_until_the_review_completes(as_user):
     rv = as_user("review.analyst")
-    assert rv.post("/api/reviews/enforce-deadlines").json()["restricted"] == ["ACC-2004"]
+    assert rv.post("/api/reviews/enforce-deadlines").json()["restricted"] == []    # the nightly batch did (note 16)
     codes = [c["code"] for c in rv.get("/api/restrictions?target=ACC-2004").json()]
     assert codes == ["KYCR"]
     review = [r for r in rv.get("/api/reviews").json() if r["subject_id"] == "ACC-2004"][0]
-    done = rv.post(f"/api/reviews/{review['id']}/complete", json={"outcome": "no_change", "new_tier": "LOW"}).json()
+    assert review["status"] == "restricted"
+    done = rv.post(f"/api/reviews/{review['id']}/complete", json={
+        "outcome": "no_change", "new_tier": "LOW", "basis": "refresh_received",
+        "note": "Refresh came back: same owners, same address, same source of funds"}).json()
     from app.config import settings
     from risk import add_months
     assert done["status"] == "complete" and done["next_review"] == add_months(settings.today(), 12).isoformat()
@@ -1141,7 +1144,7 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
                   "audit", "screening", "privacy"},
     "aml.officer": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
-                    "screening", "privacy"},
+                    "screening", "privacy", "reviews"},                  # approves higher-risk reviews (note 17)
     "sanctions.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts",
                         "audit", "screening"},
     "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},

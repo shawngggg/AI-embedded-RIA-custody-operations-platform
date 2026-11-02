@@ -247,6 +247,8 @@ class Review(Base):
     trigger: Mapped[str] = mapped_column(String(30), default="scheduled")
     restriction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     history: Mapped[list] = mapped_column(JSON, default=list)
+    # A medium- or high-risk completion waiting for AML compliance (app/reviews.py, walkthrough note 17)
+    proposal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class AuditEvent(Base):

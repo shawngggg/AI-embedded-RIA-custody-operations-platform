@@ -11,6 +11,7 @@ type WorkData = {
   to_approve: Decision[]; my_proposals: Decision[];
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
+  reviews_with_aml?: number; reviews_to_approve?: number;
   sar_referrals?: SarReferral[];
   settlement?: { breaks: number; unapplied: number; reserve_deficit: number; control_deficits: number; last_cycle: string | null };
 };
@@ -56,7 +57,11 @@ export default function Work() {
           <div className="sub">Waiting for a checker</div></div>}
         {user.role === "periodic_review" && <Link className="tile" to="/reviews">
           <div className="label">Reviews due</div><div className="value">{d.reviews_due ?? 0}</div>
-          <div className={`sub ${d.reviews_overdue ? "alert" : ""}`}>{d.reviews_overdue ? `${d.reviews_overdue} overdue` : "None overdue"}</div></Link>}
+          <div className={`sub ${d.reviews_overdue ? "alert" : ""}`}>{d.reviews_overdue ? `${d.reviews_overdue} overdue` : "None overdue"}
+            {d.reviews_with_aml ? ` · ${d.reviews_with_aml} with AML compliance` : ""}</div></Link>}
+        {d.reviews_to_approve !== undefined && <Link className="tile" to="/reviews">
+          <div className="label">Reviews to approve</div><div className="value">{d.reviews_to_approve}</div>
+          <div className="sub">Medium- and high-risk review completions</div></Link>}
         {can.messages && d.messages_unread !== undefined && <Link className="tile" to="/messages">
           <div className="label">Unread messages</div><div className="value">{d.messages_unread}</div>
           <div className="sub">Team channels</div></Link>}

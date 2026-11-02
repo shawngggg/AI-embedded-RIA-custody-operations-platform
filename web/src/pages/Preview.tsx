@@ -200,7 +200,8 @@ function Billing({ d, ops }: { d: Data; ops: boolean }) {
                   <tr key={f.account}>
                     <td><span className="mono">{f.account}</span><div className="small">{f.client}</div></td>
                     <td className="num">{usd(f.billable_value)}{f.tier_basis_value > f.billable_value + 1 &&
-                      <div className="small muted">Tier on household {usd(f.tier_basis_value)}</div>}</td>
+                      <div className="small muted">Tier on household {usd(f.tier_basis_value)}</div>}
+                      {f.basis_source && <div className="small muted">{f.basis_source}</div>}</td>
                     <td className="num">{f.annual_rate ? pct(f.annual_rate) : "None"}</td>
                     <td className="num">{f.days_billed} of {f.period_days}</td>
                     <td className="num">{usd(f.advisory_fee)}</td><td className="num">{usd(f.custody_fee)}</td><td className="num">{usd(f.total_fee)}</td>

@@ -334,4 +334,5 @@ def review_dict(r: Review, today) -> dict:
             "next_review": r.next_review.isoformat(), "status": r.status,
             "requested_on": r.requested_on.isoformat() if r.requested_on else None,
             "response_due": r.response_due.isoformat() if r.response_due else None,
-            "trigger": r.trigger, "due": due, "overdue": overdue, "history": r.history or []}
+            "trigger": r.trigger, "due": due, "overdue": overdue, "history": r.history or [],
+            "proposal": {k: v for k, v in r.proposal.items() if k != "by_id"} if r.proposal else None}

@@ -74,6 +74,9 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
         reviews = [review_dict(r, today) for r in db.scalars(select(Review)).all()]
         out["reviews_due"] = sum(1 for r in reviews if r["due"] or r["overdue"])
         out["reviews_overdue"] = sum(1 for r in reviews if r["overdue"])
+        out["reviews_with_aml"] = sum(1 for r in reviews if r["status"] == "awaiting_approval")
+    if user.role in ("aml_compliance", "bsa_officer"):       # medium- and high-risk completions (walkthrough note 17)
+        out["reviews_to_approve"] = len(db.scalars(select(Review.id).where(Review.status == "awaiting_approval")).all())
     if can["settlement"] and (user.role == "ops_supervisor" or user.team == "settlement"):
         # The settlement team's work lives on its workbench; the Work page counts it (walkthrough note 22)
         from ..orm import BankReceipt, SettlementRun, StreetItem

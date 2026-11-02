@@ -67,15 +67,27 @@ def ledger_view(db: Session) -> dict:
     return out
 
 
+def statement_values(db: Session) -> dict[str, dict]:
+    """Each account's latest quarterly statement values: the billing preview's fee basis (walkthrough note 20)."""
+    from .orm import Statement
+    out: dict[str, dict] = {}
+    for s in db.scalars(select(Statement).order_by(Statement.period_end)).all():
+        out[s.account_id] = {"period_end": s.period_end.isoformat(),
+                             "opening_value": (s.summary or {}).get("opening_value", 0),
+                             "closing_value": (s.summary or {}).get("closing_value", 0)}
+    return out
+
+
 def current(db: Session) -> dict:
     """The release 3 previews' book: the ledger's positions and cash, with synthetic trading and billing on top."""
     from sqlalchemy import func
     from .orm import LedgerEntry
+    from .orm import Statement
     accounts, firms = open_accounts(db)
     day = settings.today()
-    key = (day.isoformat(), db.scalar(select(func.max(LedgerEntry.id))),
+    key = (day.isoformat(), db.scalar(select(func.max(LedgerEntry.id))), db.scalar(select(func.max(Statement.id))),
            tuple((a["id"], tuple(a["codes"])) for a in accounts))
     if key not in _cache:
         _cache.clear()
-        _cache[key] = synthetic_book.build(accounts, firms, day, ledger=ledger_view(db))
+        _cache[key] = synthetic_book.build(accounts, firms, day, ledger=ledger_view(db), statements=statement_values(db))
     return _cache[key]
