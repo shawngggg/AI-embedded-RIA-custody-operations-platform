@@ -416,6 +416,12 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
                             + f" can propose a {spec['label'].lower()}")
     if case.status not in spec["statuses"]:
         raise HTTPException(409, f"The case isn't waiting for a {spec['label'].lower()}")
+    if body.decision_type == "confirmation" and body.value == "confirmed":
+        from custody.flow import last_event
+        cb = last_event((case.extra or {}).get("events", []), "callback")
+        if not cb or not cb.get("confirmed"):
+            raise HTTPException(422, "Record a callback first: the client confirmed, on a number from before any "
+                                     "recent change")
     if body.decision_type == "edd" and body.value == "approved" and not _edd_evidence(db, case):
         raise HTTPException(422, "Attach the source-of-wealth and source-of-funds evidence to the case first "
                                  "(document type: Source of wealth and source of funds evidence)")

@@ -126,7 +126,7 @@ function InternalCase() {
       </p>
       <div className="row" style={{ alignItems: "center", margin: "12px 0" }}>
         <Status status={d.status} stamp />
-        {d.sla.due && <span className={d.sla.breached ? "error" : "muted"}>{d.queue_label}: {slaText(d.sla.hours_left)}</span>}
+        {(d.sla.due || d.sla.waiting_on) && <span className={d.sla.breached ? "error" : "muted"}>{d.queue_label}: {slaText(d.sla)}</span>}
         {d.queue && <Owner d={d} onDone={done} onFail={fail} />}
       </div>
       {active.length > 0 && (

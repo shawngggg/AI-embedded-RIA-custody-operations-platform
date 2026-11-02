@@ -266,9 +266,13 @@ def fixable(req: dict, ctx: TransferContext) -> list[str]:
     out = []
     if req["type"] in ("acats_in",) and req.get("title_on_form") and \
             _norm(req["title_on_form"]) != _norm(ctx.account.get("name", "")):
+        # The delivering firm matches the form against its own records (walkthrough note 12, Nov. 1, 2026), so the
+        # form carries the title on the client's statement from that firm, not ours
         out.append(f"The transfer form reads \"{req['title_on_form']}\"; our account title is "
-                   f"\"{ctx.account.get('name')}\". Suggested fix: send the form with our title, which the "
-                   "delivering firm's records should match")
+                   f"\"{ctx.account.get('name')}\". Suggested fix: confirm the title on the client's latest statement "
+                   "from the delivering firm (ask the RIA for it if it isn't on file) and send the form with that title "
+                   "exactly. If the registrations really differ, not only a middle initial or a suffix, it isn't a like "
+                   "registration: re-register by LOI instead")
     return out
 
 

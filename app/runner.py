@@ -247,7 +247,8 @@ def sync(db: Session, case: Case, res: OnboardingResult, actor: User | None) -> 
             case.assigned_to, case.assigned_at = None, None
         case.queue = queue
         case.queue_entered_at = now if queue else None
-        case.sla_due = now + timedelta(hours=QUEUES[queue]["sla_hours"]) if queue else None
+        from .sla import due as sla_due
+        case.sla_due = sla_due(now, queue)          # business hours; none while waiting on the RIA (app/sla.py)
     if previous != res.status:
         db.add(CaseTransition(case_id=case.id, from_status=previous, to_status=res.status, at=now))
         if queue in ("items_requested", "maintenance_items"):    # returned for items: a NIGO

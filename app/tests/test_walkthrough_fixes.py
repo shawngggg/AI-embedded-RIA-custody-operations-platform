@@ -251,3 +251,64 @@ def test_10_no_notice_needs_a_second_person_and_compliance_sees_the_risk_event(a
     assert done["status"] == "closed" and done["approved_by"] == "Morgan Lee"
     events = as_user("aml.checker").get("/api/risk-events").json()["events"]
     assert any(e["source"] == "privacy" for e in events)
+
+
+def test_11_a_change_callback_dials_a_number_from_before_the_change(as_user):
+    from app.tests.test_api import case_id
+    cid = case_id(as_user("ops.analyst"), "bank instruction on Maria Chen")
+    svc = as_user("ops.service")                     # the test client is shared: sign in after looking the case up
+    action = next(a for a in svc.get(f"/api/cases/{cid}").json()["actions"] if a["key"] == "change_callback")
+    offered = [o[0] for o in next(f for f in action["fields"] if f["name"] == "phone")["options"]]
+    assert offered and all(offered)
+    r = svc.post(f"/api/cases/{cid}/actions/change_callback", json={"data": {"confirmed": "yes", "phone": "801-555-9999"}})
+    assert r.status_code == 422 and "before any recent change" in r.json()["detail"]
+    r = svc.post(f"/api/cases/{cid}/decisions", json={"decision_type": "confirmation", "value": "confirmed",
+                                                     "reference": "CALLBACK-11"})
+    assert r.status_code == 422                                     # no confirmation without the callback
+    r = svc.post(f"/api/cases/{cid}/actions/change_callback", json={"data": {"confirmed": "yes", "phone": offered[0]}})
+    assert r.status_code == 200
+
+
+def test_12_the_title_fix_uses_the_delivering_firms_title(as_user):
+    xfer = as_user("ops.transfers")
+    pending = [c for c in xfer.get("/api/cases").json() if c["status"] == "PENDING_FIX"]
+    assert pending, "the seed has a transfer the pre-screen caught"
+    detail = xfer.get(f"/api/cases/{pending[0]['id']}").json()
+    assert "statement from the delivering firm" in str(detail)
+    action = next(a for a in detail["actions"] if a["key"] == "fix")
+    assert "delivering firm's statement" in str(action["fields"])
+    r = xfer.post(f"/api/cases/{pending[0]['id']}/actions/fix", json={"data": {"choice": "apply",
+                                                                              "note": "Matches the March statement"}})
+    assert r.status_code == 200, r.text
+    from app.db import SessionLocal
+    from app.orm import Case
+    with SessionLocal() as db:
+        assert db.get(Case, pending[0]["id"]).application["title_confirmed_from_statement"] is True
+
+
+def test_15_slas_count_business_hours_on_the_queues_calendar():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from app import sla
+    et = ZoneInfo("America/New_York")
+    friday_5pm = datetime(2026, 10, 30, 17, 0, tzinfo=et)
+    assert sla.due(friday_5pm, "money_release") == datetime(2026, 11, 2, 11, 0, tzinfo=et)     # 1h Friday, 3h Monday
+    assert sla.due(datetime(2026, 10, 30, 10, 0, tzinfo=et), "sanctions_review") == datetime(2026, 11, 2, 10, 0, tzinfo=et)
+    tuesday = datetime(2026, 11, 10, 10, 0, tzinfo=et)                     # Veterans Day: the Fed closes, NSCC doesn't
+    assert sla.due(tuesday, "sanctions_review").day == 12 and sla.due(tuesday, "transfer_exceptions").day == 11
+    assert sla.due(friday_5pm, "items_requested") is None                 # waits on the RIA: no custodian SLA
+
+
+def test_22_settlement_sees_its_work_and_the_qa_sample_is_a_keyed_draw(as_user):
+    work = as_user("ops.settlement").get("/api/work").json()
+    s = work["settlement"]
+    assert {"breaks", "unapplied", "reserve_deficit", "control_deficits", "last_cycle"} <= set(s)
+    assert s["breaks"] + s["unapplied"] > 0, "the seed has breaks and receipts to work"
+    assert "settlement" not in as_user("ops.analyst").get("/api/work").json()
+    from app import ai_suggestions
+    draws = [ai_suggestions.qa_draw(i) for i in range(1, 2001)]
+    assert draws == [ai_suggestions.qa_draw(i) for i in range(1, 2001)]          # reproducible under the key
+    picked = [i for i, d in enumerate(draws, 1) if d < 1 / ai_suggestions.QA_EVERY]
+    assert 300 < len(picked) < 500                                                  # about 1 in 5
+    assert {i % 5 for i in picked} == {0, 1, 2, 3, 4}                               # not every fifth id
+    assert len(ai_suggestions.qa_key_fingerprint()) == 10

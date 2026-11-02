@@ -58,7 +58,8 @@ export type CaseSummary = {
   id: number; kind: string; title: string; status: string; queue: string | null; queue_label: string | null;
   firm: string | null; account_id: string | null; target_id: string; created_at: string; updated_at: string;
   queue_entered_at: string | null; path: string | null;
-  sla: { due: string | null; breached: boolean; hours_left: number | null };
+  sla: { due: string | null; breached: boolean; hours_left: number | null; business_hours_left?: number | null;
+    waiting_on?: string; since?: string | null; next_reminder?: string | null; withdraw_on?: string | null };
   assigned_to?: { id: number; name: string } | null; assigned_at?: string | null;
 };
 
@@ -121,7 +122,7 @@ export type AiSuggestion = {
 export type Tally = { suggestions: number; reviewed: number; pending: number; accepted: number; edited: number;
   rejected: number; share_accepted: number | null; cases: number };
 export type SuggestionSummary = { live: Tally; illustrative: Tally; by_field: (Tally & { field: string; label: string })[];
-  qa?: { sampled: number; checked: number; agreed: number; disagreed: number; agreement: number | null; every: number };
+  qa?: { sampled: number; checked: number; agreed: number; disagreed: number; agreement: number | null; every: number; method?: string; key?: string };
   by_prompt: (Tally & { prompt_version: string | null; model: string | null })[];
   recent_changes?: { id: number; case_id: number | null; case: string; mode: string; field: string; label: string;
     status: string; suggested: string; final: string | null; reason: string | null; by: string; at: string }[] };

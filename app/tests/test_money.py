@@ -2,6 +2,7 @@
 import pytest
 
 from .conftest import case_id
+from .test_api import change_callback
 
 
 def _transfer(c, title_part):
@@ -267,6 +268,7 @@ def test_an_ria_pays_a_third_party_only_under_the_clients_sloa(as_user):
     assert change["status"] == "CONFIRMING"                     # the portal's words for PENDING_CONFIRMATION
     cid = change["id"]
     assert as_user("ops.service").get(f"/api/cases/{cid}").json()["status"] == "PENDING_CONFIRMATION"
+    change_callback(as_user("ops.service"), cid)
     d = as_user("ops.service").post(f"/api/cases/{cid}/decisions", json={
         "decision_type": "confirmation", "value": "confirmed", "reference": "SLOA-T-1",
         "note": "Signature matches; client confirmed on a callback"}).json()

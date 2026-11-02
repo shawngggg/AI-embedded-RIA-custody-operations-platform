@@ -108,9 +108,14 @@ AGE_HOURS = {
 
 
 def backdate(db: Session, case: Case, hours: float) -> None:
-    """Move a freshly seeded case, its history, and what it touched back in time by `hours`."""
+    """Move a freshly seeded case, its history, and what it touched back in time by `hours`. A case on an operations
+    queue with an SLA is aged in business hours (app/sla.py), the clock its SLA counts; anything else in wall hours."""
     from .orm import AuditEvent, CaseTransition, Document, OutboundEmail, Restriction
+    from .queues import QUEUES
+    from . import sla
     shift = timedelta(hours=hours)
+    if case.queue and case.queue_entered_at and case.kind != "transfer" and not QUEUES[case.queue].get("waits_on"):
+        shift = case.queue_entered_at - sla.back(case.queue_entered_at, hours, case.queue)
     for row in db.query(OutboundEmail).filter(OutboundEmail.case_id == case.id):
         row.created_at -= shift
     for row in db.query(Document).filter(Document.case_id == case.id):
@@ -121,6 +126,9 @@ def backdate(db: Session, case: Case, hours: float) -> None:
     for col in ("created_at", "updated_at", "queue_entered_at", "sla_due", "closed_at"):
         if getattr(case, col) is not None:
             setattr(case, col, getattr(case, col) - shift)
+    if case.queue and case.queue_entered_at and case.kind not in ("transfer",):
+        from .sla import due as sla_due                    # business hours from the backdated entry (app/sla.py)
+        case.sla_due = sla_due(case.queue_entered_at, case.queue)
     for row in db.query(CaseTransition).filter(CaseTransition.case_id == case.id):
         row.at -= shift
     for row in db.query(AuditEvent).filter(AuditEvent.case_id == case.id):

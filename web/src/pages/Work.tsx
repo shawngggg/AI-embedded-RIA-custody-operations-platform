@@ -12,6 +12,7 @@ type WorkData = {
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
   sar_referrals?: SarReferral[];
+  settlement?: { breaks: number; unapplied: number; reserve_deficit: number; control_deficits: number; last_cycle: string | null };
 };
 type SarReferral = { case_id: number; case_title: string; reason: string; reference: string; referred_on: string;
   referred_by: string; approved_by: string; due: string; days_left: number; overdue: boolean; status: string;
@@ -65,6 +66,14 @@ export default function Work() {
         {can.restricted_accounts && <Link className="tile" to="/restricted">
           <div className="label">Restricted accounts</div><div className="value">{d.restricted_targets}</div>
           <div className="sub">Accounts and firms with an active code</div></Link>}
+        {d.settlement && <Link className="tile" to="/ops/settlement">
+          <div className="label">Settlement work waiting</div>
+          <div className="value">{d.settlement.breaks + d.settlement.unapplied}</div>
+          <div className={`sub ${d.settlement.reserve_deficit || d.settlement.control_deficits ? "alert" : ""}`}>
+            {d.settlement.breaks} breaks · {d.settlement.unapplied} unapplied receipts
+            {d.settlement.reserve_deficit ? ` · reserve deficit $${d.settlement.reserve_deficit.toLocaleString()}` : ""}
+            {d.settlement.control_deficits ? ` · ${d.settlement.control_deficits} possession-or-control deficit${d.settlement.control_deficits > 1 ? "s" : ""}` : ""}
+          </div></Link>}
         {!can.queues && WORKBENCH.filter(([cap]) => can[cap]).map(([cap, to, label, release]) => (
           <Link key={cap} className="tile" to={to}>
             <div className="label">Your team's workbench</div><div className="value small-value">{label}</div>
@@ -91,7 +100,7 @@ export default function Work() {
                   <td className="small">{c.queue_label}</td><td><Status status={c.status} /></td>
                   <td className="small">{c.assigned_to ? (c.assigned_to.id === user.id ? "You" : c.assigned_to.name) : <span className="muted">Unassigned</span>}</td>
                   <td className="small">{when(c.queue_entered_at)}</td>
-                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
+                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla)}</td>
                 </tr>))}</tbody>
             </table></div>
           ) : <div className="empty">Your queues are clear.</div>}
@@ -140,7 +149,8 @@ function AiQa() {
   return (
     <div className="panel">
       <h2 style={{ marginTop: 0 }}>Second review: AI-read values ({q.data.items.length})</h2>
-      <p className="small muted">1 in {q.data.every} values a colleague reviewed comes to a second person. Open the case's package and check
+      <p className="small muted">About 1 in {q.data.every} values a colleague reviewed comes to a second person, chosen by a keyed random draw
+        nobody can predict or steer. Open the case's package and check
         the first review: agree, or say what the package shows.</p>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       {q.data.items.map((i) => (

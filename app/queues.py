@@ -6,8 +6,10 @@ QUEUES = {
     # reviews the firm and Form ADV facts, CIP the identity facts
     "ai_review": {"label": "AI suggestions to review", "owner": "Onboarding and CIP",
                   "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding", "cip"], "sla_hours": 24},
+    # Waiting on the RIA or the client: no SLA of the custodian's own; reminders and withdrawal instead (app/sla.py)
     "items_requested": {"label": "Items requested", "owner": "Onboarding (waiting on the RIA)",
-                        "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120},
+                        "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120,
+                        "waits_on": "the RIA"},
     "compliance_review": {"label": "Compliance review", "owner": "AML compliance",
                           "roles": ["aml_compliance", "bsa_officer"], "sla_hours": 48},
     "sanctions_review": {"label": "Sanctions review", "owner": "Sanctions team",
@@ -19,7 +21,8 @@ QUEUES = {
     # Account maintenance sits with client service (Shawn, Oct. 13, 2026): a change returned to the RIA or client
     # for correction waits here, not in onboarding's queue
     "maintenance_items": {"label": "Account changes: items requested", "owner": "Client service (account maintenance)",
-                          "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 120},
+                          "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 120,
+                          "waits_on": "the RIA or the client"},
     "verification": {"label": "Identity verification", "owner": "CIP and identity verification",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",

@@ -133,16 +133,25 @@ def work_the_seeded_cases() -> None:
                   {"sanctions"}, {"sanctions"}, matrix=True)
     maker_checker(meridian, "sanctions", "true_match", "DET-GATE-02", "sanctions.maker", "sanctions.checker",
                   {"sanctions"}, {"sanctions"}, matrix=False)
-    elena, lakeshore = case_id("Elena Marsh"), case_id("Lakeshore")
-    maker_checker(elena, "edd", "approved", "EDD-GATE-01", "aml.maker", "aml.checker", {"aml_compliance"},
+    crane, elena, lakeshore = case_id("Bartholomew Crane"), case_id("Elena Marsh"), case_id("Lakeshore")
+    maker_checker(crane, "edd", "approved", "EDD-GATE-01", "aml.maker", "aml.checker", {"aml_compliance"},
                   {"aml_compliance", "bsa_officer"}, matrix=True)
     # A foreign PEP's EDD needs senior management: the BSA/AML officer approves it (FATF Recommendation 12)
     maker_checker(lakeshore, "edd", "approved", "EDD-GATE-02", "aml.maker", "aml.officer", {"aml_compliance"},
                   {"bsa_officer"}, matrix=True)
+    maker_checker(elena, "edd", "approved", "EDD-GATE-03", "aml.maker", "aml.officer", {"aml_compliance"},
+                  {"bsa_officer"}, matrix=False)
     # Oct. 20: every PEP or adverse-media alert goes to AML compliance; a domestic PEP's alert is cleared here
     maker_checker(case_id("Nadia Brooks"), "alert_review", "cleared", "ALR-GATE-01", "aml.maker", "aml.checker",
                   {"aml_compliance"}, {"aml_compliance"}, matrix=True)
     chg = case_id("bank instruction on Maria Chen")
+    # Client service calls the client on a number from before the change first (walkthrough note 11)
+    action = next(a for a in as_user("ops.service").get(f"/api/cases/{chg}").json()["actions"]
+                  if a["key"] == "change_callback")
+    phone = next(f for f in action["fields"] if f["name"] == "phone")["options"][0][0]
+    r = as_user("ops.service").post(f"/api/cases/{chg}/actions/change_callback",
+                                    json={"data": {"confirmed": "yes", "phone": phone}})
+    assert r.status_code == 200, r.text
     maker_checker(chg, "confirmation", "confirmed", "CALLBACK-GATE", "ops.analyst", "ops.supervisor",
                   {"ops_analyst", "ops_supervisor"}, {"ops_supervisor"}, matrix=True)
 

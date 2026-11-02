@@ -53,7 +53,7 @@ export default function Queues() {
                   <td><a href={`/cases/${c.id}`} onClick={(e) => { e.preventDefault(); navigate(`/cases/${c.id}`); }}>#{c.id} {c.title}</a></td>
                   <td>{c.firm}</td><td><Status status={c.status} /></td>
                   <td className="small">{c.assigned_to ? c.assigned_to.name : <span className="muted">Unassigned</span>}</td><td>{when(c.queue_entered_at)}</td>
-                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
+                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla)}</td>
                 </tr>
               ))}
             </tbody>

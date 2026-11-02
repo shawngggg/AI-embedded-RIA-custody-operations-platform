@@ -50,10 +50,25 @@ export function when(iso: string | null | undefined): string {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export function slaText(hours: number | null): string {
+export type Sla = { due: string | null; breached: boolean; hours_left: number | null; business_hours_left?: number | null;
+  waiting_on?: string; since?: string | null; next_reminder?: string | null; withdraw_on?: string | null };
+
+const shortDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+/** The clock in plain words: business hours left on the team's SLA, or, while a case waits on the RIA or the client,
+ * when the next reminder goes and when the request is withdrawn (app/sla.py). */
+export function slaText(sla: Sla): string {
+  if (sla.waiting_on) {
+    const parts = [`Waiting on ${sla.waiting_on}`];
+    if (sla.next_reminder) parts.push(`reminder ${shortDate(sla.next_reminder)}`);
+    if (sla.withdraw_on) parts.push(`withdrawn ${shortDate(sla.withdraw_on)}`);
+    return parts.join(" · ");
+  }
+  const hours = sla.hours_left;
   if (hours === null) return "";
   if (hours < 0) return `${Math.abs(Math.round(hours))}h past SLA`;
-  return hours < 24 ? `${Math.round(hours)}h left` : `${Math.round(hours / 24)}d left`;
+  const left = sla.business_hours_left ?? hours;
+  return left < 24 ? `${Math.round(left)} business hours left` : `${Math.round(left / 24)} business days left`;
 }
 
 export const LANES: Record<string, string> = {

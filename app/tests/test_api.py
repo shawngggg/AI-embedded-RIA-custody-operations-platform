@@ -9,6 +9,15 @@ ACCOUNT_DOCS = [{"doc_type": t, "sample": True} for t in ("account_application",
 WHY = "Checked against the evidence on the case: date of birth and country differ"
 
 
+def change_callback(client, cid: int, confirmed: str = "yes") -> dict:
+    """Client service calls the client on a number from before any recent change (walkthrough note 11)."""
+    action = next(a for a in client.get(f"/api/cases/{cid}").json()["actions"] if a["key"] == "change_callback")
+    phone = next(f for f in action["fields"] if f["name"] == "phone")["options"][0][0]
+    r = client.post(f"/api/cases/{cid}/actions/change_callback", json={"data": {"confirmed": confirmed, "phone": phone}})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def edd_evidence(client, cid: int) -> None:
     """AML compliance attaches the source-of-wealth and source-of-funds evidence EDD approval needs (note 8)."""
     r = client.post(f"/api/cases/{cid}/documents", data={"doc_type": "source_of_wealth", "sample": "true",
@@ -48,12 +57,18 @@ def test_demo_users_and_sign_in(client):
 
 
 def test_seeded_cases_are_aged(as_user):
-    """Seeded cases arrive at different times, so SLA clocks and the dashboard have something to show."""
-    c = as_user("ops.analyst")
+    """Seeded cases arrive at different times, so SLA clocks and the dashboard have something to show. The SLA counts
+    business hours (walkthrough note 15), and the seed ages queued cases in business hours, so the picture is the
+    same on any weekday. A case waiting on the RIA has no SLA of the custodian's own: it shows the NIGO dates."""
+    c = as_user("ops.supervisor")
     cases = {x["title"]: x for x in c.get("/api/cases").json()}
     rosa = next(v for k, v in cases.items() if "Rosa Delgado" in k)
     meridian = next(v for k, v in cases.items() if "Meridian Gate" in k)
-    assert rosa["sla"]["breached"] and not meridian["sla"]["breached"]
+    juniper = next(v for k, v in cases.items() if "Juniper Ridge" in k)
+    ilya = next(v for k, v in cases.items() if "Ilya Sorvetkin" in k)
+    assert juniper["sla"]["breached"] and not meridian["sla"]["breached"]
+    assert not ilya["sla"]["breached"] and ilya["sla"]["business_hours_left"] == 3      # 21 of its 24 hours used
+    assert rosa["sla"]["waiting_on"] == "the RIA" and not rosa["sla"]["breached"] and rosa["sla"]["withdraw_on"]
     hours = as_user("ops.supervisor").get("/api/dashboard").json()["hours_in_state"]
     assert hours["PENDING_EDD"]["average"] > 24
 
@@ -556,7 +571,11 @@ def test_a_regulatory_document_on_an_open_account_needs_a_rescission(as_user):
 
 def test_fraud_pattern_confirmation_applies_the_bank_change(as_user):
     cid = case_id(as_user("ops.analyst"), "bank instruction on Maria Chen")
-    d = as_user("ops.analyst").post(f"/api/cases/{cid}/decisions", json={
+    r = as_user("ops.service").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "confirmation", "value": "confirmed", "reference": "CALLBACK-0007"})
+    assert r.status_code == 422 and "callback" in r.json()["detail"]             # call the client first
+    change_callback(as_user("ops.service"), cid)
+    d = as_user("ops.service").post(f"/api/cases/{cid}/decisions", json={
         "decision_type": "confirmation", "value": "confirmed", "reference": "CALLBACK-0007"}).json()
     detail = as_user("ops.supervisor").post(f"/api/decisions/{d['id']}/approve").json()
     assert detail["status"] == "APPLIED"
@@ -994,9 +1013,11 @@ def test_restricted_accounts_lists_each_account_once(as_user):
 
 
 def test_risk_register_covers_operational_regulatory_and_financial(as_user):
-    events = as_user("ops.analyst").get("/api/risk-events").json()["events"]
+    events = as_user("rs.principal").get("/api/risk-events").json()["events"]        # the RIA service area's
     sla = [e for e in events if e["source"] == "sla"]
-    assert any("Rosa Delgado" in (e["case_title"] or "") for e in sla) and all(e["risk_type"] == "operational" for e in sla)
+    assert any("Juniper Ridge" in (e["case_title"] or "") for e in sla) and all(e["risk_type"] == "operational" for e in sla)
+    ops = as_user("ops.analyst").get("/api/risk-events").json()["events"]
+    assert not any("Rosa Delgado" in (e["case_title"] or "") for e in ops if e["source"] == "sla")   # waits on the RIA
     meridian = case_id(as_user("ops.analyst"), "Meridian Gate")
     d = as_user("sanctions.maker").post(f"/api/cases/{meridian}/decisions", json={
         "decision_type": "sanctions", "value": "true_match", "reference": "DET-R-1"}).json()
@@ -1212,11 +1233,11 @@ def test_each_person_sees_only_their_areas_risk_events(as_user):
     d = as_user("sanctions.maker").post(f"/api/cases/{meridian}/decisions", json={
         "decision_type": "sanctions", "value": "true_match", "reference": "DET-A-1"}).json()
     as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
-    assert areas("ops.analyst") == {"onboarding"}            # Rosa's items are past their SLA
+    assert areas("ops.analyst") == set()      # Rosa's items wait on the RIA: no SLA of the custodian's own (note 15)
     assert areas("sanctions.maker") == {"sanctions"}
     assert areas("rs.lead") == {"ria_service"}               # Juniper Ridge's acceptance is past its SLA
     assert areas("admin.platform") == {"access"}             # access and authentication only
-    assert {"onboarding"} <= areas("ops.supervisor") and not areas("ops.supervisor") & {"sanctions", "access"}
+    assert not areas("ops.supervisor") & {"sanctions", "access", "aml", "ria_service"}
     assert areas("ops.cip") == set() and areas("aml.maker") == set()
     # A report in another area stays visible to its reporter, and to that area, not to everyone
     as_user("ops.cip").post("/api/risk-events", json={"category": "Wrong ID type accepted", "risk_type": "operational",

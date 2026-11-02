@@ -99,6 +99,31 @@ def phones_on_file(a: Account) -> list[tuple[str, str]]:
     return unique
 
 
+RECENT_CHANGE_DAYS = 30
+
+
+def phones_before_recent_change(a: Account, days: int = RECENT_CHANGE_DAYS) -> list[tuple[str, str]]:
+    """The numbers to call back on when a change itself is in question (walkthrough note 11): the holders' numbers
+    from opening, and numbers from contact changes older than `days`. A number added by a recent change, or one with
+    no date on record, isn't offered: an account takeover changes the phone first."""
+    from datetime import date as _date
+    app = a.application or {}
+    out = [(h["phone"].strip(), h.get("name") or "Account holder") for h in app.get("holders", [])
+           if (h.get("phone") or "").strip()]
+    cutoff = settings.today().toordinal() - days
+    for ch in app.get("contact_changes") or []:
+        when = _date.fromisoformat(ch["on"]).toordinal()
+        for key in ("phone", "new_phone"):
+            if ch.get(key) and when < cutoff:
+                out.append((ch[key].strip(), f"Changed on {ch['on']}"))
+    seen, unique = set(), []
+    for number, whose in out:
+        if number not in seen:
+            seen.add(number)
+            unique.append((number, whose))
+    return unique
+
+
 def mark_decedent(view: dict, case: Case) -> dict:
     """On a deceased account's case, the named decedent (or the first holder) isn't a survivor."""
     name = (case.application or {}).get("decedent") or (view["holders"][0]["name"] if view["holders"] else None)

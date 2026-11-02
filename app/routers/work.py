@@ -74,6 +74,17 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
         reviews = [review_dict(r, today) for r in db.scalars(select(Review)).all()]
         out["reviews_due"] = sum(1 for r in reviews if r["due"] or r["overdue"])
         out["reviews_overdue"] = sum(1 for r in reviews if r["overdue"])
+    if can["settlement"] and (user.role == "ops_supervisor" or user.team == "settlement"):
+        # The settlement team's work lives on its workbench; the Work page counts it (walkthrough note 22)
+        from ..orm import BankReceipt, SettlementRun, StreetItem
+        last = db.scalar(select(SettlementRun).order_by(SettlementRun.id.desc()))
+        prot = ((last.result or {}).get("protection") or {}) if last else {}
+        out["settlement"] = {
+            "breaks": len(db.scalars(select(StreetItem.id).where(StreetItem.status.in_(("open", "proposed")))).all()),
+            "unapplied": len(db.scalars(select(BankReceipt.id).where(BankReceipt.status == "unapplied")).all()),
+            "reserve_deficit": float(((prot.get("reserve") or {}).get("deficit")) or 0),
+            "control_deficits": len(((prot.get("possession") or {}).get("deficits")) or []),
+            "last_cycle": last.business_date.isoformat() if last else None}
     if user.role in ("aml_compliance", "bsa_officer"):
         from ..sar import open_referrals
         out["sar_referrals"] = open_referrals(db, user)

@@ -125,12 +125,8 @@ def get_case_for(db: Session, user: User, case_id: int) -> Case:
 
 
 def sla_state(case: Case, now: datetime | None = None) -> dict:
-    now = now or datetime.now(timezone.utc)
-    if not case.sla_due:
-        return {"due": None, "breached": False, "hours_left": None}
-    due = case.sla_due if case.sla_due.tzinfo else case.sla_due.replace(tzinfo=timezone.utc)
-    left = (due - now).total_seconds() / 3600
-    return {"due": due.isoformat(), "breached": left < 0, "hours_left": round(left, 1)}
+    from .sla import state
+    return state(case, now)
 
 
 def case_summary(db: Session, c: Case) -> dict:
@@ -314,8 +310,9 @@ def r2_detail(db: Session, c: Case, user: User) -> dict:
     """What a release 2 case adds to the case page: its map, summary, people-steps open to this person, ledger
     entries, and the cases it opened or belongs to."""
     from . import actions, ledger, servicing
-    if c.kind not in servicing.R2_KINDS:
-        return {"map": None, "summary": {}, "actions": [], "ledger_entries": [], "linked": []}
+    if c.kind not in servicing.R2_KINDS:      # a change in question gets its callback action (walkthrough note 11)
+        return {"map": None, "summary": {}, "actions": actions.available(db, c, user) if c.kind == "change" else [],
+                "ledger_entries": [], "linked": []}
     linked = []
     for key, cid in ((c.extra or {}).get("children") or {}).items():
         ch = db.get(Case, cid)
