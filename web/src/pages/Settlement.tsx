@@ -87,7 +87,7 @@ function EndOfDay() {
         }}>Run end of day now</button>}
       </div>
       <p className="small muted">Every night: the settlement cycle (with the Rule 15c3-3 checks), reconciliation, ongoing sanctions screening,
-        and NIGO aging. {v.data.scheduled ? "Cloud Scheduler runs it." : "No scheduler is connected yet, so it runs by hand."}</p>
+        NIGO aging, and rolling review deadlines. {v.data.scheduled ? "Cloud Scheduler runs it." : "No scheduler is connected yet, so it runs by hand."}</p>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       {last ? <p className="small">Last run {day(last.on)} by {last.by}: reserve {last.settlement.reserve_deficit ? `short ${usd(last.settlement.reserve_deficit)}` : "covered"},
         {" "}{last.settlement.control_deficits} possession-or-control deficit{last.settlement.control_deficits === 1 ? "" : "s"},
