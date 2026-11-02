@@ -17,7 +17,10 @@ from .orm import LedgerEntry, Security, User
 from .risk_register import log_event
 
 
-def compute(db: Session) -> dict:
+def compute(db: Session, as_of=None) -> dict:
+    """The reserve formula and possession or control, as of a business date (the cycle's; walkthrough note 13)."""
+    from .settlement import business_date
+    as_of = as_of or business_date()
     client_cash: dict[str, int] = {}
     for _layer, acct, asset, _bucket, u in ledger.balances(db, layer="client"):
         if asset == CASH:
@@ -27,7 +30,7 @@ def compute(db: Session) -> dict:
     for _layer, acct, asset, _bucket, u in ledger.balances(db, layer="gl"):
         gl_sum[(acct, asset)] = gl_sum.get((acct, asset), 0) + u
     reserve = protection.reserve_computation(client_cash, gl_sum, gl_sum.get((protection.RESERVE_GL, CASH), 0),
-                                             settings.today())
+                                             as_of)
     # The stock record (what the books hold for customers at each control location) against what the street confirms
     books, street = recon.street(db)
     customer: dict[str, int] = {}
@@ -40,10 +43,10 @@ def compute(db: Session) -> dict:
     return {"reserve": reserve, "possession": protection.possession_or_control(customer, control, names)}
 
 
-def check(db: Session, actor: User | None) -> dict:
+def check(db: Session, actor: User | None, as_of=None) -> dict:
     """The daily customer protection step: compute, and log a financial risk event for each deficit (once a day)."""
-    out = compute(db)
-    today = settings.today().isoformat()
+    out = compute(db, as_of)
+    today = (as_of or settings.today()).isoformat()
     r = out["reserve"]
     if r["deficit"]:
         log_event(db, actor, category="Reserve formula deficit (Rule 15c3-3)", risk_type="financial",

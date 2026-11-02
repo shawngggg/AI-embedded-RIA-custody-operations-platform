@@ -5,7 +5,7 @@ import { useAuth } from "../auth";
 import { Loading, Status, useLoad, when } from "../util";
 
 const FUNCTION: Record<string, string> = { ops_analyst: "operations", ops_supervisor: "operations",
-  aml_compliance: "aml_compliance", sanctions: "sanctions", periodic_review: "periodic_review",
+  aml_compliance: "aml_compliance", bsa_officer: "aml_compliance", sanctions: "sanctions", periodic_review: "periodic_review",
   ria_service: "ria_service", ria_service_lead: "ria_service" };
 const pretty = (s: string) => s.replace(/_/g, " ");
 

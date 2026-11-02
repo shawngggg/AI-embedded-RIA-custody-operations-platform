@@ -16,6 +16,7 @@ from ..views import restriction_dict
 router = APIRouter(prefix="/api/restrictions", tags=["restrictions"])
 
 ROLE_FUNCTION = {"ops_analyst": "operations", "ops_supervisor": "operations", "aml_compliance": "aml_compliance",
+                 "bsa_officer": "aml_compliance",
                  "sanctions": "sanctions", "periodic_review": "periodic_review", "ria_service": "ria_service",
                  "ria_service_lead": "ria_service"}
 MANUAL_CODES = ["CIPV", "EDDP", "KYCR", "SANC"]

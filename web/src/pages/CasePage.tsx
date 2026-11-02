@@ -126,7 +126,7 @@ function InternalCase() {
       </p>
       <div className="row" style={{ alignItems: "center", margin: "12px 0" }}>
         <Status status={d.status} stamp />
-        {d.sla.due && <span className={d.sla.breached ? "error" : "muted"}>{d.queue_label}: {slaText(d.sla.hours_left)}</span>}
+        {(d.sla.due || d.sla.waiting_on) && <span className={d.sla.breached ? "error" : "muted"}>{d.queue_label}: {slaText(d.sla)}</span>}
         {d.queue && <Owner d={d} onDone={done} onFail={fail} />}
       </div>
       {active.length > 0 && (
@@ -189,6 +189,13 @@ function InternalCase() {
             <>
               <h3>Add a document</h3>
               <DocUpload caseId={d.id} types={DOC_CHOICES} onUploaded={(doc) => refresh(`${doc.filename} added.`)} />
+            </>
+          )}
+          {!d.closed_at && d.status === "PENDING_EDD" && ["aml_compliance", "bsa_officer"].includes(user.role) && (
+            <>
+              <h3>Attach the EDD evidence</h3>
+              <p className="muted small">EDD is approved on evidence: the source of wealth and the source of funds.</p>
+              <DocUpload caseId={d.id} types={[{ value: "source_of_wealth", label: "Source of wealth and source of funds evidence" }]} onUploaded={(doc) => refresh(`${doc.filename} added.`)} />
             </>
           )}
         </>
@@ -314,22 +321,31 @@ function Decisions({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDetai
         );
       })}
       {pending.length === 0 && d.available_decisions.map((a) => {
-        const f = form[a.decision_type] ?? { value: a.values[0].value, reference: "", note: "" };
+        const f = form[a.decision_type] ?? { value: a.values[0].value, reference: "", note: a.values[0].prefill ?? "" };
         const set = (patch: Partial<typeof f>) => setForm({ ...form, [a.decision_type]: { ...f, ...patch } });
+        const chosen = a.values.find((v) => v.value === f.value);
+        const needsWhy = !!chosen?.rationale;
+        const whyShort = needsWhy && f.note.trim().length < (a.min_rationale ?? 30);
         return (
           <div key={a.decision_type}>
             <h3>{a.label}</h3>
             <div className="row">
               <div className="field"><label htmlFor={`v-${a.decision_type}`}>Decision</label>
-                <select id={`v-${a.decision_type}`} value={f.value} onChange={(e) => set({ value: e.target.value })}>
+                <select id={`v-${a.decision_type}`} value={f.value} onChange={(e) => {
+                  const next = a.values.find((v) => v.value === e.target.value);
+                  set({ value: e.target.value, note: f.note.trim() ? f.note : next?.prefill ?? "" });
+                }}>
                   {a.values.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                 </select></div>
               <div className="field"><label htmlFor={`r-${a.decision_type}`}>Reference</label>
                 <input id={`r-${a.decision_type}`} type="text" placeholder="e.g. DET-2026-0412" value={f.reference} onChange={(e) => set({ reference: e.target.value })} /></div>
             </div>
-            <div className="field"><label htmlFor={`n-${a.decision_type}`}>Note (optional)</label>
-              <input id={`n-${a.decision_type}`} type="text" value={f.note} onChange={(e) => set({ note: e.target.value })} /></div>
-            <button disabled={f.reference.trim().length < 3} onClick={() => propose(a.decision_type)}>Propose for approval</button>
+            <div className="field"><label htmlFor={`n-${a.decision_type}`}>{needsWhy ? "Why (required): what in the evidence clears it" : "Note (optional)"}</label>
+              {needsWhy
+                ? <textarea id={`n-${a.decision_type}`} style={{ minHeight: 64, fontFamily: "inherit", fontSize: "0.9rem" }} value={f.note} onChange={(e) => set({ note: e.target.value })} />
+                : <input id={`n-${a.decision_type}`} type="text" value={f.note} onChange={(e) => set({ note: e.target.value })} />}</div>
+            <button disabled={f.reference.trim().length < 3 || whyShort} onClick={() => propose(a.decision_type)}>Propose for approval</button>
+            {whyShort && <span className="muted small"> Say why in {a.min_rationale ?? 30} characters or more.</span>}
             <p className="muted small">Approval needs a different person: {a.approver_roles.join(" or ").replace(/_/g, " ")}.</p>
           </div>
         );
@@ -572,7 +588,8 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
               <td className="small">{x.reviewed_by ?? "Automated pre-checks"}{x.reviewed_at ? `, ${when(x.reviewed_at)}` : ""}
                 {x.review_note && <div>“{x.review_note}”</div>}</td>
               {a.can_accept && (
-                <td className="ticks"><label className="check"><input type="checkbox" checked={ticked.has(x.id)} disabled={flagged.has(x.id)}
+                <td className="ticks"><label className="check" title={opened.has(x.id) ? "" : "Open the document first"}>
+                  <input type="checkbox" checked={ticked.has(x.id)} disabled={flagged.has(x.id) || !opened.has(x.id)}
                   onChange={(e) => setTicked(toggle(ticked, x.id, e.target.checked))} /> Reviewed</label>
                   <label className="check"><input type="checkbox" checked={flagged.has(x.id)}
                     onChange={(e) => { setFlagged(toggle(flagged, x.id, e.target.checked)); if (e.target.checked) setTicked(toggle(ticked, x.id, false)); }} /> Needs another look</label></td>
@@ -604,7 +621,7 @@ function Acceptance({ d, onDone, onFail }: { d: CaseDetail; onDone: (c: CaseDeta
             <div className="actions">
               <button disabled={!reviewed || !allTicked} onClick={() => send("accepted")}>Accept</button>
               <button className="secondary" onClick={() => send("declined")}>Decline</button>
-              {!allTicked && <span className="muted small">Tick each document as reviewed to accept.</span>}
+              {!allTicked && <span className="muted small">Open each document, then tick it as reviewed, to accept.</span>}
             </div>
           </>
         )

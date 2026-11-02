@@ -16,7 +16,7 @@ from ..db import get_db
 from ..orm import PORTAL_ROLES, Account, AiSuggestion, Case, Document, PendingDecision, Review, User, utcnow
 from .. import portal_view
 from ..access import approval_refusal, capabilities, may_propose, require_capability
-from ..queues import DECISIONS, QUEUES, works_queue
+from ..queues import DECISIONS, MIN_RATIONALE, QUEUES, RATIONALE, works_queue
 from ..risk_register import log_event
 from ..runner import run_case
 from ..security import current_user, require_internal, require_roles
@@ -49,7 +49,7 @@ def queues(user: User = Depends(require_capability("cases")), db: Session = Depe
                     "breached": sum(1 for r in reviews if r["overdue"]), "mine": user.role == "periodic_review"})
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")).all()
     mine = sum(1 for d in pending if d.proposed_by != user.id
-               and approval_refusal(user, d.decision_type, db.get(Case, d.case_id)) is None)
+               and approval_refusal(user, d.decision_type, db.get(Case, d.case_id), d.value) is None)
     return {"queues": out, "pending_approvals": mine}
 
 
@@ -390,6 +390,13 @@ def _hold_refusal(db: Session, case: Case, value: str, note: str | None) -> str 
            "choose that reason"
 
 
+def _edd_evidence(db: Session, case: Case) -> bool:
+    """EDD is approved on evidence, not a reference: a source-of-wealth and source-of-funds document on the case
+    that nobody marked not in good order (walkthrough note 8)."""
+    from ..documents import case_documents
+    return any(d.doc_type == "source_of_wealth" and d.status != "not_in_good_order" for d in case_documents(db, case))
+
+
 @router.post("/cases/{case_id}/decisions")
 def propose(case_id: int, body: Propose, user: User = Depends(require_internal), db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
@@ -409,6 +416,18 @@ def propose(case_id: int, body: Propose, user: User = Depends(require_internal),
                             + f" can propose a {spec['label'].lower()}")
     if case.status not in spec["statuses"]:
         raise HTTPException(409, f"The case isn't waiting for a {spec['label'].lower()}")
+    if body.decision_type == "confirmation" and body.value == "confirmed":
+        from custody.flow import last_event
+        cb = last_event((case.extra or {}).get("events", []), "callback")
+        if not cb or not cb.get("confirmed"):
+            raise HTTPException(422, "Record a callback first: the client confirmed, on a number from before any "
+                                     "recent change")
+    if body.decision_type == "edd" and body.value == "approved" and not _edd_evidence(db, case):
+        raise HTTPException(422, "Attach the source-of-wealth and source-of-funds evidence to the case first "
+                                 "(document type: Source of wealth and source of funds evidence)")
+    if body.value in RATIONALE.get(body.decision_type, set()) and len((body.note or "").strip()) < MIN_RATIONALE:
+        raise HTTPException(422, f"Say why, in {MIN_RATIONALE} characters or more: what in the evidence clears it "
+                                 "(for a sanctions hit, which identifiers differ)")
     if body.decision_type == "exploitation_hold":
         why = _hold_refusal(db, case, body.value, body.note)
         if why:
@@ -437,7 +456,7 @@ def pending_decisions(status: str = "pending", user: User = Depends(require_capa
     for d in rows:
         item = decision_dict(db, d)
         case = db.get(Case, d.case_id)
-        item["can_approve"] = approval_refusal(user, d.decision_type, case) is None and user.id != d.proposed_by
+        item["can_approve"] = approval_refusal(user, d.decision_type, case, d.value) is None and user.id != d.proposed_by
         item["case_title"] = case.title
         related = related_documents(db, case)
         item["documents"] = [{"id": doc.id, "type_label": DOC_TYPES[doc.doc_type]["label"], "filename": doc.filename,
@@ -517,6 +536,29 @@ def rework_complete(case_id: int, body: ReworkDone, user: User = Depends(require
     return case_detail(db, case, user)
 
 
+class SarDecision(BaseModel):
+    decision: str
+    note: str = Field(max_length=1000)
+
+
+@router.get("/sar-referrals")
+def sar_referrals(user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    """Open and decided SAR referrals: AML compliance and the BSA/AML officer only (walkthrough note 9)."""
+    from .. import sar
+    if user.role not in sar.SEES:
+        audit.refuse(db, user, "sar_referrals", "SAR referrals are for AML compliance and the BSA/AML officer")
+    return sar.open_referrals(db, user)
+
+
+@router.post("/cases/{case_id}/sar-referral")
+def decide_sar(case_id: int, body: SarDecision, user: User = Depends(require_internal), db: Session = Depends(get_db)):
+    from .. import sar
+    case = get_case_for(db, user, case_id)
+    out = sar.decide(db, case, user, body.decision, body.note)
+    db.commit()
+    return out
+
+
 class Decide(BaseModel):
     note: str | None = None
 
@@ -527,7 +569,7 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
         raise HTTPException(404, "No pending decision with that id")
     spec = DECISIONS[d.decision_type]
     case = db.get(Case, d.case_id)
-    why = approval_refusal(user, d.decision_type, case)
+    why = approval_refusal(user, d.decision_type, case, d.value if approve else None)   # sending back needs no senior
     if why:
         audit.record(db, user, "decision_refused", "case", case.id, case_id=case.id,
                      decision_type=d.decision_type, reason="wrong role for approval", detail=why)
@@ -554,10 +596,12 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
         proposer = db.get(User, d.proposed_by)
         log_event(db, user, category="Fraudulent identity confirmed", risk_type="regulatory", source="identity",
                   summary=f"{case.title}: AML compliance confirmed a fraudulent identity ({d.reference}). The case is "
-                          "declined and stays held (IDFR); AML compliance decides whether a SAR is due within 30 "
-                          "days of the determination (31 CFR 1023.320).",
+                          "declined and stays held (IDFR), and it's referred to the BSA/AML officer, who decides "
+                          "whether a SAR is due within 30 days (31 CFR 1023.320).",
                   area="aml", detected_by=proposer.display_name if proposer else "AML compliance",
                   approved_by=user.display_name, case=case, dedupe_key=f"identity_fraud:{d.id}")
+        from .. import sar
+        sar.refer(db, case, proposer, user, d.reference, "Fraudulent identity confirmed")
     if d.decision_type == "rescission":
         (rescission.approve if approve else rescission.reject)(db, d, case, user)
     elif approve:
@@ -568,7 +612,8 @@ def _decide(decision_id: int, approve: bool, body: Decide, user: User, db: Sessi
                 {"type": d.decision_type, "value": d.value, "on": settings.today().isoformat(),
                  "reference": d.reference}]
         if d.decision_type in ("sanctions", "edd", "alert_review", "identity_fraud", "release", "risk_review",
-                               "product", "estate_docs", "legal_hold", "merger_classification", "negative_consent"):
+                               "product", "estate_docs", "legal_hold", "merger_classification", "negative_consent",
+                               "red_flag_review"):
             decisions[f"{d.decision_type}_reference"] = d.reference
         case.decisions = decisions
         run_case(db, case, user)

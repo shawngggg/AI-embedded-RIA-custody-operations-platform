@@ -40,6 +40,8 @@ def unverified(case: Case) -> list[str]:
         return [p["name"] for p in app.get("people", []) if not p.get("identity_verified")
                 and (p.get("ownership_pct", 0) >= 25 or p.get("role") == "control_person")]
     if case.kind == "account":
+        if case.status == "PENDING_RED_FLAG_REVIEW":   # identity red flags: CIP can record a suspected fraud, any path
+            return sorted({f["person"] for f in (case.extra or {}).get("red_flags", [])})
         if (case.result or {}).get("path") != "B":
             return []                            # Path A relies on the RIA's CIP
         return [p["name"] for p in app.get("holders", []) if not p.get("identity_verified")
@@ -60,7 +62,7 @@ def issue_for_engine(case: Case) -> dict | None:
 
 
 def state(case: Case, user: User) -> dict | None:
-    if user.role not in ("ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "ria_service",
+    if user.role not in ("ops_analyst", "ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "ria_service",
                          "ria_service_lead", "periodic_review"):
         return None
     people = unverified(case)

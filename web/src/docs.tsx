@@ -79,7 +79,7 @@ export function DocUpload({ caseId, types, onUploaded, compact }: {
   const send = (sample: boolean) => {
     const fd = new FormData();
     fd.append("doc_type", docType);
-    fd.append("channel", ops ? channel : "portal");
+    fd.append("channel", ops ? channel : ["ria_admin", "ria_user", "client"].includes(user.role) ? "portal" : "email");
     if (received) fd.append("received_on", received);
     if (sample) fd.append("sample", "true");
     else if (file) fd.append("file", file);

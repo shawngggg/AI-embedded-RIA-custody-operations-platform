@@ -67,9 +67,16 @@ def account_view(db: Session, a: Account) -> dict:
 
 
 def holder_emails(a: Account) -> list[tuple[str, str]]:
-    """(email, name) for each account holder on file: where client notices go."""
-    return [(h["email"].strip(), h.get("name") or a.display_name) for h in (a.application or {}).get("holders", [])
-            if (h.get("email") or "").strip()]
+    """(email, name) for each account holder on file: where client notices go. An email change (an account change of
+    contact information) replaces the first holder's email."""
+    app = a.application or {}
+    changed = ((app.get("maintenance") or {}).get("email") or "").strip()
+    out = []
+    for i, h in enumerate(app.get("holders", [])):
+        email = changed if i == 0 and changed else (h.get("email") or "").strip()
+        if email:
+            out.append((email, h.get("name") or a.display_name))
+    return out
 
 
 def phones_on_file(a: Account) -> list[tuple[str, str]]:
@@ -84,6 +91,31 @@ def phones_on_file(a: Account) -> list[tuple[str, str]]:
     for key in ("phone", "new_phone"):
         if (maint.get(key) or "").strip():
             out.append((maint[key].strip(), "Updated by an account change"))
+    seen, unique = set(), []
+    for number, whose in out:
+        if number not in seen:
+            seen.add(number)
+            unique.append((number, whose))
+    return unique
+
+
+RECENT_CHANGE_DAYS = 30
+
+
+def phones_before_recent_change(a: Account, days: int = RECENT_CHANGE_DAYS) -> list[tuple[str, str]]:
+    """The numbers to call back on when a change itself is in question (walkthrough note 11): the holders' numbers
+    from opening, and numbers from contact changes older than `days`. A number added by a recent change, or one with
+    no date on record, isn't offered: an account takeover changes the phone first."""
+    from datetime import date as _date
+    app = a.application or {}
+    out = [(h["phone"].strip(), h.get("name") or "Account holder") for h in app.get("holders", [])
+           if (h.get("phone") or "").strip()]
+    cutoff = settings.today().toordinal() - days
+    for ch in app.get("contact_changes") or []:
+        when = _date.fromisoformat(ch["on"]).toordinal()
+        for key in ("phone", "new_phone"):
+            if ch.get(key) and when < cutoff:
+                out.append((ch[key].strip(), f"Changed on {ch['on']}"))
     seen, unique = set(), []
     for number, whose in out:
         if number not in seen:

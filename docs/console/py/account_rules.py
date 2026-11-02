@@ -91,6 +91,14 @@ def tenancy_shares_off(ctx: AccountContext, as_of: date) -> bool:
     return abs(sum(p.ownership_pct for p in holders) - 100) > 0.001
 
 
+def tenancy_shares_detail(ctx: AccountContext, as_of: date) -> str:
+    """What the requested item says is wrong with tenants-in-common shares."""
+    if not tenancy_shares_off(ctx, as_of):
+        return ""
+    total = sum(p.ownership_pct for p in ctx.application.holders if p.role == "account_holder")
+    return f"they add up to {total:g}%, not 100%"
+
+
 def needs_employer_consent(ctx: AccountContext, as_of: date) -> list[str]:
     app = ctx.application
     return [] if app.employer_consent else [f"{p.name} ({p.finra_affiliation or 'a FINRA member'})"
@@ -121,10 +129,12 @@ COMPUTED = {
     "missing_phone": missing_phone,
     "beneficiary_shares_off": beneficiary_shares_off,
     "tenancy_shares_off": tenancy_shares_off,
+    "tenancy_shares_detail": tenancy_shares_detail,
     "needs_employer_consent": needs_employer_consent,
 }
 
 REVIEW = "2026-10-25"   # added after the industry-practice review (Shawn, Oct. 25, 2026)
+WALK = "2026-11-01"     # changed after the role-by-role walkthrough (Shawn, Nov. 1, 2026)
 
 ACCOUNT_RULES = [
     # --- In good order -----------------------------------------------------
@@ -192,6 +202,12 @@ ACCOUNT_RULES = [
      "field": "beneficiary_shares_off", "operator": "is_present",
      "disposition": Disposition.REFER, "reason": "Beneficiary shares don't add up to 100%",
      "required_documents": ["Beneficiary designation with shares that add up to 100%"]},
+    {"rule_id": "ACC-011", "version": "2", "effective_date": WALK,
+     "source": "Platform policy: beneficiary shares must be complete, or the custodian can't settle a claim. v2 names "
+               "the totals in the item",
+     "field": "beneficiary_shares_off", "operator": "is_present", "item_detail": "beneficiary_shares_off",
+     "disposition": Disposition.REFER, "reason": "Beneficiary shares don't add up to 100%",
+     "required_documents": ["Beneficiary designation with shares that add up to 100%"]},
     {"rule_id": "ACC-012", "version": "1", "effective_date": REVIEW,
      "source": "State property law: a joint account's tenancy decides who owns it at a death",
      "all": [{"field": "application.registration_type", "operator": "equals", "value": "joint"},
@@ -201,6 +217,11 @@ ACCOUNT_RULES = [
     {"rule_id": "ACC-013", "version": "1", "effective_date": REVIEW,
      "source": "State property law: tenants in common hold stated shares",
      "field": "tenancy_shares_off", "operator": "equals", "value": True,
+     "disposition": Disposition.REFER, "reason": "Tenants-in-common shares don't add up to 100%",
+     "required_documents": ["Each joint owner's share"]},
+    {"rule_id": "ACC-013", "version": "2", "effective_date": WALK,
+     "source": "State property law: tenants in common hold stated shares. v2 names the total in the item",
+     "field": "tenancy_shares_off", "operator": "equals", "value": True, "item_detail": "tenancy_shares_detail",
      "disposition": Disposition.REFER, "reason": "Tenants-in-common shares don't add up to 100%",
      "required_documents": ["Each joint owner's share"]},
     {"rule_id": "ACC-014", "version": "1", "effective_date": REVIEW,

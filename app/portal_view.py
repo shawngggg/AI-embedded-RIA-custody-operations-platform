@@ -65,7 +65,7 @@ KIND_STATUS = {
 # The summary lines the portal may show, by kind (no controls, checkers, exceptions, or drafted corrections)
 PORTAL_SUMMARY = {
     "transfer": ("Type", "Account", "Amount", "Counterparty", "Rail", "Submitted", "Expected to settle",
-                 "Funds available", "Returned"),
+                 "Funds available", "Returned", "Not accepted because"),
     "entitlement": ("Capability", "Account", "Limits", "Expires"),
     "product": ("Product", "Type", "Sponsor"),
     "offboarding": ("Account", "Receiving firm"),
@@ -174,6 +174,16 @@ def _history(db: Session, c: Case) -> list[dict]:
     return out
 
 
+def refusal_note(c: Case) -> str | None:
+    """A declined transfer the requester can fix says why (MM-001, MM-003, MM-006, MM-011): the engine records the
+    reason under "Not accepted because" only for those. A risk review, a sanctions hold, or a Rule 2165 decline never
+    does, so they keep the neutral note."""
+    reason = ((c.result or {}).get("summary") or {}).get("Not accepted because")
+    if c.kind == "transfer" and reason and status(c.status, c.kind) == "DECLINED":
+        return f"We couldn't accept this request: {reason}."
+    return None
+
+
 def summary(db: Session, c: Case) -> dict:
     firm = db.get(Firm, c.firm_id) if c.firm_id else None
     return {"id": c.id, "kind": c.kind, "title": c.title, "status": status(c.status, c.kind),
@@ -189,7 +199,7 @@ def detail(db: Session, c: Case, user) -> dict:
     docs = {d.id: document(db, d) for d in case_documents(db, c)}
     corrections = [{**x, "rule_id": None, "documents": [docs[d["id"]] for d in x["documents"] if d["id"] in docs]}
                    for x in corrections_for(db, c)]
-    return {**summary(db, c), "status_note": NOTES[s],
+    return {**summary(db, c), "status_note": refusal_note(c) or NOTES[s],
             "requested_items": items if s in ATTENTION else [],
             "corrections": corrections, "documents": list(docs.values()),
             "restrictions_portal": restrictions_for(db, c.account_id if c.kind != "firm" else None),

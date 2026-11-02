@@ -18,12 +18,12 @@ from risk import ACCOUNT_FACTORS, FATF_LISTS, FIRM_FACTORS
 from transferability import XFER_RULES
 from account_changes import CHANGE_RULES
 
-from .. import audit
+from .. import audit, setup_links
 from ..config import settings
 from ..db import get_db
 from ..orm import (DECISION_ROLES, LICENSED_ROLES, OPS_ROLES, OPS_TEAMS, NEEDS_SERIES_7, REGISTRATIONS, ROLES, SHORT_REGISTRATION,
                    Account, Firm, RoleGrant, User, utcnow)
-from ..security import hash_password, require_internal, require_roles
+from ..security import require_internal, require_roles
 from ..risk_register import log_access_event
 from ..views import iso, user_dict
 
@@ -95,9 +95,8 @@ def users(user: User = Depends(admins), db: Session = Depends(get_db)):
 class NewUser(BaseModel):
     username: str = Field(min_length=3, max_length=80, pattern=r"^[a-z0-9._-]+$")
     display_name: str = Field(min_length=2)
-    email: str | None = None
+    email: str = Field(min_length=5, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     role: str
-    password: str = Field(min_length=10)
     firm_crd: str | None = None
     client_account_id: str | None = None
     registrations: list[str] = Field(default_factory=list)   # FINRA registrations, RIA service team only
@@ -160,8 +159,9 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
     _check_registrations(body.role, body.registrations, body.individual_crd)
     _check_team(body.role, body.team)
     decision = body.role in DECISION_ROLES
+    # No password from the administrator: the person sets their own from a one-time link (walkthrough note 18)
     u = User(username=body.username, display_name=body.display_name, email=body.email, role=body.role,
-             password_hash=hash_password(body.password), firm_id=firm_id, client_account_id=body.client_account_id,
+             password_hash=None, firm_id=firm_id, client_account_id=body.client_account_id,
              active=not decision, team=body.team if body.role in OPS_ROLES else None)
     db.add(u)
     db.flush()
@@ -174,8 +174,15 @@ def create_user(body: NewUser, actor: User = Depends(admins), db: Session = Depe
         db.flush()
     audit.record(db, actor, "user_created", "user", u.id, username=u.username, role=u.role,
                  waiting_for_approval=decision or None, registrations=body.registrations or None)
+    link = None if decision else setup_links.issue(db, u, actor, "new_user")    # a decision role: once approved
     db.commit()
-    return {"user": user_dict(db, u), "grant": _grant_dict(db, grant) if grant else None}
+    return {"user": user_dict(db, u), "grant": _grant_dict(db, grant) if grant else None,
+            "setup_link": _link_dict(link) if link else None}
+
+
+def _link_dict(link) -> dict:
+    """What the administrator sees of a setup link: where it went and when it expires, never the link itself."""
+    return {"sent_to": link.sent_to, "purpose": link.purpose, "expires_at": link.expires_at.isoformat()}
 
 
 class RoleChange(BaseModel):
@@ -254,8 +261,28 @@ def reset_mfa(user_id: int, actor: User = Depends(admins), db: Session = Depends
         raise HTTPException(403, "Another administrator resets your second factor")
     target.mfa_secret, target.mfa_enabled_at, target.mfa_last_step = None, None, None
     audit.record(db, actor, "mfa_reset", "user", target.id)
+    link = setup_links.issue(db, target, actor, "new_user" if not target.password_hash else "mfa_reset")
     db.commit()
-    return user_dict(db, target)
+    return {**user_dict(db, target), "setup_link": _link_dict(link)}
+
+
+@router.post("/users/{user_id}/setup-link")
+def send_setup_link(user_id: int, actor: User = Depends(admins), db: Session = Depends(get_db)):
+    """Email the person a new link: to finish setting up, or to reset a forgotten password. The administrator never
+    sees the link or sets the password (walkthrough note 18)."""
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "No such user")
+    _scope(db, actor, target=target)
+    if target.id == actor.id:
+        raise HTTPException(403, "Another administrator sends your reset link")
+    if target.is_demo:
+        raise HTTPException(409, "Demo users sign in without a password")
+    if not target.active:
+        raise HTTPException(409, "This account isn't active")
+    link = setup_links.issue(db, target, actor, "password_reset" if target.password_hash else "new_user")
+    db.commit()
+    return {**user_dict(db, target), "setup_link": _link_dict(link)}
 
 
 @router.get("/grants")
@@ -290,6 +317,8 @@ def _decide_grant(grant_id: int, approve: bool, actor: User, db: Session):
             target.registrations, target.individual_crd = [], None
     audit.record(db, actor, "role_grant_approved" if approve else "role_grant_rejected", "user", target.id,
                  role=g.role, registrations=g.registrations)
+    if approve and setup_links.needs_setup(db, target):
+        setup_links.issue(db, target, actor, "new_user")          # the new person's access is live: their link
     db.commit()
     return _grant_dict(db, g)
 

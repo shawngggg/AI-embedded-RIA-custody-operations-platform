@@ -4,12 +4,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import audit, totp
+from .. import audit, setup_links, totp
 from ..crypto import UNREADABLE, open_, seal
 from ..config import settings
 from ..db import get_db
 from ..orm import User, utcnow
-from ..security import COOKIE, current_user, make_token, verify_password
+from ..security import COOKIE, current_user, hash_password, make_token, verify_password
 from ..views import user_dict
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -82,12 +82,60 @@ def login(body: Login, db: Session = Depends(get_db)):
         audit.record(db, user, "password_verified", "user", user.id, next="totp")
         db.commit()
         return {"mfa_required": True, "challenge": totp.challenge(user.id, "mfa")}
-    secret = totp.new_secret()
-    user.mfa_secret = seal(secret, "mfa_secret")
-    audit.record(db, user, "mfa_enrollment_started", "user", user.id)
+    # A password sign-in never enrolls a second factor: only the person's own setup link does (walkthrough note 18)
+    audit.record(db, user, "sign_in_refused", "user", user.id, reason="no second factor enrolled")
     db.commit()
+    raise HTTPException(403, "Finish setting up your authenticator from the link we emailed you. If it expired, ask "
+                             "your administrator for a new one")
+
+
+def _start_enrollment(db: Session, user: User) -> dict:
+    secret = totp.new_secret()
+    user.mfa_secret, user.mfa_enabled_at, user.mfa_last_step = seal(secret, "mfa_secret"), None, None
+    audit.record(db, user, "mfa_enrollment_started", "user", user.id)
     return {"mfa_setup_required": True, "challenge": totp.challenge(user.id, "mfa_setup"), "secret": secret,
             "otpauth": totp.otpauth_uri(secret, user.username)}
+
+
+class SetupCheck(BaseModel):
+    token: str
+
+
+class Setup(BaseModel):
+    token: str
+    password: str | None = None              # the new password (a new user, or a reset)
+    current_password: str | None = None      # an authenticator reset proves the password the person already has
+
+
+@router.post("/setup/check")
+def setup_check(body: SetupCheck, db: Session = Depends(get_db)):
+    """What a setup link is for, so the page asks the right question."""
+    link, user = setup_links.find(db, body.token)
+    return {"purpose": link.purpose, "title": setup_links.PURPOSES[link.purpose], "username": user.username,
+            "display_name": user.display_name, "expires_at": link.expires_at.isoformat(),
+            "min_password": setup_links.MIN_PASSWORD}
+
+
+@router.post("/setup")
+def setup(body: Setup, db: Session = Depends(get_db)):
+    """Use a one-time link: set a password (or prove the current one), then the second factor. The link is spent on
+    the first call that gets this far; the session comes from the authenticator code, as with any sign-in."""
+    link, user = setup_links.find(db, body.token)
+    if link.purpose == "mfa_reset":
+        if not verify_password(body.current_password or "", user.password_hash):
+            _failed_sign_in(db, user.username)
+            raise HTTPException(401, "That password is wrong")
+    else:
+        setup_links.check_password(body.password or "")
+        user.password_hash = hash_password(body.password)
+        audit.record(db, user, "password_set", "user", user.id, via=link.purpose)
+    link.used_at = utcnow()
+    if link.purpose == "password_reset" and user.mfa_enabled_at:
+        out = {"mfa_required": True, "challenge": totp.challenge(user.id, "mfa")}
+    else:
+        out = _start_enrollment(db, user)
+    db.commit()
+    return out
 
 
 class SecondFactor(BaseModel):

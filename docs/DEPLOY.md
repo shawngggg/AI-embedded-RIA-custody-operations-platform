@@ -222,7 +222,8 @@ because Cloud Run starts the container and Neon resumes the database.
 ## 8. The nightly batch (Cloud Scheduler)
 
 Every business day at 6:30 pm Eastern the batch runs the settlement cycle (with the Rule 15c3-3 reserve computation and
-possession-or-control check), reconciliation, ongoing sanctions screening, and NIGO aging (`app/nightly.py`). Cloud
+possession-or-control check), reconciliation, ongoing sanctions screening, NIGO aging, and rolling review deadlines
+(`app/nightly.py`). Cloud
 Scheduler calls `POST /api/nightly/run` with a shared token in the `X-Nightly-Token` header. The token is generated
 in Cloud Shell straight into Secret Manager, so nobody types or sees it. Until this is set up, the operations
 supervisor runs the same batch with **Settlement and recon → Run end of day now**.
@@ -245,16 +246,27 @@ gcloud scheduler jobs run ria-nightly --location us-central1     # try it once n
 ```
 
 If the service runs as the default compute identity rather than `ria-custody-run` (step 3 without the federation
-setup), bind that identity to the secret instead. The scheduler skips weekends; on a market or Federal Reserve holiday
-the batch still runs, and the calendars inside it treat the day as closed. A wrong or missing token is refused (403)
-and logged.
+setup), bind that identity to the secret instead. The scheduler skips weekends. On a day both the Federal Reserve and
+NSCC are closed, the settlement cycle runs as of the last business day; a re-run sends no new funding instruction
+unless something posted since. A wrong or missing token is refused (403) and logged.
+
+## 9. People who sign in with a password
+
+An administrator never sets a password (since Nov. 2, 2026). **Users and rules → Add a user** needs the person's
+email: they get a one-time link, good for 72 hours, to set their own password and then their authenticator. The link
+goes only to their email, so it needs the Microsoft 365 connection (with their domain in `MAIL_ALLOWED_DOMAINS`); the
+outbox shows that the email went, never the link. **Send a password reset link** and **Reset second factor** send a
+new link the same way.
+
+A non-demo user created before this change who never enrolled an authenticator can't sign in with the password alone
+any more: send them a setup link. Anyone already enrolled signs in as before.
 
 ## Settings
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` | SQLite file in `data/` | Postgres connection string in production |
-| `SECRET_KEY` | development key | Signs session cookies. Required when `COOKIE_SECURE=true` |
+| `SECRET_KEY` | development key | Signs session cookies and keys the AI review QA sample's random draw. Required when `COOKIE_SECURE=true` |
 | `COOKIE_SECURE` | `false` | `true` behind HTTPS (Cloud Run) |
 | `DEMO_MODE` | `true` | Shows demo sign-in by role and allows the demo reset |
 | `SEED_ON_START` | `true` | Seeds an empty database on startup |
@@ -269,7 +281,7 @@ and logged.
 | `MS_CLIENT_SECRET` | none | The app's client secret, if not federated (from Secret Manager) |
 | `MAIL_SENDER` | none | The mailbox notices are sent from |
 | `MAIL_ALLOWED_DOMAINS` | none | Comma-separated domains a live provider may send to; empty means any |
-| `PORTAL_URL` | the demo's portal URL | Base of the portal links in notices |
+| `PORTAL_URL` | the demo's portal URL | Base of the portal links in notices, and of the one-time setup links (`/setup`) |
 | `FIELD_KEY` | derived from `SECRET_KEY` | 32 random bytes, base64 (Secret Manager): the AES-256-GCM key that seals tax IDs, dates of birth, and MFA secrets at rest |
 | `NIGHTLY_TOKEN` | none | The nightly batch's shared token (Secret Manager); without it only the supervisor's hand run works |
 | `CLOCK` | the real Eastern time | A fixed `HH:MM` for the rail cutoffs (tests and the seed pin it) |

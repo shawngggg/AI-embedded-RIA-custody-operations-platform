@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..access import capabilities, require_capability
+from ..access import approval_refusal, capabilities, require_capability
 from ..config import settings
 from ..db import get_db
 from ..orm import OPS_TEAMS, Case, OpsRiskEvent, PendingDecision, Restriction, Review, RoleGrant, User
@@ -41,7 +41,8 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
     now = datetime.now(timezone.utc)
     pending = db.scalars(select(PendingDecision).where(PendingDecision.status == "pending")
                          .order_by(PendingDecision.proposed_at)).all()
-    to_approve = [d for d in pending if user.role in DECISIONS[d.decision_type]["approver"] and d.proposed_by != user.id]
+    to_approve = [d for d in pending if d.proposed_by != user.id
+                  and approval_refusal(user, d.decision_type, db.get(Case, d.case_id), d.value) is None]
     my_proposals = [d for d in pending if d.proposed_by == user.id]
     if sweep_sla_breaches(db):
         db.commit()
@@ -73,6 +74,23 @@ def work(user: User = Depends(require_capability("work")), db: Session = Depends
         reviews = [review_dict(r, today) for r in db.scalars(select(Review)).all()]
         out["reviews_due"] = sum(1 for r in reviews if r["due"] or r["overdue"])
         out["reviews_overdue"] = sum(1 for r in reviews if r["overdue"])
+        out["reviews_with_aml"] = sum(1 for r in reviews if r["status"] == "awaiting_approval")
+    if user.role in ("aml_compliance", "bsa_officer"):       # medium- and high-risk completions (walkthrough note 17)
+        out["reviews_to_approve"] = len(db.scalars(select(Review.id).where(Review.status == "awaiting_approval")).all())
+    if can["settlement"] and (user.role == "ops_supervisor" or user.team == "settlement"):
+        # The settlement team's work lives on its workbench; the Work page counts it (walkthrough note 22)
+        from ..orm import BankReceipt, SettlementRun, StreetItem
+        last = db.scalar(select(SettlementRun).order_by(SettlementRun.id.desc()))
+        prot = ((last.result or {}).get("protection") or {}) if last else {}
+        out["settlement"] = {
+            "breaks": len(db.scalars(select(StreetItem.id).where(StreetItem.status.in_(("open", "proposed")))).all()),
+            "unapplied": len(db.scalars(select(BankReceipt.id).where(BankReceipt.status == "unapplied")).all()),
+            "reserve_deficit": float(((prot.get("reserve") or {}).get("deficit")) or 0),
+            "control_deficits": len(((prot.get("possession") or {}).get("deficits")) or []),
+            "last_cycle": last.business_date.isoformat() if last else None}
+    if user.role in ("aml_compliance", "bsa_officer"):
+        from ..sar import open_referrals
+        out["sar_referrals"] = open_referrals(db, user)
     if user.role == "platform_admin":
         out["grants_waiting"] = len([g for g in db.scalars(select(RoleGrant).where(RoleGrant.status == "pending")).all()
                                      if g.requested_by != user.id])

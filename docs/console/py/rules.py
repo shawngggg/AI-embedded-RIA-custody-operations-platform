@@ -236,14 +236,23 @@ def matches(subject: Any, rule: dict, as_of: date,
     return True
 
 
-def decision_from(rule: dict) -> Decision:
+def decision_from(rule: dict, subject: Any = None, as_of: date | None = None,
+                  computed: ComputedFields | None = None) -> Decision:
+    """A matched rule's decision. A rule with "item_detail" names a field whose value says what's wrong; it's added to
+    each requested item, so the requester sees the problem, not only the item ("shares add up to 90%")."""
+    items = list(rule.get("required_documents", []))
+    if rule.get("item_detail") and subject is not None and as_of is not None:
+        found, value = resolve_field(subject, rule["item_detail"], as_of, computed)
+        detail = "; ".join(str(v) for v in value) if isinstance(value, (list, tuple)) else value
+        if found and detail:
+            items = [f"{i} ({detail})" for i in items]
     return Decision(
         disposition=rule["disposition"],
         reason=rule["reason"],
         rule_id=rule["rule_id"],
         rule_version=str(rule["version"]),
         source=rule["source"],
-        required_documents=list(rule.get("required_documents", [])),
+        required_documents=items,
         owner=rule.get("owner", "operations"),
     )
 
@@ -256,7 +265,7 @@ def evaluate_all(subject: Any, rules: list[dict], as_of: date,
                  computed: ComputedFields | None = None) -> Evaluation:
     """Every rule in force that matches becomes a finding."""
     warnings: list[str] = []
-    decisions = [decision_from(r) for r in active_rules(rules, as_of)
+    decisions = [decision_from(r, subject, as_of, computed) for r in active_rules(rules, as_of)
                  if matches(subject, r, as_of, computed, warnings)]
     return Evaluation(as_of=as_of, decisions=decisions, warnings=warnings)
 
@@ -272,7 +281,7 @@ def evaluate_first(subject: Any, rules: list[dict], as_of: date,
     warnings: list[str] = []
     for rule in active_rules(rules, as_of):
         if matches(subject, rule, as_of, computed, warnings):
-            return Evaluation(as_of=as_of, decisions=[decision_from(rule)], warnings=warnings)
+            return Evaluation(as_of=as_of, decisions=[decision_from(rule, subject, as_of, computed)], warnings=warnings)
     return Evaluation(as_of=as_of, decisions=[default] if default else [], warnings=warnings)
 
 

@@ -99,7 +99,7 @@ function Acceptance({ s }: { s: SuggestionSummary }) {
             <div className="tile"><div className="label">Rejected</div><div className="value">{l.rejected}</div><div className="sub">not in the package</div></div>
             <div className="tile"><div className="label">Waiting</div><div className="value">{l.pending}</div><div className="sub">not reviewed yet</div></div>
             {s.qa && <div className="tile"><div className="label">Second reviewer agrees</div><div className="value">{pct(s.qa.agreement)}</div>
-              <div className="sub">{s.qa.checked} of {s.qa.sampled} sampled reviews checked (1 in {s.qa.every})</div></div>}
+              <div className="sub">{s.qa.checked} of {s.qa.sampled} sampled reviews checked (a random 1 in {s.qa.every}, key {s.qa.key})</div></div>}
           </div>
           <div className="grid two">
             <div className="scroll"><table>

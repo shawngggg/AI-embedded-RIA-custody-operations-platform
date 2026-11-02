@@ -297,14 +297,19 @@ def securities(user: User = Depends(current_user), db: Session = Depends(get_db)
 # --------------------------------------------------------------------------- settlement (map 12)
 def _settlement_view(db: Session) -> dict:
     today = settings.today()
+    bd = settlement.business_date(today)
     last = db.scalar(select(SettlementRun).order_by(SettlementRun.id.desc()))
     receipts = db.scalars(select(BankReceipt).order_by(BankReceipt.id.desc()).limit(50)).all()
     proof = ledger.proof(db)
-    return {"as_of": today.isoformat(), "last_run": settlement.run_dict(last), "checks": proof["checks"],
+    return {"as_of": bd.isoformat(), "calendar_day": today.isoformat(), "closed_today": bd != today,
+            "last_run": settlement.run_dict(last), "checks": proof["checks"],
             "trial_balance": ledger.trial_balance(db), "masters": ledger.masters(db),
             "receipts": [settlement.receipt_dict(r, today) for r in receipts],
-            "in_transit": settlement.in_transit(db), "today_flows": settlement.net_flows(db, today),
-            "protection": protection.compute(db)}
+            "in_transit": settlement.in_transit(db),
+            "today_flows": settlement.net_flows(db, bd, since=settlement.previous_business_date(bd)),
+            "instructions": settlement.instructions(db, bd),
+            "reserve_moves": settlement.reserve_moves(db, bd, settlement.previous_business_date(bd)),
+            "protection": protection.compute(db, bd)}
 
 
 @router.get("/settlement")

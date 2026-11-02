@@ -29,9 +29,19 @@ def may_propose(u: User, decision_type: str) -> bool:
     return u.role in spec["proposer"] and _team_ok(u, spec)
 
 
-def approval_refusal(u: User, decision_type: str, case) -> str | None:
+SENIOR_EDD = "Senior management approval (foreign PEP)"
+
+
+def needs_senior_approval(case) -> bool:
+    """A foreign PEP's EDD needs senior management's approval (FATF Recommendation 12): the BSA/AML officer."""
+    return SENIOR_EDD in (((case.result or {}).get("risk") or {}).get("edd_requirements") or [])
+
+
+def approval_refusal(u: User, decision_type: str, case, value: str | None = None) -> str | None:
     """Why this person can't approve this decision on this case, or None."""
     spec = DECISIONS[decision_type]
+    if decision_type == "edd" and value == "approved" and needs_senior_approval(case) and u.role != "bsa_officer":
+        return "A foreign PEP needs senior management approval: the BSA/AML officer approves this EDD"
     if u.role not in spec["approver"] or not _team_ok(u, spec):
         return f"Only {', '.join(spec['approver'])}" + (f" on the {', '.join(spec['teams'])} team"
                                                         if spec.get("teams") else "") + \
@@ -43,8 +53,8 @@ def approval_refusal(u: User, decision_type: str, case) -> str | None:
         if amount > limit and u.role != "ops_supervisor":
             return f"${amount:,.2f} is over an analyst's ${limit:,} dollar authority: the operations supervisor checks it"
     return None
-REVIEWERS = {"periodic_review", "aml_compliance", "ops_supervisor"}
-OVERSIGHT = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service_lead", "platform_admin"}
+REVIEWERS = {"periodic_review", "aml_compliance", "bsa_officer", "ops_supervisor"}
+OVERSIGHT = {"ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "ria_service_lead", "platform_admin"}
 TEAM_LEADS = {"ops_supervisor", "ria_service_lead"}     # the operations dashboard is for the people who run queues
 # Operations teams whose work sends notices to RIAs and clients in release 1 (onboarding, identity verification,
 # account maintenance); the other teams' functions arrive in later releases
@@ -89,9 +99,9 @@ def capabilities(u: User) -> dict[str, bool]:
         "transfers": _planned(u, "transfers"), "settlement": _planned(u, "settlement"),
         "planned_trading": _planned(u, "trading"), "planned_billing": _planned(u, "billing"),
         # Ongoing screening: the sanctions team runs it; AML compliance and the supervisor read it (app/screening.py)
-        "screening": u.role in {"sanctions", "aml_compliance", "ops_supervisor"},
+        "screening": u.role in {"sanctions", "aml_compliance", "bsa_officer", "ops_supervisor"},
         # Regulation S-P incidents: the access owner, the operations supervisor, and compliance (app/privacy.py)
-        "privacy": u.role in {"platform_admin", "ops_supervisor", "aml_compliance"},
+        "privacy": u.role in {"platform_admin", "ops_supervisor", "aml_compliance", "bsa_officer"},
         "admin": u.role == "platform_admin",
         "portal": u.role in PORTAL_ROLES,
     }

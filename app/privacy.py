@@ -12,7 +12,8 @@ firms and June 3, 2026 for smaller ones). The steps the rule requires, in order:
    can do (watch statements, a fraud alert or credit freeze, the FTC's identity theft site).
 
 A service provider's incident counts too: the provider owes the custodian notice within 72 hours of becoming aware.
-Each incident is also a regulatory risk event in the access and authentication area.
+Each incident is also a regulatory risk event in AML compliance's area, where compliance sees it. A "no notice"
+determination waits for a second person with the privacy capability before the incident closes (walkthrough note 10).
 """
 from __future__ import annotations
 
@@ -45,13 +46,17 @@ def provider_late(i: PrivacyIncident) -> bool | None:
 
 def to_dict(i: PrivacyIncident) -> dict:
     today = settings.today()
-    open_notice = i.determination != "no_notice" and not i.notices_sent_on
+    open_notice = not (i.determination == "no_notice" and i.approved_by) and not i.notices_sent_on
     return {"id": i.id, "ref": i.ref, "summary": i.summary, "status": i.status, "aware_on": i.aware_on.isoformat(),
             "reported_by": i.reported_by, "service_provider": i.service_provider,
             "provider_late": provider_late(i), "accounts": i.accounts, "information": i.information,
             "contained_on": i.contained_on.isoformat() if i.contained_on else None, "containment": i.containment,
             "determination": i.determination, "determination_reason": i.determination_reason,
-            "determined_by": i.determined_by, "notice_due": due(i).isoformat(),
+            "determined_by": i.determined_by, "determined_by_id": i.determined_by_id, "approved_by": i.approved_by,
+            "approved_on": i.approved_on.isoformat() if i.approved_on else None,
+            "provider_aware_at": i.provider_aware_at.isoformat() if i.provider_aware_at else None,
+            "provider_notified_at": i.provider_notified_at.isoformat() if i.provider_notified_at else None,
+            "notice_due": due(i).isoformat(),
             "days_left": (due(i) - today).days if open_notice else None,
             "overdue": open_notice and today > due(i),
             "notices_sent_on": i.notices_sent_on.isoformat() if i.notices_sent_on else None,
@@ -68,7 +73,7 @@ def open_incident(db: Session, actor: User, *, summary: str, aware_on: date, acc
     db.add(i)
     db.flush()
     e = log_event(db, actor, category="Possible data incident (Reg S-P)", risk_type="regulatory", source="privacy",
-                  area="access", detected_by=actor.display_name,
+                  area="aml", detected_by=actor.display_name,
                   summary=f"{i.ref}: {summary} Customer notice due by {due(i).isoformat()} unless the investigation "
                           "documents that harm isn't reasonably likely.", dedupe_key=f"privacy:{i.ref}")
     i.risk_event_id = e.id if e else None
@@ -83,11 +88,24 @@ def contain(db: Session, actor: User, i: PrivacyIncident, note: str) -> None:
 
 
 def determine(db: Session, actor: User, i: PrivacyIncident, decision: str, reason: str) -> None:
+    """Notify goes straight to the notices. No notice is a proposal: a second person approves it (approve_no_notice),
+    and until then the 30-day clock keeps running."""
     i.determination, i.determination_reason, i.determined_by = decision, reason, actor.display_name
+    i.determined_by_id, i.approved_by, i.approved_on = actor.id, None, None
     if decision == "no_notice":
-        i.status = "closed"
+        i.status = "no_notice_proposed"
     audit.record(db, actor, "privacy_incident_determined", "privacy_incident", i.ref, decision=decision,
                  reason=reason, basis=SOURCE)
+
+
+def approve_no_notice(db: Session, actor: User, i: PrivacyIncident, approve: bool, note: str) -> None:
+    if approve:
+        i.status, i.approved_by, i.approved_on = "closed", actor.display_name, settings.today()
+    else:                                  # back to the determination: notify, or a better-documented no notice
+        i.status, i.determination, i.determination_reason, i.determined_by, i.determined_by_id = \
+            "contained", None, None, None, None
+    audit.record(db, actor, "privacy_no_notice_approved" if approve else "privacy_no_notice_rejected",
+                 "privacy_incident", i.ref, note=note)
 
 
 def send_notices(db: Session, actor: User, i: PrivacyIncident) -> int:
@@ -105,8 +123,7 @@ def send_notices(db: Session, actor: User, i: PrivacyIncident) -> int:
                                    f"What we've done: {i.containment or 'We contained the incident.'}\n\n"
                                    "What you can do: watch your statements and tell us about anything you don't "
                                    "recognize; consider a fraud alert or a credit freeze with the credit bureaus; "
-                                   "and see IdentityTheft.gov (the FTC) for steps to protect yourself.\n\n"
-                                   "Call us at the number on your statement with any questions.")
+                                   "and see IdentityTheft.gov (the FTC) for steps to protect yourself.")
     i.notices_sent_on, i.notices_sent, i.status = settings.today(), sent, "closed"
     audit.record(db, actor, "privacy_notices_sent", "privacy_incident", i.ref, notices=sent,
                  on_time=settings.today() <= due(i))

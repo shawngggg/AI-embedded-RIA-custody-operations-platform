@@ -6,7 +6,8 @@ The nightly batch: what runs at the end of every business day, in order.
 2. Reconciliation against DTC, the transfer agents, the sponsors, and the banks.
 3. Ongoing sanctions screening of everyone against the flagged list.
 4. NIGO aging: reminders, and withdrawals at 30 days.
-5. After a quarter ends, its account statements (once).
+5. Rolling review deadlines: a refresh past its response date restricts new activity (walkthrough note 16).
+6. After a quarter ends, its account statements (once).
 
 Cloud Scheduler calls POST /api/nightly/run with the X-Nightly-Token header (the token lives in Secret Manager; see
 docs/DEPLOY.md). The operations supervisor can also run it by hand. Without the token configured, only the hand run
@@ -16,7 +17,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from . import audit, nigo, recon, screening, settlement, statements
+from . import audit, nigo, recon, reviews, screening, settlement, statements
 from .config import settings
 from .orm import User
 
@@ -26,6 +27,7 @@ def run(db: Session, actor: User | None) -> dict:
     rec = recon.run(db, actor)
     screened = screening.run(db, actor, "nightly")
     aged = nigo.run(db, actor)
+    restricted = reviews.enforce_deadlines(db, actor)
     from .orm import Statement
     from sqlalchemy import select
     start, end = statements.previous_quarter()
@@ -39,6 +41,7 @@ def run(db: Session, actor: User | None) -> dict:
            "recon": {"run": rec.id, "breaks": rec.result["breaks"], "certified": rec.result["certifiable"]},
            "screening": {"parties": screened["parties"], "alerts": len(screened["alerts"])},
            "nigo": {"reminded": len(aged["reminded"]), "withdrawn": len(aged["withdrawn"])},
+           "reviews": {"restricted": restricted},
            "statements": {"period_end": end.isoformat(), "generated": made["generated"] if made else 0}}
     audit.record(db, actor, "nightly_run", "batch", out["on"], **{k: v for k, v in out.items() if k != "on"})
     return out

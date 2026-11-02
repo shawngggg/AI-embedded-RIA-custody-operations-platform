@@ -11,6 +11,7 @@ the illustrative demo output is tracked apart and never counted.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import uuid
 from collections import defaultdict
 from datetime import date
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session
 from extraction import FIRM_FIELDS, PERSON_ROLES, SYSTEM, _parse, build_prompt
 
 from . import audit
+from .config import settings
 from .orm import AiSuggestion, Case, Firm, User, iso, utcnow
 
 # Rejecting a value leaves the field empty. These can be empty: the rules then treat the item as missing.
@@ -33,7 +35,11 @@ CLEARS_TO = {"sec_file_number": None, "crd_number": None, "adv_last_annual_amend
 # is edited to what the package says, never rejected
 CHOICES = {"registration": ["SEC", "state", "none"], "entity_type": ["LLC", "corporation", "partnership"]}
 MIN_REASON = 10
-QA_EVERY = 5            # platform policy: 1 in 5 reviewed values gets a second person's check (by suggestion id)
+QA_EVERY = 5            # platform policy: 1 in 5 reviewed values, on average, gets a second person's check
+# The sample is a keyed random draw (walkthrough note 22): HMAC-SHA256 of the suggestion id under a key derived from
+# the platform secret. Nobody can predict or steer which reviews are checked (every fifth id could be), and anyone
+# holding the key can reproduce the draw; the key's fingerprint is recorded with each draw and on the summary.
+QA_LABEL = b"ai-review-qa-sample-v1"
 # The CIP team reviews what identifies the firm and the people behind it (name, address, TIN, owners and control
 # persons, and the formation and ownership documents); onboarding reviews the rest
 CIP_FIELDS = {"legal_name", "principal_address", "ein", "people", "formation_documents", "ownership_chart",
@@ -241,14 +247,30 @@ def review(db: Session, case: Case, s: AiSuggestion, user: User, action: str, va
     s.status = {"accept": "accepted", "edit": "edited", "reject": "rejected"}[action]
     s.final, s.reason = final, reason or None
     s.reviewed_by, s.reviewed_by_name, s.reviewed_at = user.id, user.display_name, utcnow()
-    s.qa_selected = s.id % QA_EVERY == 0      # the QA sample, chosen by id so nobody picks which reviews are checked
+    draw = qa_draw(s.id)
+    s.qa_selected = draw < 1 / QA_EVERY       # the QA sample: a keyed random draw, so nobody picks which are checked
     case.application = app
     if action != "accept":
         case.manual_steps += 1          # a correction to the AI's work is a manual step
     audit.record(db, user, "ai_suggestion_reviewed", "case", case.id, case_id=case.id, suggestion=s.id,
                  field=s.field, outcome=s.status, mode=s.mode, suggested=show(s.field, s.suggested),
-                 final=show(s.field, final), reason=reason or None)
+                 final=show(s.field, final), reason=reason or None,
+                 qa_draw=round(draw, 6), qa_selected=s.qa_selected, qa_key=qa_key_fingerprint())
     run_case(db, case, user)
+
+
+def _qa_key() -> bytes:
+    return hmac.new(settings.secret_key.encode(), QA_LABEL, hashlib.sha256).digest()
+
+
+def qa_key_fingerprint() -> str:
+    return hashlib.sha256(_qa_key()).hexdigest()[:10]
+
+
+def qa_draw(suggestion_id: int) -> float:
+    """A number in [0, 1) for the suggestion: the same every time under the same key, unpredictable without it."""
+    d = hmac.new(_qa_key(), str(suggestion_id).encode(), hashlib.sha256).digest()
+    return int.from_bytes(d[:8], "big") / 2 ** 64
 
 
 def may_qa(user: User, s: AiSuggestion) -> bool:
@@ -292,7 +314,8 @@ def _qa(rows: list[AiSuggestion]) -> dict:
     done = [r for r in sampled if r.qa_verdict]
     agreed = sum(r.qa_verdict == "agree" for r in done)
     return {"sampled": len(sampled), "checked": len(done), "agreed": agreed, "disagreed": len(done) - agreed,
-            "agreement": round(agreed / len(done), 3) if done else None, "every": QA_EVERY}
+            "agreement": round(agreed / len(done), 3) if done else None, "every": QA_EVERY,
+            "method": "keyed random draw (HMAC-SHA256 of the suggestion id)", "key": qa_key_fingerprint()}
 
 
 def _tally(rows: list[AiSuggestion]) -> dict:

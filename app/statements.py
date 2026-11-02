@@ -12,7 +12,8 @@ and an adviser with custody relies on the qualified custodian's quarterly statem
 - a request to report errors promptly, and to compare the statement with any report from the adviser.
 
 The nightly batch generates the last quarter's statements once, on its first run after the quarter ends; the
-operations supervisor can run it by hand. Each is a PDF with its SHA-256, and the account holders get a notice.
+operations supervisor can run it by hand. Each is a PDF with its SHA-256, emailed to the account holders as an
+attachment; the RIA sees a copy in the portal.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ from sqlalchemy.orm import Session
 from custody.calendar import quarter_bounds
 from custody.ledger import CASH, amount
 
-from . import audit
+from . import audit, custodian
 from .config import settings
 from .documents import make_pdf_pages
 from .orm import Account, Firm, LedgerEntry, LedgerLeg, Security, Statement, User
@@ -36,8 +37,36 @@ def previous_quarter(today: date | None = None) -> tuple[date, date]:
     return quarter_bounds(today or settings.today(), -1)
 
 
+# What each kind of posting is called on a client statement: the client's words, not the ledger's
+CLIENT_WORDS = {
+    "opening_balance": "Assets received into the account",
+    "acats_in_pending": "ACATS transfer in: in process", "acats_in_settled": "ACATS transfer in: received",
+    "acats_in_reversal": "ACATS transfer in: rejected by the other firm, reversed",
+    "acats_out_pending": "ACATS transfer out: in process", "acats_out_settled": "ACATS transfer out: delivered",
+    "ach_deposit_pending": "ACH deposit: in process", "ach_deposit_settled": "ACH deposit: received",
+    "ach_deposit_return": "ACH deposit: returned by the bank", "ach_hold_release": "ACH deposit: funds available",
+    "ach_withdrawal_pending": "ACH withdrawal: in process", "ach_withdrawal_settled": "ACH withdrawal: sent",
+    "ach_withdrawal_return": "ACH withdrawal: returned by the bank",
+    "wire_out_pending": "Wire out: in process", "wire_out_settled": "Wire out: sent",
+    "journal_pending": "Journal between accounts: in process", "journal_settled": "Journal between accounts",
+    "loi_in_pending": "Re-registration in: in process", "loi_in_settled": "Re-registration in: received",
+    "receipt_applied": "Wire received", "ira_distribution": "IRA distribution",
+}
+
+
+def client_words(kind: str, description: str) -> str:
+    """A posting as the client reads it: a known kind in plain words, otherwise the description without the internal
+    reference ("(submission 2)")."""
+    if kind in CLIENT_WORDS:
+        return CLIENT_WORDS[kind]
+    if kind == "recon_fix" and "dividend" in description.lower():
+        return "Dividend reinvested"
+    return description.split(" (submission")[0]
+
+
 def _legs(db: Session, account_id: str, through: date) -> list[tuple]:
-    q = (select(LedgerEntry.id, LedgerEntry.effective_date, LedgerEntry.description, LedgerLeg.asset, LedgerLeg.units)
+    q = (select(LedgerEntry.id, LedgerEntry.effective_date, LedgerEntry.kind, LedgerEntry.description, LedgerLeg.asset,
+                LedgerLeg.units)
          .join(LedgerLeg, LedgerLeg.entry_id == LedgerEntry.id)
          .where(LedgerLeg.layer == "client", LedgerLeg.account == account_id, LedgerEntry.effective_date <= through)
          .order_by(LedgerEntry.effective_date, LedgerEntry.id))
@@ -51,12 +80,12 @@ def build(db: Session, a: Account, start: date, end: date) -> tuple[list[str], d
     opening: dict[str, int] = {}
     closing: dict[str, int] = {}
     activity: dict[int, dict] = {}
-    for eid, on, desc, asset, u in rows:
+    for eid, on, kind, desc, asset, u in rows:
         closing[asset] = closing.get(asset, 0) + u
         if on < start:
             opening[asset] = opening.get(asset, 0) + u
         else:
-            item = activity.setdefault(eid, {"on": on, "desc": desc, "cash": 0, "secs": {}})
+            item = activity.setdefault(eid, {"on": on, "desc": client_words(kind, desc), "cash": 0, "secs": {}})
             if asset == CASH:
                 item["cash"] += u
             else:
@@ -69,6 +98,8 @@ def build(db: Session, a: Account, start: date, end: date) -> tuple[list[str], d
     cash_open, cash_close = amount(opening.get(CASH, 0)), amount(closing.get(CASH, 0))
     period = f"{start:%B} {start.day} to {end:%B} {end.day}, {end.year}"
     lines = ["SYNTHETIC SAMPLE: NOT A REAL STATEMENT", "",
+             f"{custodian.NAME}, {custodian.ADDRESS}. Client service: {custodian.CLIENT_PHONE}, "
+             f"{custodian.CLIENT_HOURS}.", "",
              f"Account {a.id}: {a.display_name} ({a.registration_type.replace('_', ' ')})",
              f"Adviser: {firm.legal_name if firm else 'none'}   Statement period: {period}", "",
              f"Account value: ${value(opening):,.2f} at the start, ${value(closing):,.2f} at the end",
@@ -79,7 +110,11 @@ def build(db: Session, a: Account, start: date, end: date) -> tuple[list[str], d
     for k, u in held:
         s = secs.get(k)
         name = (s.name if s else k)[:44]
-        lines.append(f"  {name:<44} {amount(u):>14,.4f}  @ ${px.get(k, 0):>10,.2f}  = ${amount(u) * px.get(k, 0):>13,.2f}")
+        worth = amount(u) * px.get(k, 0)
+        if s is not None and s.asset_type == "bond":      # bonds: face amount, priced as a percent of par
+            lines.append(f"  {name:<44} ${amount(u):>13,.2f} par @ {px.get(k, 0) * 100:>7,.3f}  = ${worth:>13,.2f}")
+        else:
+            lines.append(f"  {name:<44} {amount(u):>14,.4f}  @ ${px.get(k, 0):>10,.2f}  = ${worth:>13,.2f}")
     if not held:
         lines.append("  No securities")
     lines += ["", f"Activity in the period ({len(activity)} postings)"]
@@ -97,7 +132,8 @@ def build(db: Session, a: Account, start: date, end: date) -> tuple[list[str], d
               f"Free credit balance: ${max(cash_close, 0):,.2f}. It is payable to you on demand. As Rule 15c3-3 allows, "
               "we may use it in our business",
               "while we keep the customer reserve the rule requires (Rule 15c3-2 notice).",
-              "Please review this statement and tell us in writing promptly about anything that looks wrong.",
+              "Please review this statement and tell us in writing promptly about anything that looks wrong:",
+              f"{custodian.NAME}, {custodian.ADDRESS}, or {custodian.CLIENT_PHONE}.",
               "If your adviser sends you reports about this account, compare them with this statement."]
     summary = {"opening_value": value(opening), "closing_value": value(closing), "cash_open": cash_open,
                "cash_close": cash_close, "positions": len(held), "postings": len(activity)}
@@ -123,12 +159,14 @@ def generate(db: Session, actor: User | None, period: tuple[date, date] | None =
                        generated_by=actor.display_name if actor else "Nightly batch")
         db.add(st)
         db.flush()
+        # The statement goes to the client from the custodian, attached (Rule 206(4)-2(a)(3)); the RIA sees a copy
         st.notices = client_notice(db, a, template="statement_ready",
                                    subject=f"Your Q{quarter} {end.year} statement: {a.display_name}",
                                    text=f"Your quarterly statement for {start:%B} {start.day} to {end:%B} {end.day}, "
-                                        f"{end.year} is ready. Your adviser has a copy, and we'll send one to you on "
-                                        "request. Please review it and tell us promptly about anything that looks "
-                                        "wrong.")
+                                        f"{end.year} is attached. Your adviser has a copy too. Please review it and "
+                                        "tell us promptly about anything that looks wrong.",
+                                   attachments=[{"kind": "statement", "id": st.id, "filename": st.filename,
+                                                 "sha256": st.sha256, "content_type": "application/pdf"}])
         made.append(st.id)
     audit.record(db, actor, "statements_generated", "statements", end.isoformat(), period_start=start.isoformat(),
                  statements=len(made))

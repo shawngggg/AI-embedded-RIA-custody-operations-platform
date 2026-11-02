@@ -5,7 +5,7 @@ import { Loading, useLoad, when } from "../util";
 
 type Email = { id: number; to: string; to_name: string | null; subject: string; template: string; case_id: number | null;
   case_title: string | null; status: string; status_label: string; provider: string; error: string | null;
-  created_at: string; sent_at: string | null; body: string };
+  created_at: string; sent_at: string | null; body: string; attachments: { filename: string; sha256: string }[] };
 type Box = { connection: { provider: string; label: string; sender: string | null; tenant_configured: boolean; auth: string | null;
   demo_hold: boolean; allowed_domains: string[] | null }; emails: Email[] };
 const TONE: Record<string, string> = { held: "t-quiet", queued: "t-refer", sent: "t-clear", failed: "t-block" };
@@ -41,12 +41,13 @@ export default function Outbox() {
             <Fragment key={e.id}>
               <tr className="link" onClick={() => setOpen(open === e.id ? null : e.id)}>
                 <td className="small">{e.to_name}<div className="mono muted">{e.to}</div></td>
-                <td>{e.subject}</td>
+                <td>{e.subject}{e.attachments.length > 0 && <span className="muted small"> · {e.attachments.length} attached</span>}</td>
                 <td className="small">{e.case_id ? <CaseLink id={e.case_id} onClick={(x) => x.stopPropagation()}>#{e.case_id}</CaseLink> : ""}</td>
                 <td><span className={`pill ${TONE[e.status] ?? "t-quiet"}`} title={e.error ?? ""}>{e.status_label}</span></td>
                 <td className="small">{when(e.sent_at ?? e.created_at)}</td>
               </tr>
               {open === e.id && <tr className="detail"><td colSpan={5}><pre className="email-body">{e.body}</pre>
+                {e.attachments.map((x) => <p key={x.sha256} className="small muted">Attached: {x.filename} (SHA-256 {x.sha256.slice(0, 12)}…)</p>)}
                 {e.error && <p className="small muted">{e.error}</p>}</td></tr>}
             </Fragment>))}</tbody>
         </table></div>)}

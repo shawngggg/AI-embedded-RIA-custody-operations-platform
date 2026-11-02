@@ -37,6 +37,7 @@ ROLES = {
     "ops_analyst": "Operations analyst",
     "ops_supervisor": "Operations supervisor",
     "aml_compliance": "AML compliance",
+    "bsa_officer": "BSA/AML officer",
     "sanctions": "Sanctions team",
     "periodic_review": "Periodic review team",
     "ria_service": "RIA service team (licensed)",
@@ -46,11 +47,12 @@ ROLES = {
     "ria_user": "RIA user",
     "client": "Client",
 }
-INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review",
+INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "periodic_review",
                   "ria_service", "ria_service_lead", "platform_admin"}
 PORTAL_ROLES = {"ria_admin", "ria_user", "client"}
 # Granting one of these needs a second platform administrator to approve
-DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "ria_service_lead", "platform_admin"}
+DECISION_ROLES = {"ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "ria_service", "ria_service_lead",
+                  "platform_admin"}
 LICENSED_ROLES = {"ria_service", "ria_service_lead"}
 OPS_ROLES = {"ops_analyst", "ops_supervisor"}
 
@@ -245,6 +247,8 @@ class Review(Base):
     trigger: Mapped[str] = mapped_column(String(30), default="scheduled")
     restriction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     history: Mapped[list] = mapped_column(JSON, default=list)
+    # A medium- or high-risk completion waiting for AML compliance (app/reviews.py, walkthrough note 17)
+    proposal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class AuditEvent(Base):
@@ -369,6 +373,8 @@ class OutboundEmail(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Files sent with the notice, by reference: [{kind: "statement", id, filename, sha256, content_type}]
+    attachments: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
 
 class AiSuggestion(Base):
@@ -626,6 +632,10 @@ class PrivacyIncident(Base):
     determination: Mapped[str | None] = mapped_column(String(20), nullable=True)   # notify | no_notice
     determination_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     determined_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # A no-notice determination needs a second person (walkthrough note 10): who proposed it, and who approved it
+    determined_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approved_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notices_sent_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notices_sent: Mapped[int] = mapped_column(Integer, default=0)
     risk_event_id: Mapped[int | None] = mapped_column(ForeignKey("ops_risk_events.id"), nullable=True)
@@ -647,3 +657,19 @@ class Statement(Base):
     generated_by: Mapped[str] = mapped_column(String(120))
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     notices: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SetupLink(Base):
+    """A one-time link that lets a person set their own password and enroll their own second factor (walkthrough
+    note 18, Nov. 1, 2026). Only a hash of the token is kept; the link goes to the person's email, never to the
+    administrator. See app/setup_links.py."""
+    __tablename__ = "setup_links"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    purpose: Mapped[str] = mapped_column(String(20))            # new_user | password_reset | mfa_reset
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    sent_to: Mapped[str] = mapped_column(String(200))
+    created_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

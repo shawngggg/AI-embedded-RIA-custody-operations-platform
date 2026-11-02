@@ -61,11 +61,13 @@ _n = 0
 def _holder(name: str, role: str = "account_holder", verified: bool = True, pct: float = 0.0, **kw) -> Person:
     global _n
     _n += 1
-    # 555-0100 to 555-0199 is the fictional range; example.com is reserved for examples
+    # 555-0100 to 555-0199 is the fictional range in every area code; these use 385 so no two unrelated clients share
+    # a phone with the hand-written seed's 801 numbers (the red-flag check would rightly flag that). example.com is
+    # reserved for examples
     return Person(name, role, pct, date_of_birth=kw.pop("dob", f"19{55 + _n % 35}-{1 + _n % 12:02d}-{1 + _n % 27:02d}"),
                   address=kw.pop("address", f"{100 + 37 * _n} E {200 + 10 * (_n % 9)} S, {_TOWNS[_n % len(_TOWNS)]}"),
                   tax_id=f"900-00-{5000 + _n}", occupation=kw.pop("occupation", "Retired"),
-                  phone=kw.pop("phone", f"801-555-{100 + _n % 100:04d}"),
+                  phone=kw.pop("phone", f"385-555-{100 + _n % 100:04d}"),
                   email=kw.pop("email", ".".join(name.lower().replace("'", "").split()[::len(name.split()) - 1 or 1])
                                + "@example.com"),
                   identity_verified=verified, **kw)

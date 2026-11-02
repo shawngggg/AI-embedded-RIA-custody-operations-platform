@@ -11,7 +11,14 @@ type WorkData = {
   to_approve: Decision[]; my_proposals: Decision[];
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
+  reviews_with_aml?: number; reviews_to_approve?: number;
+  sar_referrals?: SarReferral[];
+  settlement?: { breaks: number; unapplied: number; reserve_deficit: number; control_deficits: number; last_cycle: string | null };
 };
+type SarReferral = { case_id: number; case_title: string; reason: string; reference: string; referred_on: string;
+  referred_by: string; approved_by: string; due: string; days_left: number; overdue: boolean; status: string;
+  decision_label?: string; decided_by?: string; decided_on?: string; note?: string; can_decide: boolean;
+  decisions: Record<string, string> };
 
 // Workbenches for teams without a queue of their own: release 2's settlement page, and the planned release 3 pages
 const WORKBENCH: [string, string, string, number | null][] = [
@@ -50,7 +57,11 @@ export default function Work() {
           <div className="sub">Waiting for a checker</div></div>}
         {user.role === "periodic_review" && <Link className="tile" to="/reviews">
           <div className="label">Reviews due</div><div className="value">{d.reviews_due ?? 0}</div>
-          <div className={`sub ${d.reviews_overdue ? "alert" : ""}`}>{d.reviews_overdue ? `${d.reviews_overdue} overdue` : "None overdue"}</div></Link>}
+          <div className={`sub ${d.reviews_overdue ? "alert" : ""}`}>{d.reviews_overdue ? `${d.reviews_overdue} overdue` : "None overdue"}
+            {d.reviews_with_aml ? ` · ${d.reviews_with_aml} with AML compliance` : ""}</div></Link>}
+        {d.reviews_to_approve !== undefined && <Link className="tile" to="/reviews">
+          <div className="label">Reviews to approve</div><div className="value">{d.reviews_to_approve}</div>
+          <div className="sub">Medium- and high-risk review completions</div></Link>}
         {can.messages && d.messages_unread !== undefined && <Link className="tile" to="/messages">
           <div className="label">Unread messages</div><div className="value">{d.messages_unread}</div>
           <div className="sub">Team channels</div></Link>}
@@ -60,6 +71,14 @@ export default function Work() {
         {can.restricted_accounts && <Link className="tile" to="/restricted">
           <div className="label">Restricted accounts</div><div className="value">{d.restricted_targets}</div>
           <div className="sub">Accounts and firms with an active code</div></Link>}
+        {d.settlement && <Link className="tile" to="/ops/settlement">
+          <div className="label">Settlement work waiting</div>
+          <div className="value">{d.settlement.breaks + d.settlement.unapplied}</div>
+          <div className={`sub ${d.settlement.reserve_deficit || d.settlement.control_deficits ? "alert" : ""}`}>
+            {d.settlement.breaks} breaks · {d.settlement.unapplied} unapplied receipts
+            {d.settlement.reserve_deficit ? ` · reserve deficit $${d.settlement.reserve_deficit.toLocaleString()}` : ""}
+            {d.settlement.control_deficits ? ` · ${d.settlement.control_deficits} possession-or-control deficit${d.settlement.control_deficits > 1 ? "s" : ""}` : ""}
+          </div></Link>}
         {!can.queues && WORKBENCH.filter(([cap]) => can[cap]).map(([cap, to, label, release]) => (
           <Link key={cap} className="tile" to={to}>
             <div className="label">Your team's workbench</div><div className="value small-value">{label}</div>
@@ -70,6 +89,7 @@ export default function Work() {
       </div>
 
       {can.ai_review && <AiQa />}
+      {d.sar_referrals && d.sar_referrals.length > 0 && <SarReferrals items={d.sar_referrals} onDone={w.reload} />}
 
       {d.queues.length > 0 && (
         <>
@@ -85,7 +105,7 @@ export default function Work() {
                   <td className="small">{c.queue_label}</td><td><Status status={c.status} /></td>
                   <td className="small">{c.assigned_to ? (c.assigned_to.id === user.id ? "You" : c.assigned_to.name) : <span className="muted">Unassigned</span>}</td>
                   <td className="small">{when(c.queue_entered_at)}</td>
-                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla.hours_left)}</td>
+                  <td className={c.sla.breached ? "error" : ""}>{slaText(c.sla)}</td>
                 </tr>))}</tbody>
             </table></div>
           ) : <div className="empty">Your queues are clear.</div>}
@@ -134,7 +154,8 @@ function AiQa() {
   return (
     <div className="panel">
       <h2 style={{ marginTop: 0 }}>Second review: AI-read values ({q.data.items.length})</h2>
-      <p className="small muted">1 in {q.data.every} values a colleague reviewed comes to a second person. Open the case's package and check
+      <p className="small muted">About 1 in {q.data.every} values a colleague reviewed comes to a second person, chosen by a keyed random draw
+        nobody can predict or steer. Open the case's package and check
         the first review: agree, or say what the package shows.</p>
       {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
       {q.data.items.map((i) => (
@@ -150,5 +171,46 @@ function AiQa() {
           </div>
         </div>))}
     </div>
+  );
+}
+
+
+/** SAR referrals: a confirmed fraudulent identity goes to the BSA/AML officer, who decides within 30 days whether a
+ * SAR is filed (31 CFR 1023.320). AML compliance sees them; only the officer decides. Never shown to the portal. */
+function SarReferrals({ items, onDone }: { items: SarReferral[]; onDone: () => void }) {
+  const [form, setForm] = useState<Record<number, { decision: string; note: string }>>({});
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  return (
+    <>
+      <h2>SAR referrals</h2>
+      <p className="muted small">A SAR is filed within 30 days of the facts that may support it. Filing through BSA E-Filing arrives in
+        release 4; until then a "file" decision is filed by hand.</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      {items.map((r) => {
+        const f = form[r.case_id] ?? { decision: "file", note: "" };
+        return (
+          <div key={r.case_id} className="panel">
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <strong><Link to={`/cases/${r.case_id}`}>{r.case_title}</Link></strong>
+              <span className={r.overdue ? "error" : "muted"}>{r.status === "open" ? `Due ${r.due} (${r.days_left} days)` : `${r.decision_label} · ${r.decided_by}, ${r.decided_on}`}</span>
+            </div>
+            <p className="small muted">{r.reason} ({r.reference}) · referred {r.referred_on} by {r.referred_by}, approved by {r.approved_by}</p>
+            {r.note && <p className="small">"{r.note}"</p>}
+            {r.can_decide && (
+              <div className="row" style={{ alignItems: "end" }}>
+                <div className="field" style={{ flex: "0 1 260px" }}><label htmlFor={`sar-d-${r.case_id}`}>Decision</label>
+                  <select id={`sar-d-${r.case_id}`} value={f.decision} onChange={(e) => setForm({ ...form, [r.case_id]: { ...f, decision: e.target.value } })}>
+                    {Object.entries(r.decisions).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select></div>
+                <div className="field"><label htmlFor={`sar-n-${r.case_id}`}>Why (30 characters or more)</label>
+                  <input id={`sar-n-${r.case_id}`} type="text" value={f.note} onChange={(e) => setForm({ ...form, [r.case_id]: { ...f, note: e.target.value } })} /></div>
+                <button disabled={f.note.trim().length < 30} onClick={() => api(`/api/cases/${r.case_id}/sar-referral`, { body: f })
+                  .then(() => { setMsg({ ok: "Decision recorded." }); onDone(); }).catch((e: Error) => setMsg({ error: e.message }))}>Record</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }

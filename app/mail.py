@@ -79,13 +79,35 @@ def graph_token(http=None) -> str:
     return r.json()["access_token"]
 
 
+def attachment_bytes(db: Session, ref: dict) -> bytes | None:
+    """The file an attachment reference points at (today, a quarterly statement's PDF)."""
+    from .orm import Statement
+    if ref.get("kind") == "statement":
+        st = db.get(Statement, ref.get("id"))
+        return st.content if st else None
+    return None
+
+
 def send_m365(email: OutboundEmail, http=None) -> None:
+    import base64
     import httpx
+    from sqlalchemy.orm import object_session
     sender = os.environ["MAIL_SENDER"]
     message = {"message": {"subject": email.subject, "body": {"contentType": "Text", "content": email.body},
                            "toRecipients": [{"emailAddress": {"address": email.to_address,
                                                               **({"name": email.to_name} if email.to_name else {})}}]},
                "saveToSentItems": True}
+    db = object_session(email)
+    files = []
+    for ref in email.attachments or []:
+        raw = attachment_bytes(db, ref) if db is not None else None
+        if raw is None:
+            raise RuntimeError(f"Attachment {ref.get('filename')} isn't on file")
+        files.append({"@odata.type": "#microsoft.graph.fileAttachment", "name": ref["filename"],
+                      "contentType": ref.get("content_type") or "application/octet-stream",
+                      "contentBytes": base64.b64encode(raw).decode()})
+    if files:
+        message["message"]["attachments"] = files
     r = (http or httpx).post(f"{GRAPH}/users/{sender}/sendMail", json=message,
                              headers={"Authorization": f"Bearer {graph_token(http)}"}, timeout=15)
     if r.status_code != 202:
@@ -93,10 +115,10 @@ def send_m365(email: OutboundEmail, http=None) -> None:
 
 
 def queue(db: Session, *, to: str, subject: str, body: str, template: str, to_name: str | None = None,
-          case: Case | None = None) -> OutboundEmail:
+          case: Case | None = None, attachments: list[dict] | None = None) -> OutboundEmail:
     """Write a notice to the outbox and, when a provider is connected and allowed, send it."""
     e = OutboundEmail(to_address=to, to_name=to_name, subject=subject, body=body, template=template,
-                      case_id=case.id if case else None, provider=provider())
+                      case_id=case.id if case else None, provider=provider(), attachments=attachments or None)
     db.add(e)
     why = _hold_reason(to)
     if why:
@@ -209,28 +231,112 @@ def notify_transition(db: Session, case: Case, previous: str | None, status: str
         subject = f"{subject}: {name}"
         if "{reason}" in text:
             text = text.replace("{reason}", "\n".join(f"- {i}" for i in items) or "-")
+        from .portal_view import refusal_note
+        text = refusal_note(case) or text          # a refusal the requester can fix says why; others stay neutral
     elif status not in notices or previous == status or case.kind == "firm":
         return
     else:
         template, subject, text = notices[status]
-    for u in _recipients(db, case):
+    recipients = _recipients(db, case)
+    for u in recipients:
         body = f"Hello {u.display_name.split()[0]},\n\n{text}\n\nOpen it in the portal: {link}\n\nYour RIA service team"
         queue(db, to=u.email, to_name=u.display_name, subject=subject, body=body, template=template, case=case)
+    if not recipients and case.firm_id and case.kind != "firm":
+        # A firm with no portal users gets its notices by mail: the RIA service team sends the letter (MVP-29's
+        # Timpanogos). The outbox keeps the task, so a step that says Sent has something behind it.
+        from . import custodian
+        from .orm import Firm
+        firm = db.get(Firm, case.firm_id)
+        address = ((firm.application or {}).get("principal_address") if firm else None) or "the address on file"
+        queue(db, to=custodian.RIA_SERVICE_EMAIL, to_name="RIA service team", template=f"{template}_by_mail", case=case,
+              subject=f"Send by mail: {subject}",
+              body=f"{firm.legal_name if firm else 'The firm'} has no portal users, so this notice goes by mail to "
+                   f"{address}.\n\n---\n\n{text}")
     if case.kind == "transfer" and status == "COMPLETED" and previous != status and (case.application or {}).get("sloa_id"):
         sloa_transfer_notice(db, case)
 
 
 # --- Client notices: to each account holder's email on file -----------------------------------------------
 
-def client_notice(db: Session, account, *, subject: str, text: str, template: str, case: Case | None = None) -> int:
-    """Write a notice to every account holder with an email on file. Returns how many went to the outbox."""
+def client_notice(db: Session, account, *, subject: str, text: str, template: str, case: Case | None = None,
+                  attachments: list[dict] | None = None, extra: list[tuple[str, str]] | None = None) -> int:
+    """Write a notice to every account holder with an email on file, and to any extra (email, name) pairs (a holder's
+    old email after a change). Returns how many went to the outbox."""
+    from . import custodian
     from .servicing import holder_emails
-    sent = 0
-    for email, name in holder_emails(account):
-        body = f"Hello {name.split()[0]},\n\n{text}\n\nQuestions? Call the number on your statement.\n\nThe custodian"
-        queue(db, to=email, to_name=name, subject=subject, body=body, template=template, case=case)
+    sent, seen = 0, set()
+    for email, name in list(holder_emails(account)) + list(extra or []):
+        if email.lower() in seen:
+            continue
+        seen.add(email.lower())
+        body = f"Hello {name.split()[0]},\n\n{text}\n\n{custodian.CONTACT_LINE}\n\n{custodian.SIGNATURE}"
+        queue(db, to=email, to_name=name, subject=subject, body=body, template=template, case=case,
+              attachments=attachments)
         sent += 1
     return sent
+
+
+TRUSTED_CONTACT_TYPES = ("individual", "joint", "ira")
+
+
+def trusted_contact_name(account) -> str | None:
+    app = account.application or {}
+    return (app.get("trusted_contact") or {}).get("name") or (app.get("maintenance") or {}).get("trusted_contact_name")
+
+
+def trusted_contact_text(account) -> str:
+    """FINRA Rule 4512 Supplementary Material .06: tell the customer in writing that the firm may contact the trusted
+    contact, and why. With none on file, ask for one (reasonable efforts at opening and at each update)."""
+    name = trusted_contact_name(account)
+    why = ("We may contact your trusted contact to address possible financial exploitation, to confirm your contact "
+           "information or health status, or to identify a legal guardian, executor, trustee, or holder of a power of "
+           "attorney (FINRA Rule 4512).")
+    if name:
+        return f"Trusted contact on file: {name}. {why}"
+    return ("You haven't named a trusted contact. " + why + " To name one, ask your adviser to send an account change, "
+            "or call us.")
+
+
+def account_opened_notice(db: Session, account, case: Case | None = None) -> int:
+    """The client hears that the account is open, from the custodian, with the trusted-contact disclosure."""
+    from .orm import Firm
+    firm = db.get(Firm, account.firm_id) if account.firm_id else None
+    adviser = firm.legal_name if firm else "your adviser"
+    text = (f"Your account {account.id} ({account.display_name}) is open with us. {adviser} manages it; we hold the "
+            "assets and send you statements every quarter.")
+    if account.registration_type in TRUSTED_CONTACT_TYPES:
+        text += "\n\n" + trusted_contact_text(account)
+    return client_notice(db, account, template="account_opened_client", case=case,
+                         subject=f"Your new account is open: {account.display_name}", text=text)
+
+
+CHANGE_WORDS = {"address": "address", "contact_info": "email or phone", "bank_instruction": "bank instructions",
+                "trusted_contact": "trusted contact", "beneficiary": "beneficiaries", "registration": "registration",
+                "power_of_attorney": "power of attorney", "standing_loa": "standing letter of authorization",
+                "beneficial_owner": "beneficial owners"}
+
+
+def change_confirmation(db: Session, account, case: Case, before: dict) -> int:
+    """Confirm an applied change to the client, so a change they didn't ask for gets noticed. An address change names
+    the old and new address. An email change goes to the old and the new email. Each confirmation asks again for a
+    trusted contact when none is on file (FINRA Rule 4512)."""
+    data = case.application or {}
+    kind = data.get("change_type")
+    if kind == "standing_loa" and not (data.get("details") or {}).get("end_sloa"):
+        return 0                                  # a new SLOA has its own initial notice (sloa_initial_notice)
+    what = CHANGE_WORDS.get(kind, "account details")
+    text = f"We changed the {what} on your account {account.id} ({account.display_name}) on {settings.today():%B %-d, %Y}."
+    extra = []
+    if kind == "address":
+        text += (f"\n\nOld address: {before.get('address') or 'not on file'}\n"
+                 f"New address: {(data.get('details') or {}).get('new_address')}")
+    if kind == "contact_info":
+        extra = list(before.get("emails") or [])                    # the old email hears about it too
+    text += "\n\nIf you didn't ask for this change, call us right away."
+    if account.registration_type in TRUSTED_CONTACT_TYPES and not trusted_contact_name(account):
+        text += "\n\n" + trusted_contact_text(account)
+    return client_notice(db, account, template="change_confirmed_client", case=case,
+                         subject=f"We changed your account: {account.display_name}", text=text, extra=extra)
 
 
 def _sloa_line(s: dict) -> str:

@@ -48,6 +48,8 @@ DEMO_USERS = [
     ("ops.supervisor", "Priya Raman", "ops_supervisor", None, None, "Approves operations decisions as checker"),
     ("aml.maker", "Dev Patel", "aml_compliance", None, None, "Proposes EDD and compliance decisions"),
     ("aml.checker", "Morgan Lee", "aml_compliance", None, None, "Approves EDD and compliance decisions"),
+    ("aml.officer", "Ines Carvalho", "bsa_officer", None, None,
+     "BSA/AML officer: approves EDD for foreign PEPs (senior management) and decides SAR referrals"),
     ("sanctions.maker", "Alex Kim", "sanctions", None, None, "Proposes sanctions determinations"),
     ("sanctions.checker", "Sam Rivera", "sanctions", None, None, "Approves sanctions determinations"),
     ("review.analyst", "Casey Nguyen", "periodic_review", None, None, "Works reviews as they come due"),
@@ -106,9 +108,14 @@ AGE_HOURS = {
 
 
 def backdate(db: Session, case: Case, hours: float) -> None:
-    """Move a freshly seeded case, its history, and what it touched back in time by `hours`."""
+    """Move a freshly seeded case, its history, and what it touched back in time by `hours`. A case on an operations
+    queue with an SLA is aged in business hours (app/sla.py), the clock its SLA counts; anything else in wall hours."""
     from .orm import AuditEvent, CaseTransition, Document, OutboundEmail, Restriction
+    from .queues import QUEUES
+    from . import sla
     shift = timedelta(hours=hours)
+    if case.queue and case.queue_entered_at and case.kind != "transfer" and not QUEUES[case.queue].get("waits_on"):
+        shift = case.queue_entered_at - sla.back(case.queue_entered_at, hours, case.queue)
     for row in db.query(OutboundEmail).filter(OutboundEmail.case_id == case.id):
         row.created_at -= shift
     for row in db.query(Document).filter(Document.case_id == case.id):
@@ -119,6 +126,9 @@ def backdate(db: Session, case: Case, hours: float) -> None:
     for col in ("created_at", "updated_at", "queue_entered_at", "sla_due", "closed_at"):
         if getattr(case, col) is not None:
             setattr(case, col, getattr(case, col) - shift)
+    if case.queue and case.queue_entered_at and case.kind not in ("transfer",):
+        from .sla import due as sla_due                    # business hours from the backdated entry (app/sla.py)
+        case.sla_due = sla_due(case.queue_entered_at, case.queue)
     for row in db.query(CaseTransition).filter(CaseTransition.case_id == case.id):
         row.at -= shift
     for row in db.query(AuditEvent).filter(AuditEvent.case_id == case.id):
@@ -245,9 +255,11 @@ def create_account_case(db: Session, app: AccountApplication, firm: Firm, actor:
     db.add(account)
     db.flush()
     group = "self-directed" if app.group is AccountGroup.SELF_DIRECTED else "pure RIA"
+    from .red_flags import find as red_flags
+    flags = red_flags(db, account.application.get("holders", []), account.id)     # worked out once, at intake
     case = Case(kind="account", title=f"Account opening: {account.display_name} ({group})", firm_id=firm.id,
                 account_id=account.id, target_id=account.id, application=to_json(app), decisions={},
-                created_by=actor.id if actor else None)
+                created_by=actor.id if actor else None, extra={"red_flags": flags} if flags else {})
     db.add(case)
     db.flush()
     audit.record(db, actor, "case_created", "case", case.id, case_id=case.id, kind="account", account=account.id)
@@ -266,9 +278,13 @@ def create_change_case(db: Session, change: dict, account: Account, actor: User 
     return case
 
 
-def reviewable(db: Session, case: Case) -> list[int]:
-    """The seeded principal reviews every document in good order before accepting, as the app requires."""
-    return [d.id for d in to_review(db, case)]
+def reviewable(db: Session, case: Case, principal: User) -> list[int]:
+    """The seeded principal opens and reviews every document in good order before accepting, as the app requires."""
+    docs = to_review(db, case)
+    for d in docs:
+        audit.record(db, principal, "document_opened", "document", d.id, case_id=case.id, doc_type=d.doc_type)
+    db.flush()
+    return [d.id for d in docs]
 
 
 def reset_database() -> None:
@@ -365,7 +381,7 @@ def _seed(db: Session) -> None:
 
     def accept_if_seeded(case: Case, key: str) -> None:
         if key in ACCEPTED_SEEDS and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
 
     for key in FIRM_SEEDS:
         app = shift_dates(FIRMS[key], delta)
@@ -385,7 +401,7 @@ def _seed(db: Session) -> None:
         run_case(db, case, system_ops)
         db.flush()
         if case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
         db.flush()
         backdate(db, case, extra.FIRM_AGE_HOURS[key])
 
@@ -472,8 +488,9 @@ def _seed(db: Session) -> None:
     db.flush()
     from .seed_r2 import seed_release2
     seed_release2(db, users)                  # the ledger, transfers, receipts, and breaks (release 2)
-    from . import nigo, statements
+    from . import nigo, reviews, statements
     nigo.run(db, None)              # the nightly NIGO check, caught up: reminders sent, the 30-day-old one withdrawn
+    reviews.enforce_deadlines(db, None)   # and the review deadlines: a missed refresh is restricted (note 16)
     statements.generate(db, None)   # last quarter's statements, as the first nightly run after the quarter made them
     from .risk_register import sweep_sla_breaches
     sweep_sla_breaches(db)          # seeded cases already past their SLA show in the risk register
@@ -532,7 +549,7 @@ def seed_more_cases(db: Session, users: dict, firms_by_crd: dict) -> None:
         run_case(db, case, actor or ops)
         db.flush()
         if sc.accept and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
         if sc.identity_issue:
             identity_check.record(db, case, cip, sc.identity_issue["kind"], sc.identity_issue["person"],
                                   sc.identity_issue["note"])

@@ -107,10 +107,25 @@ about 140), and the Postgres tests take the same path: keep the seed free of Pos
   and account and firm records; `views.case_detail` masks tax IDs for people outside `crypto.sees_tax_ids`. A password
   sign-in is two steps (`app/totp.py`; a challenge token is never a session). The audit log is insert-only on Postgres
   (`app/audit_guard.py`, reinstalled by every `copy_database`) and its export is hash-chained (`app/audit_chain.py`).
-  Reg S-P incidents (`app/privacy.py`), the AI review QA sample (`ai_suggestions.QA_EVERY`), and quarterly statements
+  Reg S-P incidents (`app/privacy.py`), the AI review QA sample (`ai_suggestions.qa_draw`), and quarterly statements
   (`app/statements.py`) are the rest of the review's group 6.
 - The timed walkthrough (`app/walkthrough.py`): Start the clock on the sign-in page; the server times a fresh case from
   Start to open account. Finished runs, like AI evaluation runs, survive a demo reset.
+- The role-by-role walkthrough (Nov. 1, 2026; tests in `app/tests/test_walkthrough_fixes.py`, named by note):
+  - The client hears from the custodian: statements attached, the opening notice with the trusted-contact disclosure,
+    change confirmations (`app/mail.py`, `app/custodian.py`). A step marked Sent has its email.
+  - Reg S-ID red flags (`app/red_flags.py`) hold an account for CIP; never shown to the portal.
+  - Clearing decisions need a rationale (`queues.RATIONALE`). A foreign PEP's EDD needs the BSA/AML officer
+    (`bsa_officer`, `access.needs_senior_approval`); a confirmed identity fraud is referred to that officer
+    (`app/sar.py`). A Reg S-P no-notice determination needs a second person.
+  - A change in question is confirmed after a callback on a number from before the change (`change_callback`).
+  - SLAs count business hours on the queue's calendar (`app/sla.py`); the seed ages queued cases the same way.
+  - The settlement cycle runs as of `settlement.business_date()` and sends one instruction per cycle for new
+    activity only; reserve moves show apart. The nightly batch enforces review deadlines (`app/reviews.py`); a
+    medium- or high-risk review completion waits for AML compliance.
+  - The QA sample is a keyed random draw (`ai_suggestions.qa_draw`), not every fifth id.
+  - Admins never set passwords: one-time setup links (`app/setup_links.py`, `/setup` on the sign-in page). A password
+    sign-in never enrolls a second factor. Tests read the token from the outbox row (`test_api.setup_token`).
 
 ## Docs to keep current with each change
 

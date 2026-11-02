@@ -66,10 +66,11 @@ def _sample(db: Session, case: Case, user: User, doc_type: str, lines: list[str]
 
 # --------------------------------------------------------------------------- transfers
 def _fix(db, case, user, data):
+    """The analyst confirms the delivering firm's title from the client's statement there and sends the form with it
+    (the form keeps the client's title; the delivering firm matches its own records, walkthrough note 12)."""
     applied = data.get("choice", "apply") == "apply"
     if applied:
-        acct = db.get(Account, case.application["account_id"])
-        case.application = {**case.application, "title_on_form": acct.display_name}
+        case.application = {**case.application, "title_confirmed_from_statement": True}
     _event(case, user, "fix", applied=applied, note=data.get("note") or "")
     return "Fix applied; the request goes on to the controls gate." if applied else "Sent as is."
 
@@ -87,6 +88,31 @@ def _callback(db, case, user, data):
         raise HTTPException(422, "Dial a number already on file, never one on the request (MM-006)")
     _event(case, user, "callback", confirmed=ok, phone=number or "none on file", note=data.get("note") or "")
     return "Callback recorded: confirmed." if ok else "Callback recorded: not confirmed. The request is rejected."
+
+
+def _change_callback(db, case, user, data):
+    """Before a change in question (a fraud pattern) or a new SLOA is confirmed, client service calls the client on
+    a number from before any recent change, and records which one (walkthrough note 11; MM-006 for transfers)."""
+    from .servicing import phones_before_recent_change
+    acct = db.get(Account, case.account_id)
+    allowed = [n for n, _ in phones_before_recent_change(acct)] if acct else []
+    number = (data.get("phone") or "").strip()
+    if number not in allowed:
+        raise HTTPException(422, "Dial a number on file from before any recent change, never one on the request "
+                                 "or one the change itself added")
+    ok = data.get("confirmed") == "yes"
+    _event(case, user, "callback", confirmed=ok, phone=number, note=data.get("note") or "")
+    return "Callback recorded: the client confirmed." if ok else "Callback recorded: not confirmed. Record the " \
+        "confirmation decision as not confirmed."
+
+
+def _change_phone_field(db, case):
+    from .servicing import phones_before_recent_change
+    acct = db.get(Account, case.account_id)
+    numbers = phones_before_recent_change(acct) if acct else []
+    options = [[n, f"{n} ({whose})"] for n, whose in numbers] or [["", "No number on file from before the change"]]
+    return {"name": "phone", "label": "Number dialed (on file before any recent change)", "type": "select",
+            "options": options, "default": options[0][0]}
 
 
 def _correction(db, case, user, data):
@@ -368,13 +394,19 @@ def _forms_fields(db, case):
 ACTIONS = [
     Action("fix", "Apply the suggested fix", "transfer", ("PENDING_FIX",), _team("asset_transfer"),
            lambda db, c: [{"name": "choice", "label": "Fix", "type": "select",
-                           "options": [["apply", "Apply the suggested fix"], ["as_is", "Send as is"]],
+                           "options": [["apply", "Confirmed on the delivering firm's statement: send with its title"],
+                                       ["as_is", "Send as is"]],
                            "default": "apply"}, {"name": "note", "label": "Note", "type": "textarea"}],
            _fix, "The pre-screen found a likely reject. AI suggests the fix; an analyst applies it."),
     Action("callback", "Record the callback", "transfer", ("PENDING_CALLBACK",), _team("asset_transfer"),
            lambda db, c: [_yesno("confirmed", "The client confirmed the request"), _phone_field(db, c),
                           {"name": "note", "label": "Note", "type": "textarea"}],
            _callback, "Call the client on a number already on file, never one on the request (MM-006)."),
+    Action("change_callback", "Record the callback", "change", ("PENDING_CONFIRMATION",), _team("client_service"),
+           lambda db, c: [_yesno("confirmed", "The client confirmed the change"), _change_phone_field(db, c),
+                          {"name": "note", "label": "Note", "type": "textarea"}],
+           _change_callback, "Call the client on a number from before any recent change, never one the change added "
+                             "(walkthrough note 11)."),
     Action("correction", "Approve the correction and resubmit", "transfer", ("PENDING_CORRECTION",),
            _team("asset_transfer"), _correction_fields, _correction,
            "AI drafted the correction from the reject reason; an analyst approves it before it goes out."),

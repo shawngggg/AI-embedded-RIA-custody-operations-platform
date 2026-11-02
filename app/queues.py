@@ -6,20 +6,23 @@ QUEUES = {
     # reviews the firm and Form ADV facts, CIP the identity facts
     "ai_review": {"label": "AI suggestions to review", "owner": "Onboarding and CIP",
                   "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding", "cip"], "sla_hours": 24},
+    # Waiting on the RIA or the client: no SLA of the custodian's own; reminders and withdrawal instead (app/sla.py)
     "items_requested": {"label": "Items requested", "owner": "Onboarding (waiting on the RIA)",
-                        "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120},
+                        "roles": ["ops_analyst", "ops_supervisor"], "teams": ["onboarding"], "sla_hours": 120,
+                        "waits_on": "the RIA"},
     "compliance_review": {"label": "Compliance review", "owner": "AML compliance",
-                          "roles": ["aml_compliance"], "sla_hours": 48},
+                          "roles": ["aml_compliance", "bsa_officer"], "sla_hours": 48},
     "sanctions_review": {"label": "Sanctions review", "owner": "Sanctions team",
                          "roles": ["sanctions"], "sla_hours": 24},
-    "edd_review": {"label": "EDD pending", "owner": "AML compliance",
-                   "roles": ["aml_compliance"], "sla_hours": 120},
+    "edd_review": {"label": "EDD pending", "owner": "AML compliance (the BSA/AML officer for a foreign PEP)",
+                   "roles": ["aml_compliance", "bsa_officer"], "sla_hours": 120},
     "confirmation": {"label": "Confirmations: fraud patterns and SLOAs", "owner": "Client service (account maintenance)",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 24},
     # Account maintenance sits with client service (Shawn, Oct. 13, 2026): a change returned to the RIA or client
     # for correction waits here, not in onboarding's queue
     "maintenance_items": {"label": "Account changes: items requested", "owner": "Client service (account maintenance)",
-                          "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 120},
+                          "roles": ["ops_analyst", "ops_supervisor"], "teams": ["client_service"], "sla_hours": 120,
+                          "waits_on": "the RIA or the client"},
     "verification": {"label": "Identity verification", "owner": "CIP and identity verification",
                      "roles": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "sla_hours": 72},
     "principal_acceptance": {"label": "Principal acceptance", "owner": "RIA service team (registered principal)",
@@ -73,6 +76,7 @@ _BY_STATUS = {
     "PENDING_EDD": "edd_review",
     "PENDING_CONFIRMATION": "confirmation",
     "PENDING_VERIFICATION": "verification",
+    "PENDING_RED_FLAG_REVIEW": "verification",      # identity red flags (app/red_flags.py): CIP explains them
     "PENDING_ACCEPTANCE": "principal_acceptance",
     "OPEN_RESTRICTED": "items_requested",     # open, but waiting on non-regulatory items from the RIA
     "PENDING_REWORK": "rework",
@@ -129,15 +133,23 @@ def is_closed(kind: str, status: str) -> bool:
     return status in CLOSED or (status == "RETURNED" and kind in ("firm", "account"))
 
 
+# A decision that clears an alert or a hold says why (walkthrough note 7, Nov. 1, 2026): an examiner follows the
+# rationale, not only the reference. The case page prefills it from the evidence (app/views.py, rationale_prefill).
+RATIONALE = {"sanctions": {"false_positive"}, "alert_review": {"cleared"}, "identity_fraud": {"not_fraud"},
+             "edd": {"approved"}, "red_flag_review": {"cleared"}}
+MIN_RATIONALE = 30
+
 # Decisions people make while a case waits. Maker-checker: a different person
 # from the approver roles must approve what the proposer submits.
 DECISIONS = {
     "sanctions": {"label": "Sanctions determination", "statuses": ["PENDING_SANCTIONS"],
                   "values": {"false_positive": "False positive: release", "true_match": "True match: block"},
                   "proposer": ["sanctions"], "approver": ["sanctions"]},
+    # EDD approval waits for the source-of-wealth and source-of-funds evidence, and a foreign PEP's for senior
+    # management: the BSA/AML officer (walkthrough note 8; FATF Recommendation 12). See routers/cases.py, edd_refusal.
     "edd": {"label": "EDD decision", "statuses": ["PENDING_EDD"],
             "values": {"approved": "Approve EDD", "declined": "Decline"},
-            "proposer": ["aml_compliance"], "approver": ["aml_compliance"]},
+            "proposer": ["aml_compliance"], "approver": ["aml_compliance", "bsa_officer"]},
     # Every PEP or adverse-media alert goes to AML compliance (Shawn, Oct. 20, 2026); sanctions hits go to the
     # sanctions team. Compliance clears the alert or requires EDD.
     "alert_review": {"label": "PEP or adverse-media alert", "statuses": ["PENDING_ALERT_REVIEW"],
@@ -154,6 +166,11 @@ DECISIONS = {
     "confirmation": {"label": "Confirmation with the client (and the RIA)", "statuses": ["PENDING_CONFIRMATION"],
                      "values": {"confirmed": "Confirmed with the client", "rejected": "Not confirmed"},
                      "proposer": ["ops_analyst", "ops_supervisor"], "approver": ["ops_supervisor"]},
+    # Identity red flags (walkthrough note 5): a tax ID or phone shared with someone else on file. CIP explains it,
+    # a supervisor checks; a suspected fraud goes to AML compliance through the identity check instead
+    "red_flag_review": {"label": "Identity red flags (Regulation S-ID)", "statuses": ["PENDING_RED_FLAG_REVIEW"],
+                        "values": {"cleared": "Explained: the same person, or a legitimate shared detail"},
+                        "proposer": ["ops_analyst", "ops_supervisor"], "teams": ["cip"], "approver": ["ops_supervisor"]},
     "verification": {"label": "Identity verification of new parties", "statuses": ["PENDING_VERIFICATION"],
                      "values": {"verified": "Identity verified"},
                      "proposer": ["ops_analyst", "ops_supervisor"], "approver": ["ops_supervisor"]},

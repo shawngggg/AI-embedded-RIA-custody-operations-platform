@@ -235,11 +235,13 @@ def _dispositions(review, quantities: dict | None = None) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- the book
-def build(accounts: list[dict], firms: dict[str, str], as_of: date, ledger: dict | None = None) -> dict:
+def build(accounts: list[dict], firms: dict[str, str], as_of: date, ledger: dict | None = None,
+          statements: dict[str, dict] | None = None) -> dict:
     """
     accounts: the open accounts, each {id, name, firm_crd, group, registration_type, path, opened_on (date), codes
     (active restriction codes), household, purpose, funding}. firms: CRD -> legal name. as_of: the business day shown
-    (a weekend rolls back to Friday).
+    (a weekend rolls back to Friday). statements: each account's latest quarterly statement, {period_end (ISO date),
+    opening_value, closing_value}: the fee basis comes from these (walkthrough note 20).
     """
     today = bday(as_of)
     accts = []
@@ -250,6 +252,7 @@ def build(accounts: list[dict], firms: dict[str, str], as_of: date, ledger: dict
         accts.append(a)
     b = _Book(today, accts, firms)
     b.ledger = ledger
+    b.statements = statements or {}
     b.transfers_in()
     b.positions_and_cash()
     b.trading()
@@ -270,6 +273,7 @@ class _Book:
         self.billing_runs, self.fees, self.breaks = [], [], []
         self.settlement: dict = {}
         self.ledger: dict | None = None
+        self.statements: dict[str, dict] = {}
         self.in_transit: set[str] = set()       # incoming ACATS still running: only the opening deposit is here
         self.loi_pending: set[str] = set()      # the REIT waits for the sponsor's re-registration
         self.closing: dict | None = None
@@ -716,17 +720,34 @@ class _Book:
             "positions": _dispositions(review)})
 
     # ------------------------------------------------------------ billing
+    def basis(self, a: dict, sched: dict, start: date, end: date) -> tuple[float, str, float | None]:
+        """The fee basis, where it came from, and the statement value it ties to (walkthrough note 20): in advance,
+        the closing value on the statement for the prior quarter end; in arrears, the billed quarter's statement
+        (the average of its opening and closing values: the platform doesn't keep daily values). An account with no
+        statement for that date (opened since) bills on its value on the books today."""
+        st = self.statements.get(a["id"]) or {}
+        if sched["timing"] == "in_advance":
+            on = start - timedelta(days=1)
+            if st.get("period_end") == on.isoformat():
+                v = float(st["closing_value"])
+                return _money(v), f"Statement value, {_day(on)}", _money(v)
+        elif st.get("period_end") == end.isoformat():
+            v = (float(st["opening_value"]) + float(st["closing_value"])) / 2
+            return _money(v), (f"Average of the statement's {_day(quarter_bounds(end)[0] - timedelta(days=1))} and "
+                               f"{_day(end)} values"), _money(float(st["closing_value"]))
+        return self.value[a["id"]], "Value on the books today: no statement yet for this period", None
+
     def billing(self) -> None:
-        household_value: dict[tuple, float] = {}
-        for a in self.accounts:
-            k = (a["firm_crd"], a.get("household") or a["id"])
-            household_value[k] = household_value.get(k, 0) + self.value[a["id"]]
         for crd, sched in FEE_SCHEDULES.items():
             firm_accounts = [a for a in self.accounts if a["firm_crd"] == crd]
             if not firm_accounts:
                 continue
             advance = sched["timing"] == "in_advance"
             start, end = quarter_bounds(self.today, 0 if advance else -1)
+            household_value: dict[tuple, float] = {}
+            for a in firm_accounts:
+                k = (a["firm_crd"], a.get("household") or a["id"])
+                household_value[k] = household_value.get(k, 0) + self.basis(a, sched, start, end)[0]
             bill = next_bday(start if advance else end + timedelta(days=1))
             included = [a for a in firm_accounts if (a["opened_on"] < bill if advance else a["opened_on"] <= end)]
             later = [a for a in firm_accounts if a not in included]
@@ -750,10 +771,8 @@ class _Book:
         q_start, q_end = quarter_bounds(start)
         quarter_days = (q_end - q_start).days + 1
         days = (end - max(start, a["opened_on"])).days + 1
-        factor = 0.985 if sched["timing"] == "in_advance" else 0.995    # prior quarter-end, or the average daily value
-        value = self.value[a["id"]] * factor
-        basis = household_value[(a["firm_crd"], a.get("household") or a["id"])] * factor if sched["households"] \
-            else value
+        value, source, statement_value = self.basis(a, sched, start, end)
+        basis = household_value[(a["firm_crd"], a.get("household") or a["id"])] if sched["households"] else value
         rate = _blended(sched["tiers"], basis)
         status, note = "Calculated", (f"Pro-rated: {days} of {quarter_days} days" if days < quarter_days else "")
         if sched["method"] == "ria_posts" and a["group"] == "pure_ria" and a["id"] == min(
@@ -781,6 +800,7 @@ class _Book:
                                           f"names another account in the household to bill")
         return {"run": run_id, "account": a["id"], "client": a["name"], "firm_crd": a["firm_crd"],
                 "billable_value": _money(value), "tier_basis_value": _money(basis), "annual_rate": round(rate, 5),
+                "basis_source": source, "statement_value": statement_value,
                 "days_billed": days, "period_days": quarter_days, "advisory_fee": _money(advisory),
                 "custody_fee": _money(custody), "total_fee": _money(advisory + custody),
                 "cash_available": self.cash[a["id"]], "status": status, "note": note,

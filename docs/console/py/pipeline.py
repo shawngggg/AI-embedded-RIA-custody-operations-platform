@@ -81,6 +81,8 @@ class Decisions:
     alert_reference: str = "ALR-DEMO-0001"
     identity_fraud: str | None = None         # confirmed | not_fraud: AML compliance on a suspected fraudulent identity
     identity_fraud_reference: str = "IDF-DEMO-0001"
+    red_flags: str | None = None              # cleared: CIP explained the identity red flags (Regulation S-ID)
+    red_flags_reference: str = "RFL-DEMO-0001"
 
 
 @dataclass
@@ -257,6 +259,27 @@ def _identity_issue(res: OnboardingResult, issue: dict | None, decisions, regist
     return None
 
 
+RED_FLAG_STEP = "Identity red flags (Regulation S-ID): CIP reviews"
+
+
+def _red_flags(res: OnboardingResult, flags: list[dict] | None, decisions, issue: dict | None, registry,
+               by) -> str | None:
+    """A tax ID or phone this client shares with someone else on file (app/red_flags.py). CIP explains it (cleared,
+    under maker-checker) or records a suspected fraudulent identity, which goes to AML compliance held (IDFR). Path A
+    too: relying on the RIA for CIP doesn't hand over the custodian's identity theft program. Nothing reaches the RIA."""
+    if not flags:
+        return None
+    detail = [f"{f['person']}: {f['flag']}" for f in flags]
+    if issue and issue.get("kind") == "suspected_fraud":
+        return _identity_issue(res, issue, decisions, registry, by)
+    if decisions.red_flags == "cleared":
+        res.add(OPS, RED_FLAG_STEP, "Explained by CIP", detail + [f"Reference {decisions.red_flags_reference}"])
+        return None
+    res.add(OPS, RED_FLAG_STEP, "Waiting for CIP", detail + [
+        "CIP explains it (the same person, or a legitimate shared detail) or records a suspected fraudulent identity"])
+    return "PENDING_RED_FLAG_REVIEW"
+
+
 def _unverified_issue(issue: dict | None, unverified: list[str]) -> dict | None:
     """An issue counts only while the person is still unverified (verifying them settles a resubmission)."""
     return issue if issue and (issue["kind"] == "suspected_fraud" or issue.get("person") in unverified) else None
@@ -365,7 +388,8 @@ def onboard_firm(app: FirmApplication, as_of: date, *, flagged=None, registry=No
     if blocked:
         res.add(RULES, "Verify registration and licensing", "Fails", [d.reason for d in blocked],
                 [d.rule_id for d in blocked])
-        res.add(OPS, "Relationship declined", "Decline notice sent to the RIA")
+        res.add(OPS, "Relationship declined", "Declined: the RIA service team tells the firm",
+                ["The firm has no portal users until the relationship opens, so no email goes out"])
         res.status = "DECLINED"
         return res
     if review and not decisions.compliance_signoff:
@@ -468,12 +492,13 @@ def _account_record_step(res: OnboardingResult, app: AccountApplication) -> None
         tc = app.trusted_contact or {}
         if tc.get("name"):
             notes.append(f"Trusted contact: {tc['name']}" + (f" ({tc['relationship']})" if tc.get("relationship") else "")
-                         + "; disclosure sent with the account notice")
+                         + "; the disclosure goes to the client with the account-opened notice")
         elif app.trusted_contact_declined:
-            notes.append("Trusted contact: the client declined; disclosure sent, and asked again at each update")
+            notes.append("Trusted contact: the client declined; the account-opened notice carries the disclosure, "
+                         "and each change confirmation asks again")
         else:
-            notes.append("Trusted contact: not provided; the request goes to the RIA (reasonable efforts, "
-                         "FINRA Rule 4512)")
+            notes.append("Trusted contact: not provided; the account-opened notice asks the client for one, and each "
+                         "change confirmation asks again (reasonable efforts, FINRA Rule 4512)")
     if app.registration_type == "joint" and app.joint_tenancy:
         notes.append(f"Tenancy: {TENANCY.get(app.joint_tenancy, app.joint_tenancy)}")
     if app.registration_type == "ira" and app.ira_type:
@@ -499,7 +524,8 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                  existing: list[Account] | None = None, ria_active: bool = True, ria_risk_tier: str = "LOW",
                  flagged=None, registry=None, decisions=None, by: str = "ops.analyst",
                  security_master: dict | None = None,
-                 liquidation_elections: set[str] | None = None, identity_issue: dict | None = None) -> OnboardingResult:
+                 liquidation_elections: set[str] | None = None, identity_issue: dict | None = None,
+                 red_flags: list[dict] | None = None) -> OnboardingResult:
     decisions = decisions or Decisions()
     registry = registry or RestrictionRegistry()
     primary = app.primary.name if app.primary else app.account_id
@@ -587,7 +613,13 @@ def open_account(app: AccountApplication, ria_app: FirmApplication, as_of: date,
                 cdd.append("Beneficial owners on file from the entity's first account, confirmed as current "
                            "(FinCEN exceptive relief, Feb. 13, 2026); confirmation recorded")
         res.add(RULES, "Path B: CDD on purpose, expected activity, beneficial owners of entities", "Complete", cdd)
-        res.add(LEDGER, "Path B: enroll in account-level AML monitoring and trading surveillance", "Enrolled")
+        res.add(LEDGER, "Path B: account-level AML monitoring and trading surveillance",
+                "Not built: release 4", ["Transaction monitoring arrives with financial crimes and SAR (release 4)"])
+
+    stop = _red_flags(res, red_flags, decisions, identity_issue if path is Path.A else None, registry, by)
+    if stop:
+        res.status = stop
+        return res
 
     _pep_media_step(res, app.holders)
     subjects = [Subject(f"holder:{i}", Kind.INDIVIDUAL, p.name, p.role, p.date_of_birth,

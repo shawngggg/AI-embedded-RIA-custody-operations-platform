@@ -40,6 +40,7 @@ export default function PortalHome() {
         <div className="actions">
           {!client && <Link to="/portal/new-account"><button>Open a new account</button></Link>}
           <Link to="/portal/change"><button className={client ? "" : "secondary"}>Request an account change</button></Link>
+          <Link to="/portal/transfers"><button className="secondary">Transfers</button></Link>
           {user.role === "ria_admin" && <Link to="/portal/users"><button className="secondary">Add a firm user</button></Link>}
         </div>
       </section>
@@ -69,7 +70,6 @@ export default function PortalHome() {
 
       <h2>Coming to the portal</h2>
       <ul className="plain coming">
-        <li><Link to="/portal/transfers">Transfers</Link> <span className="badge">R2</span> <span className="muted small">Wires, ACH, journals, and ACATS, tracked to settlement</span></li>
         <li><Link to="/portal/trading">Trading</Link> <span className="badge">R3</span> <span className="muted small">{client ? "Orders in your self-directed account" : "Block orders and allocations"}</span></li>
         {!client && <li><Link to="/portal/billing">Fee billing</Link> <span className="badge">R3</span> <span className="muted small">Post your advisory fees, or approve what we calculate</span></li>}
       </ul>
