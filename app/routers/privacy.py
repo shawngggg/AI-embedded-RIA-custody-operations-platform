@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import privacy
+from .. import audit, privacy
 from ..access import require_capability
 from ..db import get_db
 from ..orm import Account, PrivacyIncident, User
@@ -74,6 +74,25 @@ def determine(incident_id: int, body: Determination, user: User = Depends(requir
     if i.contained_on is None:
         raise HTTPException(409, "Contain it first: the notice says what was done")
     privacy.determine(db, user, i, body.decision, body.reason)
+    db.commit()
+    return privacy.to_dict(i)
+
+
+class Approval(BaseModel):
+    approve: bool
+    note: str = Field(min_length=10, max_length=1000)
+
+
+@router.post("/{incident_id}/approve")
+def approve(incident_id: int, body: Approval, user: User = Depends(require_capability("privacy")),
+            db: Session = Depends(get_db)):
+    """A second person approves or sends back a no-notice determination."""
+    i = _get(db, incident_id)
+    if i.status != "no_notice_proposed":
+        raise HTTPException(409, "No no-notice determination is waiting for approval")
+    if i.determined_by_id == user.id:
+        audit.refuse(db, user, "privacy_approval", "The person who proposed no notice can't approve it")
+    privacy.approve_no_notice(db, user, i, body.approve, body.note)
     db.commit()
     return privacy.to_dict(i)
 

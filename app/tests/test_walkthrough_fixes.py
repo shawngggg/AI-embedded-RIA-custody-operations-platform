@@ -154,3 +154,100 @@ def test_1_graph_sends_the_statement_pdf_as_an_attachment(as_user, monkeypatch):
         files = sent[-1]["json"]["message"]["attachments"]
         assert files[0]["name"] == st.filename and files[0]["contentType"] == "application/pdf"
         assert base64.b64decode(files[0]["contentBytes"]) == st.content
+
+
+# --- Group B: identity and compliance decisions --------------------------------------------------------------------
+
+def _with_holder(name: str, tax_id: str, phone: str, email: str) -> dict:
+    return {**NEW_APP, "holders": [{**NEW_APP["holders"][0], "name": name, "tax_id": tax_id, "phone": phone,
+                                    "email": email}]}
+
+
+def test_5_a_tax_id_on_file_under_another_name_goes_to_cip_and_never_to_the_ria(as_user):
+    from app.tests.test_api import WHY
+    app = _with_holder("Gus Hale", "900-00-2007", "435-555-0177", "gus.hale@example.com")   # Jordan Pike's tax ID
+    portal = as_user("granite.advisor").post("/api/portal/accounts", json={"application": app,
+                                                                           "documents": ACCOUNT_DOCS}).json()
+    assert portal["status"] == "IN_REVIEW" and "red flag" not in str(portal).lower()
+    cip = as_user("ops.cip")
+    detail = cip.get(f"/api/cases/{portal['id']}").json()
+    assert (detail["status"], detail["queue"]) == ("PENDING_RED_FLAG_REVIEW", "verification")
+    step = next(s for s in detail["result"]["steps"] if s["step"].startswith("Identity red flags"))
+    assert "Tax ID ending 2007 is on file for Jordan Pike" in step["detail"][0]
+    choice = next(a for a in detail["available_decisions"] if a["decision_type"] == "red_flag_review")
+    assert "Jordan Pike" in choice["values"][0]["prefill"]          # the rationale starts from the evidence
+    p = cip.post(f"/api/cases/{portal['id']}/decisions", json={
+        "decision_type": "red_flag_review", "value": "cleared", "reference": "RFL-1",
+        "note": "Same client: a legal name change on file, matched to the marriage certificate"}).json()
+    done = as_user("ops.supervisor").post(f"/api/decisions/{p['id']}/approve").json()
+    assert done["status"] == "PENDING_ACCEPTANCE"
+
+
+def test_5_a_red_flag_cip_suspects_goes_to_aml_held(as_user):
+    app = _with_holder("Ida Voss", "900-00-2007", "435-555-0178", "ida.voss@example.com")
+    cid = as_user("granite.advisor").post("/api/portal/accounts", json={"application": app,
+                                                                        "documents": ACCOUNT_DOCS}).json()["id"]
+    state = as_user("ops.cip").get(f"/api/cases/{cid}").json()["identity_check"]
+    assert state["can_record"] and state["people"] == ["Ida Voss"]      # Path A too
+    d = as_user("ops.cip").post(f"/api/cases/{cid}/identity-check", json={
+        "kind": "suspected_fraud", "person": "Ida Voss", "note": "The tax ID belongs to another client"}).json()
+    assert d["status"] == "PENDING_FRAUD_REVIEW" and "IDFR" in [r["code"] for r in d["restrictions"] if r["active"]]
+
+
+def test_5_a_phone_shared_with_another_family_is_flagged_and_a_household_isnt(as_user):
+    from app.db import SessionLocal
+    from app.red_flags import find
+    as_user(ADMIN)
+    with SessionLocal() as db:
+        other = find(db, [{"name": "Pat Quinn", "tax_id": "900-00-9901", "phone": "801-555-0131"}], None)
+        household = find(db, [{"name": "Sam Pike", "tax_id": "900-00-9902", "phone": "801-555-0131"}], None)
+        same = find(db, [{"name": "Jordan A. Pike", "tax_id": "900-00-2007", "phone": "801-555-0131"}], None)
+    assert other and "Phone ending 0131" in other[0]["flag"]
+    assert household == [] and same == []                           # a household; the same person
+
+
+def test_9_confirmed_fraud_is_referred_to_the_bsa_officer_who_decides(as_user):
+    from app.tests.test_api import WHY
+    app = _with_holder("Ida Voss", "900-00-2007", "435-555-0178", "ida.voss@example.com")
+    cid = as_user("granite.advisor").post("/api/portal/accounts", json={"application": app,
+                                                                        "documents": ACCOUNT_DOCS}).json()["id"]
+    as_user("ops.cip").post(f"/api/cases/{cid}/identity-check", json={
+        "kind": "suspected_fraud", "person": "Ida Voss", "note": "The tax ID belongs to another client"})
+    p = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={
+        "decision_type": "identity_fraud", "value": "confirmed", "reference": "IDF-9"}).json()
+    as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve")
+    refs = as_user("aml.officer").get("/api/sar-referrals").json()
+    mine = next(r for r in refs if r["case_id"] == cid)
+    assert mine["status"] == "open" and mine["days_left"] == 30 and mine["can_decide"]
+    assert as_user("aml.maker").get("/api/work").json()["sar_referrals"]
+    assert as_user("ops.cip").get("/api/sar-referrals").status_code == 403
+    assert as_user("ops.cip").get(f"/api/cases/{cid}").json()["sar_referral"] is None
+    assert "sar_referral" not in as_user("granite.advisor").get(f"/api/cases/{cid}").json()
+    assert as_user("aml.maker").post(f"/api/cases/{cid}/sar-referral", json={
+        "decision": "file", "note": WHY}).status_code == 403                    # the officer decides
+    assert as_user("aml.officer").post(f"/api/cases/{cid}/sar-referral", json={
+        "decision": "file", "note": "short"}).status_code == 422
+    done = as_user("aml.officer").post(f"/api/cases/{cid}/sar-referral", json={
+        "decision": "file", "note": "Synthetic identity using another client's tax ID: reportable"}).json()
+    assert done["status"] == "decided" and done["decided_by"] == "Ines Carvalho"
+
+
+def test_10_no_notice_needs_a_second_person_and_compliance_sees_the_risk_event(as_user):
+    i = as_user("aml.maker").post("/api/privacy", json={
+        "summary": "A misdirected email sent one client's statement to the wrong adviser.", "aware_on": "2026-10-20",
+        "accounts": ["ACC-3001"], "information": "Name, address, balances",
+        "service_provider": "Statement print vendor", "provider_aware_at": "2026-10-15T09:00:00",
+        "provider_notified_at": "2026-10-19T09:00:00"}).json()
+    assert i["provider_late"] is True                                # 96 hours: over the 72
+    aml = as_user("aml.maker")
+    aml.post(f"/api/privacy/{i['id']}/contain", json={"note": "The recipient confirmed deletion in writing"})
+    d = aml.post(f"/api/privacy/{i['id']}/determine", json={
+        "decision": "no_notice", "reason": "Deleted unread, confirmed in writing"}).json()
+    assert d["status"] == "no_notice_proposed" and d["days_left"] is not None     # the clock still runs
+    assert as_user("aml.maker").post(f"/api/privacy/{i['id']}/approve", json={
+        "approve": True, "note": "Looks right to me"}).status_code == 403
+    done = as_user("aml.checker").post(f"/api/privacy/{i['id']}/approve", json={
+        "approve": True, "note": "Read the recipient's written confirmation"}).json()
+    assert done["status"] == "closed" and done["approved_by"] == "Morgan Lee"
+    events = as_user("aml.checker").get("/api/risk-events").json()["events"]
+    assert any(e["source"] == "privacy" for e in events)

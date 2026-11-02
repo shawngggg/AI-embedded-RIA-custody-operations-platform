@@ -48,6 +48,8 @@ DEMO_USERS = [
     ("ops.supervisor", "Priya Raman", "ops_supervisor", None, None, "Approves operations decisions as checker"),
     ("aml.maker", "Dev Patel", "aml_compliance", None, None, "Proposes EDD and compliance decisions"),
     ("aml.checker", "Morgan Lee", "aml_compliance", None, None, "Approves EDD and compliance decisions"),
+    ("aml.officer", "Ines Carvalho", "bsa_officer", None, None,
+     "BSA/AML officer: approves EDD for foreign PEPs (senior management) and decides SAR referrals"),
     ("sanctions.maker", "Alex Kim", "sanctions", None, None, "Proposes sanctions determinations"),
     ("sanctions.checker", "Sam Rivera", "sanctions", None, None, "Approves sanctions determinations"),
     ("review.analyst", "Casey Nguyen", "periodic_review", None, None, "Works reviews as they come due"),
@@ -245,9 +247,11 @@ def create_account_case(db: Session, app: AccountApplication, firm: Firm, actor:
     db.add(account)
     db.flush()
     group = "self-directed" if app.group is AccountGroup.SELF_DIRECTED else "pure RIA"
+    from .red_flags import find as red_flags
+    flags = red_flags(db, account.application.get("holders", []), account.id)     # worked out once, at intake
     case = Case(kind="account", title=f"Account opening: {account.display_name} ({group})", firm_id=firm.id,
                 account_id=account.id, target_id=account.id, application=to_json(app), decisions={},
-                created_by=actor.id if actor else None)
+                created_by=actor.id if actor else None, extra={"red_flags": flags} if flags else {})
     db.add(case)
     db.flush()
     audit.record(db, actor, "case_created", "case", case.id, case_id=case.id, kind="account", account=account.id)
@@ -266,9 +270,13 @@ def create_change_case(db: Session, change: dict, account: Account, actor: User 
     return case
 
 
-def reviewable(db: Session, case: Case) -> list[int]:
-    """The seeded principal reviews every document in good order before accepting, as the app requires."""
-    return [d.id for d in to_review(db, case)]
+def reviewable(db: Session, case: Case, principal: User) -> list[int]:
+    """The seeded principal opens and reviews every document in good order before accepting, as the app requires."""
+    docs = to_review(db, case)
+    for d in docs:
+        audit.record(db, principal, "document_opened", "document", d.id, case_id=case.id, doc_type=d.doc_type)
+    db.flush()
+    return [d.id for d in docs]
 
 
 def reset_database() -> None:
@@ -365,7 +373,7 @@ def _seed(db: Session) -> None:
 
     def accept_if_seeded(case: Case, key: str) -> None:
         if key in ACCEPTED_SEEDS and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
 
     for key in FIRM_SEEDS:
         app = shift_dates(FIRMS[key], delta)
@@ -385,7 +393,7 @@ def _seed(db: Session) -> None:
         run_case(db, case, system_ops)
         db.flush()
         if case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
         db.flush()
         backdate(db, case, extra.FIRM_AGE_HOURS[key])
 
@@ -532,7 +540,7 @@ def seed_more_cases(db: Session, users: dict, firms_by_crd: dict) -> None:
         run_case(db, case, actor or ops)
         db.flush()
         if sc.accept and case.status == "PENDING_ACCEPTANCE":
-            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case))
+            accept_case(db, case, principal, "accepted", reviewed=True, documents_reviewed=reviewable(db, case, principal))
         if sc.identity_issue:
             identity_check.record(db, case, cip, sc.identity_issue["kind"], sc.identity_issue["person"],
                                   sc.identity_issue["note"])

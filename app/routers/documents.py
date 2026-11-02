@@ -45,7 +45,8 @@ def upload(case_id: int, doc_type: str = Form(...), channel: str = Form("portal"
            sample: bool = Form(False), file: UploadFile | None = File(None), user: User = Depends(current_user),
            db: Session = Depends(get_db)):
     case = get_case_for(db, user, case_id)
-    if user.role not in OPS + REQUESTERS:
+    edd_evidence = user.role in ("aml_compliance", "bsa_officer") and doc_type == "source_of_wealth"
+    if user.role not in OPS + REQUESTERS and not edd_evidence:     # AML compliance attaches EDD evidence
         audit.refuse(db, user, "document_upload", "Operations or the requester adds documents", case_id=case.id)
     if is_closed(case.kind, case.status):
         raise HTTPException(409, "This case is closed")

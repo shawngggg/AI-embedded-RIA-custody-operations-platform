@@ -58,7 +58,8 @@ def decisions_of(case: Case) -> Decisions:
                      acceptance=d.get("acceptance"), acceptance_by=d.get("acceptance_by", "unknown"),
                      alert_review=d.get("alert_review"), alert_reference=d.get("alert_review_reference", "ALR-UNSET"),
                      identity_fraud=d.get("identity_fraud"),
-                     identity_fraud_reference=d.get("identity_fraud_reference", "IDF-UNSET"))
+                     identity_fraud_reference=d.get("identity_fraud_reference", "IDF-UNSET"),
+                     red_flags=d.get("red_flag_review"), red_flags_reference=d.get("red_flag_review_reference", "RFL-UNSET"))
 
 
 def simulated_iapd(app) -> dict:
@@ -104,7 +105,8 @@ def run_case(db: Session, case: Case, actor: User | None) -> OnboardingResult:
         res = open_account(app, firm_from(firm.application), as_of,
                            existing=existing_accounts(db, account_row, account_row.client_key),
                            ria_active=firm.status == "ACTIVE", ria_risk_tier=firm.risk_tier or "LOW",
-                           flagged=current_list(db), decisions=decisions, identity_issue=identity_issue)
+                           flagged=current_list(db), decisions=decisions, identity_issue=identity_issue,
+                           red_flags=(case.extra or {}).get("red_flags"))
     elif case.kind == "screening":            # ongoing screening (app/screening.py)
         from rescreening import process_rescreen
         from restrictions import RestrictionRegistry

@@ -88,8 +88,9 @@ export type CaseDetail = CaseSummary & {
   related_documents?: { title: string; case_id: number; documents: Doc[] } | null;
   application: any; decisions: any; result: any; extra: any; restrictions: Restriction[];
   decision_log: Decision[]; corrections: Correction[]; manual_steps: number; nigo_count: number;
-  available_decisions: { decision_type: string; label: string; values: { value: string; label: string }[];
-    approver_roles: string[] }[];
+  available_decisions: { decision_type: string; label: string;
+    values: { value: string; label: string; rationale?: boolean; prefill?: string }[];
+    approver_roles: string[]; min_rationale?: number }[];
   account: { id: string; status: string; group: string; display_name: string } | null; closed_at: string | null;
   acceptance: { can_accept: boolean; reason: string | null; signs_as: string | null; to_review: number[];
     opened: number[] } | null;

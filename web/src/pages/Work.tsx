@@ -11,7 +11,12 @@ type WorkData = {
   to_approve: Decision[]; my_proposals: Decision[];
   risk_events_open: number; risk_events_mine: number; restricted_targets: number;
   messages_unread?: number; reviews_due?: number; reviews_overdue?: number; grants_waiting?: number;
+  sar_referrals?: SarReferral[];
 };
+type SarReferral = { case_id: number; case_title: string; reason: string; reference: string; referred_on: string;
+  referred_by: string; approved_by: string; due: string; days_left: number; overdue: boolean; status: string;
+  decision_label?: string; decided_by?: string; decided_on?: string; note?: string; can_decide: boolean;
+  decisions: Record<string, string> };
 
 // Workbenches for teams without a queue of their own: release 2's settlement page, and the planned release 3 pages
 const WORKBENCH: [string, string, string, number | null][] = [
@@ -70,6 +75,7 @@ export default function Work() {
       </div>
 
       {can.ai_review && <AiQa />}
+      {d.sar_referrals && d.sar_referrals.length > 0 && <SarReferrals items={d.sar_referrals} onDone={w.reload} />}
 
       {d.queues.length > 0 && (
         <>
@@ -150,5 +156,46 @@ function AiQa() {
           </div>
         </div>))}
     </div>
+  );
+}
+
+
+/** SAR referrals: a confirmed fraudulent identity goes to the BSA/AML officer, who decides within 30 days whether a
+ * SAR is filed (31 CFR 1023.320). AML compliance sees them; only the officer decides. Never shown to the portal. */
+function SarReferrals({ items, onDone }: { items: SarReferral[]; onDone: () => void }) {
+  const [form, setForm] = useState<Record<number, { decision: string; note: string }>>({});
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
+  return (
+    <>
+      <h2>SAR referrals</h2>
+      <p className="muted small">A SAR is filed within 30 days of the facts that may support it. Filing through BSA E-Filing arrives in
+        release 4; until then a "file" decision is filed by hand.</p>
+      {msg.ok && <p className="ok">{msg.ok}</p>}{msg.error && <p className="error">{msg.error}</p>}
+      {items.map((r) => {
+        const f = form[r.case_id] ?? { decision: "file", note: "" };
+        return (
+          <div key={r.case_id} className="panel">
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <strong><Link to={`/cases/${r.case_id}`}>{r.case_title}</Link></strong>
+              <span className={r.overdue ? "error" : "muted"}>{r.status === "open" ? `Due ${r.due} (${r.days_left} days)` : `${r.decision_label} · ${r.decided_by}, ${r.decided_on}`}</span>
+            </div>
+            <p className="small muted">{r.reason} ({r.reference}) · referred {r.referred_on} by {r.referred_by}, approved by {r.approved_by}</p>
+            {r.note && <p className="small">"{r.note}"</p>}
+            {r.can_decide && (
+              <div className="row" style={{ alignItems: "end" }}>
+                <div className="field" style={{ flex: "0 1 260px" }}><label htmlFor={`sar-d-${r.case_id}`}>Decision</label>
+                  <select id={`sar-d-${r.case_id}`} value={f.decision} onChange={(e) => setForm({ ...form, [r.case_id]: { ...f, decision: e.target.value } })}>
+                    {Object.entries(r.decisions).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select></div>
+                <div className="field"><label htmlFor={`sar-n-${r.case_id}`}>Why (30 characters or more)</label>
+                  <input id={`sar-n-${r.case_id}`} type="text" value={f.note} onChange={(e) => setForm({ ...form, [r.case_id]: { ...f, note: e.target.value } })} /></div>
+                <button disabled={f.note.trim().length < 30} onClick={() => api(`/api/cases/${r.case_id}/sar-referral`, { body: f })
+                  .then(() => { setMsg({ ok: "Decision recorded." }); onDone(); }).catch((e: Error) => setMsg({ error: e.message }))}>Record</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }

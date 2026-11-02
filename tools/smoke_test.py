@@ -22,7 +22,7 @@ PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPL
                    "CONFIRMING", "IN_REVIEW", "SUBMITTED",
                    "COMPLETED", "BANK_RETURNED", "IN_TRANSIT", "ON_HOLD",   # release 2 transfers, in the portal's words
                    "WITHDRAWN"}                                           # closed by NIGO aging (keep in step with app/tests)
-INTERNAL_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "sla", "path", "application"}
+INTERNAL_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "sla", "path", "application", "sar_referral"}
 results: list[tuple[str, bool, str]] = []
 
 

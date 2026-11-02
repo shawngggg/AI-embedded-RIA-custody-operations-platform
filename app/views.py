@@ -15,7 +15,7 @@ from .documents import CORRECTABLE, DOC_TYPES, case_documents, doc_dict, field_d
 from .access import capabilities, may_propose
 from .orm import OPS_TEAMS, PORTAL_ROLES, REGISTRATIONS, ROLES, iso, Account, Case, Firm, PendingDecision, Restriction, Review, User
 from .crypto import mask_tax_ids, sees_tax_ids
-from .queues import DECISIONS, QUEUES
+from .queues import DECISIONS, MIN_RATIONALE, QUEUES, RATIONALE
 
 # Fields a person can supply to resolve each finding: rule id -> [(field, label, type)]
 CORRECTIONS = {
@@ -218,15 +218,52 @@ def corrections_for(db: Session, case: Case) -> list[dict]:
     return out
 
 
+def rationale_prefill(case: Case, decision_type: str) -> str:
+    """A starting point for the rationale, from the evidence on the case; the person edits it before proposing."""
+    r = case.result or {}
+    if decision_type == "sanctions":
+        hits = (r.get("escalation") or {}).get("hits") or r.get("screening") or []
+        parts = []
+        for h in hits:
+            ev = h.get("evidence") or {}
+            facts = [f"name score {ev['name_score']}" if ev.get("name_score") is not None else None,
+                     f"date of birth {ev['date_of_birth']}" if ev.get("date_of_birth") else None,
+                     f"country {ev['country']}" if ev.get("country") else None]
+            parts.append(f"{h.get('subject')} vs {h.get('matched')} ({h.get('entry_id')}): "
+                         + ", ".join(f for f in facts if f))
+        return "; ".join(parts) + ". Not the listed party because: "
+    if decision_type == "red_flag_review":
+        return "; ".join(f"{f['person']}: {f['flag']}" for f in (case.extra or {}).get("red_flags", [])) \
+            + ". Explained because: "
+    if decision_type == "alert_review":
+        step = next((s for s in r.get("steps", []) if s.get("step", "").startswith("Route PEP")), None)
+        return ("; ".join(step.get("detail") or []) if step else "The alert") + ". No EDD needed because: "
+    if decision_type == "edd":
+        reqs = ((r.get("risk") or {}).get("edd_requirements")) or []
+        return "Checked: " + "; ".join(reqs) + ". Evidence: "
+    if decision_type == "identity_fraud":
+        issue = (case.extra or {}).get("identity_issue") or {}
+        return f"{issue.get('person', 'The person')}: {issue.get('note', '')}. Not fraudulent because: "
+    return ""
+
+
 def available_decisions(case: Case, user: User) -> list[dict]:
     out = []
     for key, spec in DECISIONS.items():
         if case.status in spec["statuses"] and may_propose(user, key) and not spec.get("direct") \
                 and not spec.get("custom"):
+            needs = RATIONALE.get(key, set())
             out.append({"decision_type": key, "label": spec["label"],
-                        "values": [{"value": v, "label": l} for v, l in spec["values"].items()],
-                        "approver_roles": spec["approver"]})
+                        "values": [{"value": v, "label": l, "rationale": v in needs,
+                                    "prefill": rationale_prefill(case, key) if v in needs else ""}
+                                   for v, l in spec["values"].items()],
+                        "approver_roles": spec["approver"], "min_rationale": MIN_RATIONALE})
     return out
+
+
+def _sar_view(c: Case, user: User) -> dict | None:
+    from .sar import view
+    return view(c, user)
 
 
 def rescission_state(db: Session, c: Case, user: User) -> dict | None:
@@ -267,6 +304,7 @@ def case_detail(db: Session, c: Case, user: User) -> dict:
         "rework": (c.extra or {}).get("rework"),
         "ai_suggestions": ai_suggestions.for_case(db, c, user) if c.kind == "firm" else [],
         "identity_check": identity_check.state(c, user),
+        "sar_referral": _sar_view(c, user),
     })
     data.update(r2_detail(db, c, user))
     return data

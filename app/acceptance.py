@@ -108,6 +108,11 @@ def accept_case(db: Session, case: Case, user: User, value: str, note: str | Non
         raise HTTPException(422, "Review every document in good order before accepting: "
                             + "; ".join(f"{DOC_TYPES[d.doc_type]['label']} ({d.filename})" for d in missing))
     opened = opened_by(db, case, user)
+    unopened = [d for d in docs if d.id not in opened]
+    if unopened:                         # a tick means the principal looked (walkthrough note 6, Nov. 1, 2026)
+        from .documents import DOC_TYPES
+        raise HTTPException(422, "Open each document before ticking it reviewed: "
+                            + "; ".join(f"{DOC_TYPES[d.doc_type]['label']} ({d.filename})" for d in unopened))
     signed = principal_label(user)
     now = utcnow()
     db.add(PendingDecision(case_id=case.id, decision_type="acceptance", value=value, reference=signed,

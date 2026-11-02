@@ -41,6 +41,7 @@ from app.queues import QUEUES  # noqa: E402
 
 USERS = {  # one demo user per role, plus second people for maker-checker
     "ops_analyst": "ops.analyst", "ops_supervisor": "ops.supervisor", "aml_compliance": "aml.maker",
+    "bsa_officer": "aml.officer",
     "sanctions": "sanctions.maker", "periodic_review": "review.analyst", "ria_service": "rs.associate",
     "ria_service_lead": "rs.lead", "platform_admin": "admin.platform", "ria_admin": "granite.admin",
     "ria_user": "granite.advisor", "client": "client.farid",
@@ -92,13 +93,20 @@ def wrong_roles(allowed: set[str], exclude: set[str] = frozenset()) -> list[str]
     return [u for role, u in USERS.items() if role not in allowed and u not in exclude]
 
 
+WHY = "Gate review: checked against the evidence on the case"   # a clearing decision says why (walkthrough note 7)
+
+
 def maker_checker(cid: int, dtype: str, value: str, ref: str, maker: str, checker: str, allowed_p: set[str],
                   allowed_a: set[str], matrix: bool) -> None:
+    body = {"decision_type": dtype, "value": value, "reference": ref, "note": WHY}
     if matrix:
         for u in wrong_roles(allowed_p):
-            attempt(f"{dtype}: propose", u, "post", f"/api/cases/{cid}/decisions",
-                    {"decision_type": dtype, "value": value, "reference": ref})
-    r = as_user(maker).post(f"/api/cases/{cid}/decisions", json={"decision_type": dtype, "value": value, "reference": ref})
+            attempt(f"{dtype}: propose", u, "post", f"/api/cases/{cid}/decisions", body)
+    if dtype == "edd" and value == "approved":       # EDD is approved on evidence (walkthrough note 8)
+        r = as_user(maker).post(f"/api/cases/{cid}/documents", data={"doc_type": "source_of_wealth", "sample": "true",
+                                                                       "channel": "email"})
+        assert r.status_code == 200, r.text
+    r = as_user(maker).post(f"/api/cases/{cid}/decisions", json=body)
     assert r.status_code == 200, (dtype, r.text)
     did = r.json()["id"]
     if matrix:
@@ -111,6 +119,8 @@ def maker_checker(cid: int, dtype: str, value: str, ref: str, maker: str, checke
 
 def accept(cid: int, username: str = "rs.principal", value: str = "accepted") -> dict:
     docs = (as_user(username).get(f"/api/cases/{cid}").json().get("acceptance") or {}).get("to_review", [])
+    for doc in docs:                     # the principal opens each document before ticking it (walkthrough note 6)
+        as_user(username).get(f"/api/documents/{doc}/file")
     r = as_user(username).post(f"/api/cases/{cid}/acceptance", json={"value": value, "reviewed": True,
                                                                       "documents_reviewed": docs})
     assert r.status_code == 200, r.text
@@ -125,9 +135,10 @@ def work_the_seeded_cases() -> None:
                   {"sanctions"}, {"sanctions"}, matrix=False)
     elena, lakeshore = case_id("Elena Marsh"), case_id("Lakeshore")
     maker_checker(elena, "edd", "approved", "EDD-GATE-01", "aml.maker", "aml.checker", {"aml_compliance"},
-                  {"aml_compliance"}, matrix=True)
-    maker_checker(lakeshore, "edd", "approved", "EDD-GATE-02", "aml.maker", "aml.checker", {"aml_compliance"},
-                  {"aml_compliance"}, matrix=False)
+                  {"aml_compliance", "bsa_officer"}, matrix=True)
+    # A foreign PEP's EDD needs senior management: the BSA/AML officer approves it (FATF Recommendation 12)
+    maker_checker(lakeshore, "edd", "approved", "EDD-GATE-02", "aml.maker", "aml.officer", {"aml_compliance"},
+                  {"bsa_officer"}, matrix=True)
     # Oct. 20: every PEP or adverse-media alert goes to AML compliance; a domestic PEP's alert is cleared here
     maker_checker(case_id("Nadia Brooks"), "alert_review", "cleared", "ALR-GATE-01", "aml.maker", "aml.checker",
                   {"aml_compliance"}, {"aml_compliance"}, matrix=True)

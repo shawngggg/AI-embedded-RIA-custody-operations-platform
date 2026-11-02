@@ -59,6 +59,7 @@ DOC_TYPES = {
     "letters_testamentary": {"label": "Letters testamentary or of administration", "signed": False},
     "small_estate_affidavit": {"label": "Small-estate affidavit", "signed": True},
     "lpoa_new_ria": {"label": "Client-signed LPOA naming the new RIA", "signed": True},
+    "source_of_wealth": {"label": "Source of wealth and source of funds evidence", "signed": False},
     "other": {"label": "Other document", "signed": False},
 }
 TAX_DOCS = {"w9", "w8ben", "w8bene"}
@@ -281,6 +282,10 @@ def sample_document(db: Session, case: Case, doc_type: str, on: date) -> tuple[s
     elif doc_type == "change_form":
         lines += [f"Account owner: {who}", f"Account: {case.account_id}",
                   f"Change requested: {app.get('change_type', '').replace('_', ' ')}"]
+    elif doc_type == "source_of_wealth":
+        lines += [f"Subject: {who}", "Source of wealth: proceeds of the 2019 sale of a family business (synthetic)",
+                  "Source of funds for this relationship: brokerage account at another firm, statement attached",
+                  "Verified against: purchase agreement and closing statement (synthetic)"]
     elif doc_type == "medallion":
         lines += [f"Signer: {who}", "MEDALLION SIGNATURE GUARANTEED", "Stamp SYN-0000000 (synthetic)"]
     elif doc_type == "bo_certification":

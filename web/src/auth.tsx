@@ -9,6 +9,6 @@ export function useAuth() {
   return ctx;
 }
 
-export const INTERNAL = ["ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review", "ria_service",
+export const INTERNAL = ["ops_analyst", "ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "periodic_review", "ria_service",
   "ria_service_lead", "platform_admin"];
 export const isInternal = (u: User) => INTERNAL.includes(u.role);

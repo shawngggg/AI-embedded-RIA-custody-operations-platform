@@ -37,6 +37,7 @@ ROLES = {
     "ops_analyst": "Operations analyst",
     "ops_supervisor": "Operations supervisor",
     "aml_compliance": "AML compliance",
+    "bsa_officer": "BSA/AML officer",
     "sanctions": "Sanctions team",
     "periodic_review": "Periodic review team",
     "ria_service": "RIA service team (licensed)",
@@ -46,11 +47,12 @@ ROLES = {
     "ria_user": "RIA user",
     "client": "Client",
 }
-INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review",
+INTERNAL_ROLES = {"ops_analyst", "ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "periodic_review",
                   "ria_service", "ria_service_lead", "platform_admin"}
 PORTAL_ROLES = {"ria_admin", "ria_user", "client"}
 # Granting one of these needs a second platform administrator to approve
-DECISION_ROLES = {"ops_supervisor", "aml_compliance", "sanctions", "ria_service", "ria_service_lead", "platform_admin"}
+DECISION_ROLES = {"ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "ria_service", "ria_service_lead",
+                  "platform_admin"}
 LICENSED_ROLES = {"ria_service", "ria_service_lead"}
 OPS_ROLES = {"ops_analyst", "ops_supervisor"}
 
@@ -628,6 +630,10 @@ class PrivacyIncident(Base):
     determination: Mapped[str | None] = mapped_column(String(20), nullable=True)   # notify | no_notice
     determination_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     determined_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # A no-notice determination needs a second person (walkthrough note 10): who proposed it, and who approved it
+    determined_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approved_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notices_sent_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notices_sent: Mapped[int] = mapped_column(Integer, default=0)
     risk_event_id: Mapped[int | None] = mapped_column(ForeignKey("ops_risk_events.id"), nullable=True)

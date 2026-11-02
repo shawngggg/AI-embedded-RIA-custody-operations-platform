@@ -3,7 +3,7 @@ import { api, type User } from "../api";
 import { rememberWalkthrough } from "../walkthrough";
 
 const GROUPS: [string, (u: User) => boolean][] = [
-  ["Custody operations and second line", (u) => ["ops_analyst", "ops_supervisor", "aml_compliance", "sanctions", "periodic_review"].includes(u.role)],
+  ["Custody operations and second line", (u) => ["ops_analyst", "ops_supervisor", "aml_compliance", "bsa_officer", "sanctions", "periodic_review"].includes(u.role)],
   ["RIA service team (FINRA-licensed)", (u) => ["ria_service", "ria_service_lead"].includes(u.role)],
   ["Platform administration", (u) => u.role === "platform_admin"],
   ["RIA firms", (u) => ["ria_admin", "ria_user"].includes(u.role)],

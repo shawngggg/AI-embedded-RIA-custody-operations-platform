@@ -31,7 +31,7 @@ AREAS = {**OPS_TEAMS, "aml": "AML compliance (EDD and compliance review)", "sanc
          "periodic_review": "Periodic review", "ria_service": "RIA service (principal acceptance)",
          "access": "Access and authentication"}
 # Who owns the follow-up: the lead or second-line team for the area
-OWNERS = {"ops_supervisor": "Operations (supervisor)", "aml_compliance": "AML compliance",
+OWNERS = {"ops_supervisor": "Operations (supervisor)", "aml_compliance": "AML compliance", "bsa_officer": "BSA/AML officer",
           "sanctions": "Sanctions team", "periodic_review": "Periodic review team",
           "ria_service_lead": "RIA service team (lead)", "platform_admin": "Platform administration"}
 AREA_OWNER = {**{t: "ops_supervisor" for t in OPS_TEAMS}, "aml": "aml_compliance", "sanctions": "sanctions",
@@ -42,7 +42,7 @@ QUEUE_AREA = {"items_requested": "onboarding", "rework": "onboarding", "verifica
               "money_release": "asset_transfer", "callbacks": "asset_transfer", "transfer_exceptions": "asset_transfer",
               "in_transit": "asset_transfer", "transfers_waiting": "asset_transfer", "product_review": "product",
               "lifecycle": "client_service", "transitions": "transitions"}
-ROLE_AREAS = {"aml_compliance": {"aml"}, "sanctions": {"sanctions"}, "periodic_review": {"periodic_review"},
+ROLE_AREAS = {"aml_compliance": {"aml"}, "bsa_officer": {"aml"}, "sanctions": {"sanctions"}, "periodic_review": {"periodic_review"},
               "ria_service": {"ria_service"}, "ria_service_lead": {"ria_service"}, "platform_admin": {"access"},
               "ops_supervisor": set(OPS_TEAMS)}       # the supervisor oversees every operations team
 

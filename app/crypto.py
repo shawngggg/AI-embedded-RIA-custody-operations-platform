@@ -111,5 +111,5 @@ def mask_tax_ids(obj):
 def sees_tax_ids(user) -> bool:
     """Full tax IDs for the people who verify identity or screen it: onboarding, CIP, the operations supervisor, AML
     compliance, and the sanctions team. Everyone else sees the last 4."""
-    return user.role in ("ops_supervisor", "aml_compliance", "sanctions") or (
+    return user.role in ("ops_supervisor", "aml_compliance", "bsa_officer", "sanctions") or (
         user.role == "ops_analyst" and user.team in ("onboarding", "cip"))

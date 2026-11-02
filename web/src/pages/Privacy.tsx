@@ -1,26 +1,32 @@
 import { useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
 import { Loading, useLoad } from "../util";
 
 type Incident = { id: number; ref: string; summary: string; status: string; aware_on: string; reported_by: string;
   service_provider: string | null; provider_late: boolean | null; accounts: string[]; information: string | null;
   contained_on: string | null; containment: string | null; determination: string | null; determination_reason: string | null;
-  determined_by: string | null; notice_due: string; days_left: number | null; overdue: boolean; notices_sent_on: string | null;
+  determined_by: string | null; determined_by_id: number | null; approved_by: string | null; approved_on: string | null;
+  provider_aware_at: string | null; provider_notified_at: string | null;
+  notice_due: string; days_left: number | null; overdue: boolean; notices_sent_on: string | null;
   notices_sent: number };
 type View = { incidents: Incident[]; notice_days: number; provider_hours: number; source: string };
 
 /** Regulation S-P incident response: assess, contain, decide on notice, and notify within 30 days. */
 export default function Privacy() {
+  const { user } = useAuth();
   const v = useLoad(() => api<View>("/api/privacy"), []);
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [form, setForm] = useState({ summary: "", aware_on: new Date().toISOString().slice(0, 10), accounts: "", information: "",
-    service_provider: "" });
+    service_provider: "", provider_aware_at: "", provider_notified_at: "" });
   const [notes, setNotes] = useState<Record<number, string>>({});
   if (!v.data) return v.error ? <p className="error">{v.error}</p> : <Loading />;
   const act = (path: string, body: object, ok: string) => api<Incident>(path, { body })
     .then(() => { setMsg({ ok }); v.reload(); }).catch((e: Error) => setMsg({ error: e.message }));
   const open = () => act("/api/privacy", { ...form, accounts: form.accounts.split(/[\s,]+/).filter(Boolean),
-    service_provider: form.service_provider || null }, "Incident opened; the 30-day notice clock runs from the date you became aware.");
+    service_provider: form.service_provider || null, provider_aware_at: form.service_provider && form.provider_aware_at || null,
+    provider_notified_at: form.service_provider && form.provider_notified_at || null },
+    "Incident opened; the 30-day notice clock runs from the date you became aware.");
 
   return (
     <>
@@ -49,6 +55,14 @@ export default function Privacy() {
           <div className="field"><label htmlFor="pp">Service provider, if it happened there</label>
             <input id="pp" type="text" value={form.service_provider} onChange={(e) => setForm({ ...form, service_provider: e.target.value })} /></div>
         </div>
+        {form.service_provider.trim() && (
+          <div className="row">
+            <div className="field"><label htmlFor="ppa">The provider became aware</label>
+              <input id="ppa" type="datetime-local" value={form.provider_aware_at} onChange={(e) => setForm({ ...form, provider_aware_at: e.target.value })} /></div>
+            <div className="field"><label htmlFor="ppn">The provider told us</label>
+              <input id="ppn" type="datetime-local" value={form.provider_notified_at} onChange={(e) => setForm({ ...form, provider_notified_at: e.target.value })} /></div>
+          </div>
+        )}
         <button disabled={form.summary.trim().length < 20 || form.information.trim().length < 3} onClick={open}>Open the incident</button>
       </div>
 
@@ -63,16 +77,22 @@ export default function Privacy() {
           <p className="small muted">Aware {i.aware_on} · reported by {i.reported_by} · accounts {i.accounts.join(", ") || "none named"} ·
             information: {i.information}{i.service_provider ? ` · at ${i.service_provider}${i.provider_late ? " (told us after 72 hours)" : ""}` : ""}</p>
           {i.containment && <p className="small">Contained {i.contained_on}: {i.containment}</p>}
-          {i.determination && <p className="small">Determination ({i.determined_by}): {i.determination === "notify" ? "notify the customers" : "no notice"}: {i.determination_reason}</p>}
+          {i.determination && <p className="small">Determination ({i.determined_by}): {i.determination === "notify" ? "notify the customers" : "no notice"}: {i.determination_reason}
+            {i.approved_by ? ` · approved by ${i.approved_by}, ${i.approved_on}` : i.status === "no_notice_proposed" ? " · waiting for a second person to approve" : ""}</p>}
           {i.status !== "closed" && (
             <div className="row" style={{ alignItems: "end" }}>
-              <div className="field"><label htmlFor={`n${i.id}`}>{i.contained_on ? "Reason for the determination" : "How it was contained"}</label>
+              <div className="field"><label htmlFor={`n${i.id}`}>{i.status === "no_notice_proposed" ? "Your note as the second person" : i.contained_on ? "Reason for the determination" : "How it was contained"}</label>
                 <input id={`n${i.id}`} type="text" value={notes[i.id] ?? ""} onChange={(e) => setNotes({ ...notes, [i.id]: e.target.value })} /></div>
               {!i.contained_on && <button className="secondary" onClick={() => act(`/api/privacy/${i.id}/contain`, { note: notes[i.id] ?? "" }, "Recorded as contained.")}>Contained</button>}
               {i.contained_on && !i.determination && <>
                 <button onClick={() => act(`/api/privacy/${i.id}/determine`, { decision: "notify", reason: notes[i.id] ?? "" }, "Determination: notify.")}>Notify the customers</button>
                 <button className="secondary" onClick={() => act(`/api/privacy/${i.id}/determine`, { decision: "no_notice", reason: notes[i.id] ?? "" }, "Documented: no notice.")}>No harm reasonably likely</button></>}
               {i.determination === "notify" && !i.notices_sent_on && <button onClick={() => act(`/api/privacy/${i.id}/notify`, {}, "Notices sent.")}>Send the notices</button>}
+              {i.status === "no_notice_proposed" && (i.determined_by_id === user.id
+                ? <span className="muted small">You proposed no notice, so someone else approves it.</span>
+                : <>
+                  <button onClick={() => act(`/api/privacy/${i.id}/approve`, { approve: true, note: notes[i.id] ?? "" }, "No notice approved; the incident is closed.")}>Approve no notice</button>
+                  <button className="secondary" onClick={() => act(`/api/privacy/${i.id}/approve`, { approve: false, note: notes[i.id] ?? "" }, "Sent back for a new determination.")}>Send back</button></>)}
             </div>)}
         </div>))}
     </>

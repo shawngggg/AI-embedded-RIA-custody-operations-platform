@@ -5,6 +5,15 @@ import hashlib
 from app.tests.conftest import case_id
 
 ACCOUNT_DOCS = [{"doc_type": t, "sample": True} for t in ("account_application", "lpoa", "fee_authorization", "w9")]
+# A clearing decision says why (walkthrough note 7): 30 characters or more
+WHY = "Checked against the evidence on the case: date of birth and country differ"
+
+
+def edd_evidence(client, cid: int) -> None:
+    """AML compliance attaches the source-of-wealth and source-of-funds evidence EDD approval needs (note 8)."""
+    r = client.post(f"/api/cases/{cid}/documents", data={"doc_type": "source_of_wealth", "sample": "true",
+                                                         "channel": "email"})
+    assert r.status_code == 200, r.text
 
 
 def upload_sample(client, cid: int, doc_type: str) -> dict:
@@ -14,8 +23,10 @@ def upload_sample(client, cid: int, doc_type: str) -> dict:
 
 
 def accept(client, cid: int) -> dict:
-    """The principal ticks every document in good order as reviewed, confirms the review, and accepts."""
+    """The principal opens and ticks every document in good order as reviewed, confirms the review, and accepts."""
     docs = client.get(f"/api/cases/{cid}").json()["acceptance"]["to_review"]
+    for doc in docs:
+        assert client.get(f"/api/documents/{doc}/file").status_code == 200
     r = client.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
                                                           "documents_reviewed": docs})
     assert r.status_code == 200, r.text
@@ -93,11 +104,14 @@ def test_sanctions_false_positive_needs_two_people(as_user):
     cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
     ops = as_user("ops.analyst")
     r = ops.post(f"/api/cases/{cid}/decisions", json={"decision_type": "sanctions", "value": "false_positive",
-                                                     "reference": "DET-1"})
+                                                     "reference": "DET-1", "note": WHY})
     assert r.status_code == 403
     maker = as_user("sanctions.maker")
+    r = maker.post(f"/api/cases/{cid}/decisions", json={"decision_type": "sanctions", "value": "false_positive",
+                                                       "reference": "DET-2026-0412", "note": "abc"})
+    assert r.status_code == 422 and "Say why" in r.json()["detail"]             # a clearing decision says why
     d = maker.post(f"/api/cases/{cid}/decisions", json={"decision_type": "sanctions", "value": "false_positive",
-                                                       "reference": "DET-2026-0412"}).json()
+                                                       "reference": "DET-2026-0412", "note": WHY}).json()
     assert d["status"] == "pending"
     assert maker.post(f"/api/decisions/{d['id']}/approve").status_code == 403    # maker can't be checker
     detail = as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve").json()
@@ -117,9 +131,15 @@ def test_wrong_role_attempts_are_refused_and_logged(as_user):
 
 def test_edd_approval_activates_the_firm(as_user):
     cid = case_id(as_user("ops.analyst"), "Lakeshore")
+    r = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={"decision_type": "edd", "value": "approved",
+                                                                      "reference": "EDD-2026-0102", "note": WHY})
+    assert r.status_code == 422 and "source-of-wealth" in r.json()["detail"]     # EDD is approved on evidence
+    edd_evidence(as_user("aml.maker"), cid)
     d = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={"decision_type": "edd", "value": "approved",
-                                                                      "reference": "EDD-2026-0102"}).json()
-    detail = as_user("aml.checker").post(f"/api/decisions/{d['id']}/approve").json()
+                                                                      "reference": "EDD-2026-0102", "note": WHY}).json()
+    r = as_user("aml.checker").post(f"/api/decisions/{d['id']}/approve")
+    assert r.status_code == 403 and "BSA/AML officer" in r.json()["detail"]      # a foreign PEP: senior management
+    detail = as_user("aml.officer").post(f"/api/decisions/{d['id']}/approve").json()
     assert detail["status"] == "PENDING_ACCEPTANCE"
     assert not [r for r in detail["restrictions"] if r["active"]]
     assert accept(as_user("rs.principal"), cid)["status"] == "ACTIVE"
@@ -136,8 +156,9 @@ def test_true_match_declines_and_blocks(as_user):
 
 def test_rejected_proposal_changes_nothing(as_user):
     cid = case_id(as_user("ops.analyst"), "Elena Marsh-Duval")
+    edd_evidence(as_user("aml.maker"), cid)
     d = as_user("aml.maker").post(f"/api/cases/{cid}/decisions", json={"decision_type": "edd", "value": "approved",
-                                                                      "reference": "EDD-9"}).json()
+                                                                      "reference": "EDD-9", "note": WHY}).json()
     detail = as_user("aml.checker").post(f"/api/decisions/{d['id']}/reject").json()
     assert detail["status"] == "PENDING_EDD"
 
@@ -400,10 +421,15 @@ def test_the_principal_reviews_every_document_before_accepting(as_user):
     assert r.status_code == 422 and "Review every document" in r.json()["detail"]
     r = principal.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
                                                              "documents_reviewed": docs})
+    assert r.status_code == 422 and "Open each document" in r.json()["detail"]     # ticked but never opened
+    for doc in docs[1:]:
+        principal.get(f"/api/documents/{doc}/file")
+    r = principal.post(f"/api/cases/{cid}/acceptance", json={"value": "accepted", "reviewed": True,
+                                                             "documents_reviewed": docs})
     assert r.status_code == 200 and r.json()["status"] in ("OPEN", "OPEN_RESTRICTED")
     event = next(e for e in principal.get(f"/api/cases/{cid}/audit").json() if e["action"] == "principal_accepted")
     reviewed = event["detail"]["documents_reviewed"]
-    assert [d["id"] for d in reviewed] == docs and reviewed[0]["opened"] and not reviewed[-1]["opened"]
+    assert [d["id"] for d in reviewed] == docs and all(d["opened"] for d in reviewed)
     assert all(d["sha256"] for d in reviewed)
 
 
@@ -436,9 +462,7 @@ def test_the_principal_sends_a_case_back_to_operations(as_user):
 def test_approvals_link_each_cases_documents(as_user):
     """A checker can approve from the Approvals list, so each row carries links to its case's documents."""
     cid = case_id(as_user("ops.analyst"), "Lena Park")
-    detail = as_user("rs.principal").get(f"/api/cases/{cid}").json()
-    as_user("rs.principal").post(f"/api/cases/{cid}/acceptance", json={
-        "value": "accepted", "reviewed": True, "documents_reviewed": detail["acceptance"]["to_review"]})
+    accept(as_user("rs.principal"), cid)
     as_user("rs.principal").post(f"/api/cases/{cid}/rescission", json={
         "kind": "regulatory_issue", "return_to": "operations", "reason": "The ID on file belongs to someone else"})
     rows = [r for r in as_user("rs.lead").get("/api/decisions").json() if r["case_id"] == cid]
@@ -585,7 +609,7 @@ def test_other_firms_cannot_change_an_account(as_user):
 NEW_APP = {"group": "pure_ria", "registration_type": "individual",
            "holders": [{"name": "Nina Park", "role": "account_holder", "date_of_birth": "1987-04-02",
                         "address": "300 S State St, Salt Lake City, UT 84111", "tax_id": "900-00-3001",
-                        "phone": "801-555-0131", "email": "nina.park@example.com"}],
+                        "phone": "435-555-0131", "email": "nina.park@example.com"}],
            "trusted_contact": {"name": "Leo Park", "relationship": "brother", "phone": "801-555-0132"},
            "account_purpose": "Long-term investing", "source_of_funds": "Salary", "source_of_wealth": "Salary"}
 
@@ -865,7 +889,8 @@ def test_demo_reset(as_user):
 def test_every_decision_event_carries_its_basis(as_user):
     cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
     d = as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
-        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-T-1"}).json()
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-T-1",
+        "note": WHY}).json()
     as_user("sanctions.checker").post(f"/api/decisions/{d['id']}/approve", json={})
     event = as_user("ops.supervisor").get("/api/audit?action=decision_approved").json()[0]["detail"]
     assert event["policy_version"] == "2026.10"
@@ -943,7 +968,8 @@ def test_work_page_shows_what_needs_each_person(as_user):
     assert {c["status"] for c in avery["needs_you"]} == {"PENDING_ACCEPTANCE"}
     cid = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
     as_user("sanctions.maker").post(f"/api/cases/{cid}/decisions", json={
-        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-W-1"})
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-W-1",
+        "note": WHY})
     sam = as_user("sanctions.checker").get("/api/work").json()
     assert [d["case_id"] for d in sam["to_approve"]] == [cid]
     alex = as_user("sanctions.maker").get("/api/work").json()
@@ -1093,6 +1119,8 @@ EXPECTED_CAPABILITIES = {      # the planned workbenches show only to the teams 
                        "restricted_accounts", "audit", "dashboard", "outbox", "screening", "privacy"} | PLANNED_ALL,
     "aml.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "reviews", "restricted_accounts",
                   "audit", "screening", "privacy"},
+    "aml.officer": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts", "audit",
+                    "screening", "privacy"},
     "sanctions.maker": {"work", "cases", "queues", "messages", "risk_events", "approvals", "restricted_accounts",
                         "audit", "screening"},
     "review.analyst": {"work", "cases", "messages", "risk_events", "reviews", "restricted_accounts"},
@@ -1130,7 +1158,7 @@ def test_the_platform_admin_has_no_case_files(as_user):
     assert "Case files aren't part of your role" in reasons
 
 
-INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "queue_label", "sla", "path",
+INTERNAL_CASE_KEYS = {"result", "decisions", "decision_log", "restrictions", "queue", "queue_label", "sla", "path", "sar_referral",
                       "extra", "application", "acceptance", "manual_steps", "nigo_count", "rescission", "rework",
                       "available_decisions", "queue_entered_at"}
 PORTAL_STATUSES = {"PENDING_ITEMS", "RETURNED", "OPEN", "OPEN_RESTRICTED", "APPLIED", "REDIRECTED", "DECLINED",
@@ -1261,7 +1289,8 @@ def test_the_ai_evaluation_runs_the_nigo_test_set_for_the_admin(as_user, monkeyp
 def test_a_sanctions_determination_is_seen_by_every_team_on_the_account_but_not_the_admin_or_the_portal(as_user):
     ilya = case_id(as_user("ops.analyst"), "Ilya Sorvetkin")
     as_user("sanctions.maker").post(f"/api/cases/{ilya}/decisions", json={
-        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-V-1"})
+        "decision_type": "sanctions", "value": "false_positive", "reference": "DET-V-1",
+        "note": WHY})
     for u in ("ops.analyst", "ops.cip", "ops.service", "ops.trade", "aml.maker", "rs.principal", "review.analyst"):
         log = as_user(u).get(f"/api/cases/{ilya}").json()["decision_log"]
         assert [(d["label"], d["value"], d["reference"]) for d in log] == [("Sanctions determination", "false_positive", "DET-V-1")], u
@@ -1489,7 +1518,7 @@ def test_a_domestic_pep_alert_waits_for_aml_compliance_which_clears_it_or_requir
 def test_a_cleared_alert_goes_on_to_the_principal(as_user):
     nadia = case_id(as_user("ops.analyst"), "Nadia Brooks")
     p = as_user("aml.maker").post(f"/api/cases/{nadia}/decisions", json={
-        "decision_type": "alert_review", "value": "cleared", "reference": "ALR-2026-0002"}).json()
+        "decision_type": "alert_review", "value": "cleared", "reference": "ALR-2026-0002", "note": WHY}).json()
     d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
     assert d["status"] == "PENDING_ACCEPTANCE"
     assert any(s["outcome"].startswith("Cleared by AML compliance") for s in d["result"]["steps"])
@@ -1539,7 +1568,7 @@ def test_a_suspected_fraudulent_identity_is_held_for_aml_compliance_which_confir
     assert _identity_check(as_user("ops.cip"), cid, "wrong_document", "Iris Holt").status_code == 409   # with compliance
     aml = as_user("aml.maker")
     p = aml.post(f"/api/cases/{cid}/decisions", json={"decision_type": "identity_fraud", "value": "not_fraud",
-                                                       "reference": "IDF-2026-0001"}).json()
+                                                       "reference": "IDF-2026-0001", "note": WHY}).json()
     d = as_user("aml.checker").post(f"/api/decisions/{p['id']}/approve", json={}).json()
     assert d["status"] == "PENDING_ITEMS" and not [r for r in d["restrictions"] if r["active"]]    # verify again
     d = _identity_check(as_user("ops.cip"), cid, "suspected_fraud", "Iris Holt", "Second ID is also altered").json()
@@ -1772,7 +1801,7 @@ def test_a_reg_sp_incident_is_contained_decided_and_noticed_within_30_days(as_us
     assert done["status"] == "closed" and done["notices_sent"] >= 2
     box = as_user("ops.supervisor").get("/api/outbox").json()["emails"]
     assert sum(e["template"] == "privacy_notice" for e in box) == done["notices_sent"]
-    events = as_user("admin.platform").get("/api/risk-events").json()["events"]
+    events = as_user("aml.checker").get("/api/risk-events").json()["events"]      # compliance's area (note 10)
     assert any(e["source"] == "privacy" and e["risk_type"] == "regulatory" for e in events)
 
 
