@@ -18,6 +18,19 @@ def change_callback(client, cid: int, confirmed: str = "yes") -> dict:
     return r.json()
 
 
+def setup_token(email: str) -> str:
+    """The one-time link in the person's email (walkthrough note 18): the outbox page withholds it, so read the row."""
+    import re
+    from sqlalchemy import select
+    from app.db import SessionLocal
+    from app.orm import OutboundEmail
+    with SessionLocal() as db:
+        e = db.scalars(select(OutboundEmail).where(OutboundEmail.to_address == email,
+                                                   OutboundEmail.template == "account_setup")
+                       .order_by(OutboundEmail.id.desc())).first()
+        return re.search(r"token=([A-Za-z0-9_-]+)", e.body).group(1)
+
+
 def edd_evidence(client, cid: int) -> None:
     """AML compliance attaches the source-of-wealth and source-of-funds evidence EDD approval needs (note 8)."""
     r = client.post(f"/api/cases/{cid}/documents", data={"doc_type": "source_of_wealth", "sample": "true",
@@ -754,15 +767,17 @@ def test_missed_refresh_restricts_until_the_review_completes(as_user):
 def test_decision_role_grants_need_a_second_administrator(as_user):
     admin = as_user("admin.platform")
     out = admin.post("/api/admin/users", json={"username": "n.sato", "display_name": "Naomi Sato",
-                                               "role": "sanctions", "password": "correct-horse-1"}).json()
+                                               "role": "sanctions", "email": "n.sato@example.com"}).json()
     assert out["user"]["active"] is False and out["grant"]["status"] == "pending"
     assert admin.post(f"/api/admin/grants/{out['grant']['id']}/approve").status_code == 403
+    assert out["setup_link"] is None                       # the link goes out when the grant is approved (note 18)
     as_user("admin.second").post(f"/api/admin/grants/{out['grant']['id']}/approve")
-    login = as_user("admin.second").post("/api/auth/login", json={"username": "n.sato", "password": "correct-horse-1"})
-    assert login.status_code == 200 and login.json()["mfa_setup_required"]          # a password alone never signs in
+    token = setup_token("n.sato@example.com")
+    setup = as_user("admin.second").post("/api/auth/setup", json={"token": token, "password": "correct-horse-battery-1"})
+    assert setup.status_code == 200 and setup.json()["mfa_setup_required"]          # a password alone never signs in
     from app import totp
     signed = as_user("admin.second").post("/api/auth/mfa/enroll", json={
-        "challenge": login.json()["challenge"], "code": totp.code_at(login.json()["secret"], totp.now_step())})
+        "challenge": setup.json()["challenge"], "code": totp.code_at(setup.json()["secret"], totp.now_step())})
     assert signed.status_code == 200 and signed.json()["role"] == "sanctions"
 
 
@@ -770,11 +785,12 @@ def test_a_password_sign_in_needs_the_second_factor_every_time(as_user, client):
     from app import totp
     admin = as_user("admin.platform")
     g = admin.post("/api/admin/users", json={"username": "n.okoro", "display_name": "Nia Okoro", "role": "ops_analyst",
-                                             "team": "onboarding", "password": "correct-horse-2"}).json()
+                                             "team": "onboarding", "email": "n.okoro@example.com"}).json()
     if g.get("grant") and g["grant"]["status"] == "pending":
         as_user("admin.second").post(f"/api/admin/grants/{g['grant']['id']}/approve")
     client.cookies.clear()
-    first = client.post("/api/auth/login", json={"username": "n.okoro", "password": "correct-horse-2"}).json()
+    first = client.post("/api/auth/setup", json={"token": setup_token("n.okoro@example.com"),
+                                                 "password": "correct-horse-2-long"}).json()
     assert "challenge" in first and client.get("/api/auth/me").status_code == 401   # no session yet
     challenge_as_session = client.get("/api/auth/me", headers={"Authorization": f"Bearer {first['challenge']}"})
     assert challenge_as_session.status_code == 401                                   # a challenge isn't a session
@@ -782,7 +798,7 @@ def test_a_password_sign_in_needs_the_second_factor_every_time(as_user, client):
     assert client.post("/api/auth/mfa/enroll", json={"challenge": first["challenge"], "code": "000000"}).status_code == 401
     assert client.post("/api/auth/mfa/enroll", json={"challenge": first["challenge"], "code": code}).status_code == 200
     client.cookies.clear()
-    again = client.post("/api/auth/login", json={"username": "n.okoro", "password": "correct-horse-2"}).json()
+    again = client.post("/api/auth/login", json={"username": "n.okoro", "password": "correct-horse-2-long"}).json()
     assert again == {"mfa_required": True, "challenge": again["challenge"]}         # no secret the second time
     assert client.post("/api/auth/mfa", json={"challenge": again["challenge"], "code": code}).status_code == 401  # used
     nxt = totp.code_at(first["secret"], totp.now_step() + 1)
@@ -794,17 +810,17 @@ def test_a_password_sign_in_needs_the_second_factor_every_time(as_user, client):
 def test_ria_admin_manages_only_their_firms_users(as_user):
     ria = as_user("granite.admin")
     ok = ria.post("/api/admin/users", json={"username": "g.analyst", "display_name": "Gwen Hart",
-                                            "role": "ria_user", "password": "long-password-1"})
+                                            "role": "ria_user", "email": "g.hart@example.com"})
     assert ok.status_code == 200 and ok.json()["user"]["firm"]["crd"] == "310001"
     refused = ria.post("/api/admin/users", json={"username": "g.ops", "display_name": "Gil Ops",
-                                                 "role": "ops_analyst", "team": "onboarding", "password": "long-password-1"})
+                                                 "role": "ops_analyst", "team": "onboarding", "email": "g.ops@example.com"})
     assert refused.status_code == 403
     assert {u["firm"]["crd"] for u in ria.get("/api/admin/users").json()} == {"310001"}
 
 
 def test_licensed_team_registrations_are_checked_and_need_a_second_admin(as_user):
     admin = as_user("admin.platform")
-    base = {"username": "p.reyes", "display_name": "Pat Reyes", "role": "ria_service", "password": "long-password-1"}
+    base = {"username": "p.reyes", "display_name": "Pat Reyes", "role": "ria_service", "email": "p.reyes@example.com"}
     assert admin.post("/api/admin/users", json=base).status_code == 422                       # no registrations
     assert admin.post("/api/admin/users", json={**base, "registrations": ["S24"],
                                                 "individual_crd": "7700150"}).status_code == 422  # no Series 7
@@ -899,7 +915,7 @@ def test_audit_log_records_runs_and_exports(as_user):
 def test_demo_reset(as_user):
     admin = as_user("admin.platform")
     admin.post("/api/admin/users", json={"username": "temp.user", "display_name": "Temp", "role": "ops_analyst", "team": "onboarding",
-                                         "password": "long-password-1"})
+                                         "email": "temp.user@example.com"})
     assert admin.post("/api/admin/reset").json() == {"ok": True}
     admin = as_user("admin.platform")
     assert "temp.user" not in {u["username"] for u in admin.get("/api/admin/users").json()}
@@ -1345,7 +1361,7 @@ def test_a_demo_reset_keeps_the_ai_evaluation_runs(as_user, monkeypatch):
     admin = as_user("admin.platform")
     assert admin.post("/api/ai-evaluation", json={}).status_code == 200
     admin.post("/api/admin/users", json={"username": "temp.user", "display_name": "Temp User", "role": "ops_analyst",
-                                         "password": "a-long-temp-password", "team": "onboarding"})
+                                         "email": "temp.user@example.com", "team": "onboarding"})
     assert admin.post("/api/admin/reset", json={}).status_code == 200
     admin = as_user("admin.platform")
     assert "temp.user" not in [u["username"] for u in admin.get("/api/admin/users").json()]     # demo data reset

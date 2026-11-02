@@ -657,3 +657,19 @@ class Statement(Base):
     generated_by: Mapped[str] = mapped_column(String(120))
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     notices: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SetupLink(Base):
+    """A one-time link that lets a person set their own password and enroll their own second factor (walkthrough
+    note 18, Nov. 1, 2026). Only a hash of the token is kept; the link goes to the person's email, never to the
+    administrator. See app/setup_links.py."""
+    __tablename__ = "setup_links"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    purpose: Mapped[str] = mapped_column(String(20))            # new_user | password_reset | mfa_reset
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    sent_to: Mapped[str] = mapped_column(String(200))
+    created_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -14,7 +14,7 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
   const regCatalog = useLoad(() => platform ? api<{ code: string; label: string }[]>("/api/admin/registrations") : Promise.resolve([]), []);
   const teams = useLoad(() => platform ? api<{ team: string; label: string }[]>("/api/admin/teams") : Promise.resolve([]), []);
   const [form, setForm] = useState({ username: "", display_name: "", email: "", role: portal ? "ria_user" : "ops_analyst",
-    password: "", firm_crd: "", client_account_id: "", individual_crd: "", team: "onboarding" });
+    firm_crd: "", client_account_id: "", individual_crd: "", team: "onboarding" });
   const [regs, setRegs] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>({});
   const [lib, setLib] = useState("Firm rules");
@@ -24,10 +24,11 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
     e.preventDefault();
     const licensed = ["ria_service", "ria_service_lead"].includes(form.role);
     const ops = ["ops_analyst", "ops_supervisor"].includes(form.role);
-    const body = { ...form, email: form.email || null, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null,
+    const body = { ...form, firm_crd: form.firm_crd || null, client_account_id: form.client_account_id || null,
       registrations: licensed ? regs : [], individual_crd: licensed ? form.individual_crd || null : null, team: ops ? form.team : null };
     api<any>("/api/admin/users", { body }).then((r) => {
-      setMsg({ ok: r.grant ? `${r.user.display_name} added; the ${r.grant.role_label} role waits for a second administrator.` : `${r.user.display_name} added.` });
+      setMsg({ ok: r.grant ? `${r.user.display_name} added; the ${r.grant.role_label} role waits for a second administrator. Their setup link goes out when it's approved.`
+        : `${r.user.display_name} added. A one-time setup link went to ${r.setup_link.sent_to}: they set their own password and authenticator.` });
       reload();
     }).catch((err) => setMsg({ error: err.message }));
   };
@@ -38,8 +39,11 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
     .catch((e) => setMsg({ error: e.message }));
   const deactivate = (u: User) => api(`/api/admin/users/${u.id}/deactivate`, { body: {} })
     .then(() => { setMsg({ ok: `${u.display_name} deactivated` }); reload(); }).catch((e) => setMsg({ error: e.message }));
-  const resetMfa = (u: User) => api(`/api/admin/users/${u.id}/reset-mfa`, { body: {} })
-    .then(() => { setMsg({ ok: `${u.display_name}'s second factor reset: the next sign-in enrolls a new authenticator` }); reload(); })
+  const resetMfa = (u: User) => api<any>(`/api/admin/users/${u.id}/reset-mfa`, { body: {} })
+    .then((r) => { setMsg({ ok: `${u.display_name}'s second factor reset. A one-time link went to ${r.setup_link.sent_to} to enroll a new authenticator.` }); reload(); })
+    .catch((e) => setMsg({ error: e.message }));
+  const sendLink = (u: User) => api<any>(`/api/admin/users/${u.id}/setup-link`, { body: {} })
+    .then((r) => { setMsg({ ok: `A one-time link went to ${r.setup_link.sent_to}. You never see it or the password.` }); reload(); })
     .catch((e) => setMsg({ error: e.message }));
   const reset = () => api("/api/admin/reset", { body: {} }).then(() => { setMsg({ ok: "Demo data reset. Sign in again." }); setTimeout(() => location.assign("/"), 800); })
     .catch((e) => setMsg({ error: e.message }));
@@ -82,14 +86,17 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
                   <td className="small">{u.firm?.name ?? u.client_account_id ?? ""}</td>
                   <td>{u.active ? <span className="pill t-clear">Active</span> : <span className="pill t-quiet">Inactive</span>}{u.is_demo ? <span className="muted small"> demo</span> : null}</td>
                   <td>{u.active && u.id !== user.id && <button className="small secondary" onClick={() => deactivate(u)}>Deactivate</button>}
-                    {(u as any).mfa && u.id !== user.id && <button className="small secondary" onClick={() => resetMfa(u)}>Reset second factor</button>}</td></tr>
+                    {(u as any).mfa && u.id !== user.id && <button className="small secondary" onClick={() => resetMfa(u)}>Reset second factor</button>}
+                    {!u.is_demo && u.active && u.id !== user.id && <button className="small secondary" onClick={() => sendLink(u)}>
+                      {(u as any).has_password ? "Send a password reset link" : "Resend the setup link"}</button>}
+                    {!u.is_demo && !(u as any).mfa && <div className="small muted">Setup not finished</div>}</td></tr>
               ))}</tbody>
             </table></div>
           )}
         </section>
         <form className="panel" onSubmit={create}>
           <h2 style={{ marginTop: 0 }}>Add a user</h2>
-          {f("display_name", "Name")}{f("username", "Username (lowercase)")}{f("email", "Email (optional)")}
+          {f("display_name", "Name")}{f("username", "Username (lowercase)")}{f("email", "Email (the setup link goes here)")}
           <div className="field"><label htmlFor="f-role">Role</label>
             <select id="f-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
               {(roles.data ?? []).map((r) => <option key={r.role} value={r.role}>{r.label}{r.decision_role ? " (needs second approval)" : ""}</option>)}
@@ -113,7 +120,8 @@ export default function Admin({ portal = false }: { portal?: boolean }) {
               {f("individual_crd", "Individual CRD number")}
             </fieldset>
           )}
-          {f("password", "Temporary password (10+ characters)", "password")}
+          <p className="small muted">No password from you: the person gets a one-time link (good for 72 hours) to set their own password and
+            authenticator.</p>
           <button type="submit">Add user</button>
         </form>
       </div>

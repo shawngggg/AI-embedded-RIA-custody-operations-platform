@@ -418,3 +418,56 @@ def test_20_the_fee_basis_ties_to_the_statement_value(as_user):
         assert f["basis_source"] == f"Statement value, {on:%b} {on.day}"
     new = [f for f in b["fees"] if f["run"].endswith("-NEW")]
     assert all(f["statement_value"] is None and "no statement yet" in f["basis_source"] for f in new)
+
+
+# --- Group E: setup links ------------------------------------------------------------------------------------------
+
+def test_18_a_new_user_sets_their_own_password_and_authenticator_from_a_one_time_link(as_user, client):
+    from app import totp
+    from app.tests.test_api import setup_token
+    admin = as_user(ADMIN)
+    r = admin.post("/api/admin/users", json={"username": "l.fox", "display_name": "Lena Fox", "role": "ops_analyst",
+                                             "team": "onboarding", "password": "admin-picked-1"})
+    assert r.status_code == 422                                      # no email: the link has nowhere to go
+    out = admin.post("/api/admin/users", json={"username": "l.fox", "display_name": "Lena Fox", "role": "ops_analyst",
+                                               "team": "onboarding", "email": "l.fox@example.com"}).json()
+    assert out["setup_link"]["sent_to"] == "l.fox@example.com" and "token" not in str(out)
+    shown = next(e for e in outbox(as_user) if e["to"] == "l.fox@example.com")
+    assert "withheld" in shown["body"] and "token=" in shown["body"]          # the outbox never shows the link
+    token = setup_token("l.fox@example.com")
+    client.cookies.clear()
+    assert client.post("/api/auth/login", json={"username": "l.fox", "password": "anything-at-all"}).status_code == 401
+    assert client.post("/api/auth/setup", json={"token": token, "password": "short"}).status_code == 422
+    info = client.post("/api/auth/setup/check", json={"token": token}).json()
+    assert info["purpose"] == "new_user" and info["username"] == "l.fox"
+    step = client.post("/api/auth/setup", json={"token": token, "password": "my-own-password-1"}).json()
+    assert step["mfa_setup_required"] and client.get("/api/auth/me").status_code == 401
+    assert client.post("/api/auth/setup", json={"token": token, "password": "again-and-again-1"}).status_code == 410
+    code = totp.code_at(step["secret"], totp.now_step())
+    assert client.post("/api/auth/mfa/enroll", json={"challenge": step["challenge"], "code": code}).json()["username"] == "l.fox"
+
+
+def test_18_an_mfa_reset_needs_the_link_and_the_password_and_never_enrolls_by_sign_in(as_user, client):
+    from app import totp
+    from app.tests.test_api import setup_token
+    admin = as_user(ADMIN)
+    uid = admin.post("/api/admin/users", json={"username": "k.ruiz", "display_name": "Kai Ruiz", "role": "ops_analyst",
+                                               "team": "onboarding", "email": "k.ruiz@example.com"}).json()["user"]["id"]
+    client.cookies.clear()
+    step = client.post("/api/auth/setup", json={"token": setup_token("k.ruiz@example.com"),
+                                                "password": "kai-password-12"}).json()
+    client.post("/api/auth/mfa/enroll", json={"challenge": step["challenge"],
+                                              "code": totp.code_at(step["secret"], totp.now_step())})
+    reset = as_user(ADMIN).post(f"/api/admin/users/{uid}/reset-mfa").json()
+    assert reset["setup_link"]["purpose"] == "mfa_reset"
+    client.cookies.clear()
+    r = client.post("/api/auth/login", json={"username": "k.ruiz", "password": "kai-password-12"})
+    assert r.status_code == 403 and "link" in r.json()["detail"]           # the password alone can't enroll a new one
+    token = setup_token("k.ruiz@example.com")
+    assert client.post("/api/auth/setup", json={"token": token, "current_password": "wrong-password-1"}).status_code == 401
+    again = client.post("/api/auth/setup", json={"token": token, "current_password": "kai-password-12"}).json()
+    assert again["mfa_setup_required"] and again["secret"] != step["secret"]
+    sent = as_user(ADMIN).post(f"/api/admin/users/{uid}/setup-link").json()
+    assert sent["setup_link"]["purpose"] == "password_reset"                # a forgotten password: a reset link
+    events = {e["action"] for e in as_user("ops.supervisor").get("/api/audit?limit=80").json()}
+    assert {"setup_link_sent", "password_set", "mfa_reset"} <= events

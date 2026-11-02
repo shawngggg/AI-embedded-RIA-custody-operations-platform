@@ -2,7 +2,7 @@
 
 Everything here is invented: firms, people, tax IDs (900-00-xxxx, a range no one is issued), accounts,
 securities, prices, banks, and amounts. It's what the demo seeds and shows, written out by
-`python -m synthetic.export` on business day 2026-10-25.
+`python -m synthetic.export` on business day 2026-11-02.
 
 Three sources, and they agree with each other:
 
@@ -20,7 +20,7 @@ Three sources, and they agree with each other:
 | --- | ---: | --- |
 | `cases.csv` | 111 | Every case the seed creates (onboarding, accounts, changes, transfers, money movement): status and queue |
 | `people.csv` | 67 | CIP: each person on a firm or account application, with what was screened and verified |
-| `restrictions.csv` | 12 | Active restriction codes and why they were placed |
+| `restrictions.csv` | 13 | Active restriction codes and why they were placed |
 | `accounts.csv` | 31 | The open accounts: RIA, registration, restriction codes, and the ledger's cash and value |
 | `securities.csv` | 28 | The security master: synthetic CUSIP-format IDs with valid check digits, prices, where held, and whether the platform accepts each one |
 | `positions.csv` | 256 | Settled positions by account, from the ledger |
@@ -34,13 +34,13 @@ Three sources, and they agree with each other:
 | `transfer_positions.csv` | 145 | Each ACATS or LOI case's positions and the route the transferability rules gave them |
 | `bank_links.csv` | 31 | Verified bank accounts in the client's name (money moves only to or from these) |
 | `receipts.csv` | 4 | Money that arrived at the settlement bank with no request behind it, and what happened to it |
-| `settlement_flows.csv` | 2 | Today's cash at the settlement bank, netted by channel |
+| `settlement_flows.csv` | 4 | Today's cash at the settlement bank, netted by channel |
 | `recon_breaks.csv` | 6 | Books against the street (DTC, transfer agents, sponsors, the bank): each break, its cause, and how it was resolved |
-| `orders.csv` | 20 | The trading blotter for yesterday and today: block orders, fund orders, self-directed orders |
-| `allocations.csv` | 72 | Each order's allocations to accounts at one average price |
+| `orders.csv` | 19 | The trading blotter for yesterday and today: block orders, fund orders, self-directed orders |
+| `allocations.csv` | 69 | Each order's allocations to accounts at one average price |
 | `fails.csv` | 3 | Open settlement fails, with Reg SHO close-out dates where they apply |
 | `billing_runs.csv` | 4 | Fee runs by RIA: schedule, period, status, totals |
-| `fees.csv` | 24 | Fees by account in each run, with exceptions |
+| `fees.csv` | 22 | Fees by account in each run, with exceptions |
 | `book.json` |  | The release 3 book in one file, as the preview API serves it to operations |
 
 ## Assumptions

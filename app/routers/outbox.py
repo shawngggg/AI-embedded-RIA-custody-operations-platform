@@ -22,7 +22,8 @@ def email_dict(db: Session, e: OutboundEmail, full: bool = False) -> dict:
            "created_at": iso(e.created_at), "sent_at": iso(e.sent_at),
            "attachments": [{"filename": x.get("filename"), "sha256": x.get("sha256")} for x in e.attachments or []]}
     if full:
-        out["body"] = e.body
+        from ..setup_links import TEMPLATE, redact
+        out["body"] = redact(e.body) if e.template == TEMPLATE else e.body   # only the recipient gets a setup link
     return out
 
 
